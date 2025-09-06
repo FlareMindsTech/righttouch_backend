@@ -6,27 +6,36 @@ import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+import sendSms from "../utils/sendSMS.js";
+import sendWhatsapp  from "../utils/sendWhatsapp.js";
+
+
+
 
 // Generate Username
 const generateUsername = (firstName, mobileNumber) => {
   const firstThree = firstName.slice(0, 3).toLowerCase();
-  const lastThree = mobileNumber.slice(-3);
-  return `${firstThree}${lastThree}`;
-};
+  const lastTwo = mobileNumber.slice(-2);
+  const randomOne = Math.floor(0 + Math.random() * 9);
+  return `${firstThree}${lastTwo}${randomOne}`
+
+}
 
 // Utility to generate OTP
 const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(1000 + Math.random() * 9000).toString();
 };
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password regex example: min 6 chars, 1 letter, 1 number
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+
 // Controller
 export const signupAndSendOtp = async (req, res) => {
   try {
     const { firstName, lastName, gender, mobileNumber, email, role, locality } = req.body;
- 
+    
     const username = generateUsername(firstName, mobileNumber);
     // Basic validations
     if (!firstName) return res.status(400).json({ message: "First name is required" });
@@ -35,7 +44,7 @@ export const signupAndSendOtp = async (req, res) => {
     if (!mobileNumber) return res.status(400).json({ message: "Mobile number is required" });
     if (!email) return res.status(400).json({ message: "Email is required" });
     if (!role) return res.status(400).json({ message: "Role is required" });
-
+    
     // 2️⃣ Mobile validation (must be 10 digits)
     const mobileRegex = /^[0-9]{10}$/;
     if (!mobileRegex.test(mobileNumber)) {
@@ -89,9 +98,16 @@ const otpRecord = new Otp({
     });
     await otpRecord.save();
 console.log("OTP saved:", otpRecord);
-    // Send OTP to email
-    await sendEmail(email, "Your OTP Code", `Your OTP is: ${otpCode}`);
 
+    // Send OTP to email
+    // await sendEmail(email, "Your OTP Code", `Your OTP is: ${otpCode}`);
+    
+    // Send OTP to SMS --- 7010382383
+    // await sendSms(mobileNumber, otpCode);
+    
+    // Send OTP to WhatsApp --- 6379498390
+    await sendWhatsapp(mobileNumber, otpCode);
+    
     return res.status(201).json({
       message: "Temp user created and OTP sent successfully",
       tempUserId: newTempUser._id
@@ -102,6 +118,7 @@ console.log("OTP saved:", otpRecord);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 //  Verify OTP
 export const verifyOtp = async (req, res) => {
@@ -305,6 +322,19 @@ export const getMyProfile = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
+    
+        // New Password validation ---
+ 
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Old Password and New Password are required" });
+    }
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character"
+      });
+    }
+
     const user = await User.findById(req.user.userId);
 
     if (!user) return res.status(404).json({ message: "User not found" });
