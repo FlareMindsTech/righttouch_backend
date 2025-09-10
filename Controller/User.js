@@ -35,6 +35,10 @@ export const signupAndSendOtp = async (req, res) => {
     if (!email) return res.status(400).json({ message: "Email is required" });
     if (!role) return res.status(400).json({ message: "Role is required" });
 
+    // name valitation
+
+    const validateFirstName = (names)=>names.chartAt(0).toUpperCase() + names.slice(1).toLowerCase();
+
     // 2️⃣ Mobile validation (must be 10 digits)
     const mobileRegex = /^[0-9]{10}$/;
     if (!mobileRegex.test(mobileNumber)) {
