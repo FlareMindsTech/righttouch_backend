@@ -9,7 +9,14 @@ export const TechnicianData = async (req, res) => {
       passportNumber,
       drivingLicenseNumber,
       balance,
-      status
+      status,      
+      report,
+      rating,
+      experienceYear,
+      experienceMonths,
+      totalJobCompleted,
+      tracking,
+      image,
     } = req.body;
 
     // ✅ Manual validations
@@ -54,7 +61,14 @@ export const TechnicianData = async (req, res) => {
       drivingLicenseNumber,
       documents,
       balance: balance || 0,
-      status: status || "active",
+      status: status || "active",            
+      report,
+      rating,
+      experienceYear,
+      experienceMonths,
+      totalJobCompleted,
+      tracking,
+      image,
     });
 
     await technician.save();
@@ -71,3 +85,140 @@ export const TechnicianData = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+
+
+// Get all technicians with their reports
+export const TechnicianAll = async (req, res) => {  
+  try {
+    const technicians = await Technician.find().populate("reports"); // virtual populate
+    res.status(200).json(technicians);
+    
+  } catch (error) {
+    res.status(500).json({
+      message: "Server Error",
+      error: error.message
+    });
+  }
+};
+
+
+// Get single technician with reports
+export const technicianById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        message: "Technician ID is required"
+      });
+    }
+
+    const technician = await Technician.findById(id).populate("reports");
+
+    if (!technician) {
+      return res.status(404).json({
+        message: "Technician not found"
+      });
+    }
+
+    res.status(200).json(technician);
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Server Error",
+      error: error.message
+    });
+  }
+};
+
+
+// update technician 
+
+export const technicianUpdate =  async (req ,res)=>{
+  try {
+    const { 
+        panNumber,
+        aadhaarNumber,
+        passportNumber,
+        drivingLicenseNumber,
+        balance,
+        status,
+        report,
+        rating,
+        experienceYear,
+        experienceMonths,
+        totalJobCompleted,
+        tracking,
+        image 
+      } = req.body;
+      
+      const technicianUpdateOne = await Technician.findByIdAndUpdate(
+      req.params.id,
+      {
+        panNumber,
+        aadhaarNumber,
+        passportNumber,
+        drivingLicenseNumber,
+        balance,
+        status,
+        report,
+        rating,
+        experienceYear,
+        experienceMonths,
+        totalJobCompleted,
+        tracking,
+        image
+      } 
+    );
+    
+    if(!req.params.id){
+      return res.status(404).json({
+        message : "Technician id is not found"
+      })
+    }
+    if(!technicianUpdateOne){
+      return res.status(404).json({
+        message : "Technician is not found"
+      })
+    }
+    res.status(200).json(technicianUpdateOne);
+
+  } catch (error) {
+    res.status(500).json({
+      message : "Server Error",
+      error : error.message
+    })
+  }
+}
+
+// delete technician
+
+export const technicianDelete = async (req , res)=>{
+  try {
+    const { id } = req.params;
+    if(!id){
+      return res.status(404).json({
+        message : "Technician id is not found"
+      })
+    }
+
+    const technicianDeleteOne = await Technician.findByIdAndDelete(id);
+
+    if(!technicianDeleteOne){
+      return res.status(404).json({
+        message : "Technician id is not found"
+      })
+    }
+
+    res.status(200).json({
+      message:"Delete successfully..."
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      message : "Server Error",
+      error : error.message
+    })
+  }
+}

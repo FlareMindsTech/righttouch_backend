@@ -5,7 +5,6 @@ import User from "../Schemas/User.js";
 import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-
 import sendSms from "../utils/sendSMS.js";
 import sendWhatsapp  from "../utils/sendWhatsapp.js";
 
@@ -450,3 +449,4 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
