@@ -62,24 +62,31 @@ const technicianSchema = new mongoose.Schema({
 
   // performance
 
-  report : {
-    type : mongoose.Schema.Types.ObjectId,
-    ref : "Report",
+  report: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Report",
+    default: null
   },
-  rating : {
+  rating: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Rating",
+    default: null
   },
-  experienceYear: {
+erienceYear: {
     type: Number,
     default: 0,
     min: [0, "Years cannot be negative"]
   },
+
   experienceMonths: {
     type: Number,
     min: [3, "Minimum 3 months of experience required"],
-    required: true
+    required: function () {
+      return this.experienceYear === 0;
+    },
+    default: 0
   },
+
   totalJobCompleted : {
     type : Number,
     default : 0
@@ -87,7 +94,7 @@ const technicianSchema = new mongoose.Schema({
   tracking: {
     type: String,
     enum: ["waiting", "accepted","comming","reached" , "working" , "completed"],
-    default: "waithing",
+    default: "waiting",
   },
   // image
 
@@ -99,7 +106,20 @@ const technicianSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+},
+{
+  toJSON : { virtuals  : true }
+}
+);
+
+// create virtual data not store in db
+
+technicianSchema.virtual("reports", {
+  ref: "report",           
+  localField: "_id",        
+  foreignField: "technicianId" 
 });
+
 
 
 

@@ -6,7 +6,6 @@ import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-
 // Generate Username
 const generateUsername = (firstName, mobileNumber) => {
   const firstThree = firstName.slice(0, 3).toLowerCase();
@@ -420,3 +419,4 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+

@@ -37,7 +37,8 @@ const serviceSchema = new mongoose.Schema({
     },
     quantity : {
         type : Number,
-        required : true
+        required : true,
+        default : 1
     },
     active : {
         type : String,
@@ -46,8 +47,9 @@ const serviceSchema = new mongoose.Schema({
     },
     status:{
         type : String,
-        enum : ["accepted" , "decline"],
-        required : true
+        enum : ["waithing","accepted" , "decline"],
+        required : true,
+        default : "waithing"
     },
     duration : {
         type : String
