@@ -46,7 +46,9 @@ export const signupAndSendOtp = async (req, res) => {
 
     // name valitation
 
-    const validateFirstName = (names)=>names.chartAt(0).toUpperCase() + names.slice(1).toLowerCase();
+    const validateFirstName = (names)=>{
+      return names
+      names.chartAt(0).toUpperCase() + names.slice(1).toLowerCase()};
 
     // 2️⃣ Mobile validation (must be 10 digits)
     const mobileRegex = /^[0-9]{10}$/;

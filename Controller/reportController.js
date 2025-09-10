@@ -39,7 +39,7 @@ export const getAllReports = async (req, res) => {
     const reports = await Report.find()
       .populate("serviceId", "serviceName")
       .populate("customerId", "email")
-      .populate("TechnicianId", "userId");
+      .populate("technicianId", "userId");
 
     return res.status(200).json({ success: true, data: reports });
   } catch (error) {
@@ -54,7 +54,7 @@ export const getReportById = async (req, res) => {
     const report = await Report.findById(id)
       .populate("serviceId", "serviceName")
       .populate("customerId", "email")
-      .populate("TechnicianId", "userId");
+      .populate("technicianId", "userId");
 
     if (!report) return res.status(404).json({ success: false, message: "Report not found" });
 

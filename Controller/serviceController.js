@@ -51,7 +51,7 @@ export const serivce = async (req , res)=>{
 // ✅ Get All Services
 export const getAllServices = async (req, res) => {
   try {
-    const services = await serviceSchema
+    const services = await Service
       .find()
       .populate("technicianId", "name email")
       .populate("userId", "firstName lastName email")
@@ -66,7 +66,7 @@ export const getAllServices = async (req, res) => {
 export const getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
-    const service = await serviceSchema
+    const service = await Service
       .findById(id)
       .populate("technicianId", "name email")
       .populate("userId", "firstName lastName email")
@@ -96,7 +96,7 @@ export const updateService = async (req, res) => {
       duration,
     } = req.body;
 
-    const updatedService = await serviceSchema.findByIdAndUpdate(
+    const updatedService = await Service.findByIdAndUpdate(
       id,
       {
         technicianId,
@@ -128,7 +128,7 @@ export const updateService = async (req, res) => {
 export const deleteService = async (req, res) => {
   try {
     const { id } = req.params;
-    const service = await serviceSchema.findByIdAndDelete(id);
+    const service = await Service.findByIdAndDelete(id);
     if (!service)
       return res.status(404).json({ message: "Service not found" });
 

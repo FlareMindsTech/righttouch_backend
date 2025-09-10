@@ -47,9 +47,9 @@ const serviceSchema = new mongoose.Schema({
     },
     status:{
         type : String,
-        enum : ["waithing","accepted" , "decline"],
+        enum : ["waiting","accepted" , "decline"],
         required : true,
-        default : "waithing"
+        default : "waiting"
     },
     duration : {
         type : String
@@ -62,4 +62,4 @@ const serviceSchema = new mongoose.Schema({
 },
 });
 
-export default mongoose.model("service" ,serviceSchema);
+export default mongoose.model("Service" ,serviceSchema);

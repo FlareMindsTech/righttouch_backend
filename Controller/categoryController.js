@@ -42,7 +42,7 @@ export const serviceCategory = async (req , res)=>{
 // Get All Categories
 export const getAllCategory = async (req, res) => {
   try {
-    const categories = await categorySchema.find();
+    const categories = await Category.find();
     return res.status(200).json(categories);
   } catch (error) {
     return res.status(500).json({ message: "Server error", error: error.message });
@@ -53,7 +53,7 @@ export const getAllCategory = async (req, res) => {
 export const getByIdCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const category = await categorySchema.findById(id);
+    const category = await Category.findById(id);
     if (!category) return res.status(404).json({ message: "Category not found" });
     return res.status(200).json(category);
   } catch (error) {
@@ -67,7 +67,7 @@ export const updateCategory = async (req, res) => {
     const { id } = req.params;
     const { category, description, image } = req.body;
 
-    const updatedCategory = await categorySchema.findByIdAndUpdate(
+    const updatedCategory = await Category.findByIdAndUpdate(
       id,
       { category, description, image },
       { new: true, runValidators: true }
@@ -87,7 +87,7 @@ export const updateCategory = async (req, res) => {
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const category = await categorySchema.findByIdAndDelete(id);
+    const category = await Category.findByIdAndDelete(id);
     if (!category) return res.status(404).json({ message: "Category not found" });
 
     res.status(200).json({ message: "Category deleted successfully" });

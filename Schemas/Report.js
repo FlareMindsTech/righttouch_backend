@@ -30,5 +30,5 @@ const reportSchema = new mongoose.Schema({
     timestamps : true
 });
 
-export default mongoose.model("report" , reportSchema);
+export default mongoose.model("Report" , reportSchema);
 
