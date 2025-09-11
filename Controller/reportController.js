@@ -1,39 +1,32 @@
-import  Report  from "../Schemas/Report.js";
+import Report from "../Schemas/Report.js";
 
-
-// ********user report**************
-
-export const userReport = async (req , res)=>{
+export const userReport = async (req, res) => {
   try {
-    const { technicianId , customerId , serviceId , complaint , image } = req.body;
+    const { technicianId, customerId, serviceId, complaint, image } = req.body;
 
-    if( !technicianId , !customerId , !serviceId , !complaint , !image ){
-      return res.status(404).json({
-        message : "All field required"
-      })
+    if (!technicianId || !customerId || !serviceId || !complaint || !image) {
+      return res.status(400).json({
+        message: "All fields are required"
+      });
     }
 
     const reportData = await Report.create({
-      technicianId , 
-      customerId , 
-      serviceId , 
-      complaint , 
+      technicianId,
+      customerId,
+      serviceId,
+      complaint,
       image
-    }) 
-    await reportData.save();
+    });
 
-    res.status(200).json({
-      message : "report is send successfully..."
-    })
+    res.status(201).json({
+      message: "Report sent successfully",
+      data: reportData
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};
 
-
-// ********user report  end**************
-
-// ✅ Get All Reports
 export const getAllReports = async (req, res) => {
   try {
     const reports = await Report.find()
@@ -47,7 +40,6 @@ export const getAllReports = async (req, res) => {
   }
 };
 
-// ✅ Get Report by ID
 export const getReportById = async (req, res) => {
   try {
     const { id } = req.params;

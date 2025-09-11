@@ -1,14 +1,12 @@
 import ServiceBook from "../Schemas/ServiceBooking.js";
 
-// booking
-
 export const serviceBook = async (req, res) => {
   try {
     const { technicianId, userId, categoryId, serviceId } = req.body;
 
-    if ((!technicianId, !userId, !categoryId, !serviceId)) {
-      return res.status(404).json({
-        message: "All field is required",
+    if (!technicianId || !userId || !categoryId || !serviceId) {
+      return res.status(400).json({
+        message: "All fields are required",
       });
     }
 
@@ -19,10 +17,9 @@ export const serviceBook = async (req, res) => {
       serviceId,
     });
 
-    await serviceData.save();
-
-    res.status(200).json({
-      message: "service booking successfully...",
+    res.status(201).json({
+      message: "Service booking created successfully",
+      data: serviceData,
     });
   } catch (error) {
     res.status(500).json({
@@ -36,23 +33,25 @@ export const serviceBookUpdate = async (req, res) => {
   try {
     const { technicianId, userId, categoryId, serviceId } = req.body;
 
-    if ((!technicianId, !userId, !categoryId, !serviceId)) {
-      return res.status(404).json({
-        message: "All field is required",
+    if (!technicianId || !userId || !categoryId || !serviceId) {
+      return res.status(400).json({
+        message: "All fields are required",
       });
     }
 
-    const updateBooking = await ServiceBook.findByIdAndUpdate(req.params.id, {
-      technicianId,
-      userId,
-      categoryId,
-      serviceId,
-    });
+    const updateBooking = await ServiceBook.findByIdAndUpdate(
+      req.params.id,
+      { technicianId, userId, categoryId, serviceId },
+      { new: true, runValidators: true }
+    );
 
-    await updateBooking.save();
+    if (!updateBooking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
 
     res.status(200).json({
-      message: "Update Successfully...",
+      message: "Booking updated successfully",
+      data: updateBooking,
     });
   } catch (error) {
     res.status(500).json({

@@ -1,45 +1,40 @@
 import Category from "../Schemas/category.js";
 
-
-
-// ********user category  **************
-export const serviceCategory = async (req , res)=>{
+export const serviceCategory = async (req, res) => {
   try {
-    const { category, description, image} = req.body;
+    const { category, description, image } = req.body;
 
-    if( !category, !description, !image){
-      return res.status(200).json({
-        message : "All field is required"
-      })
+    if (!category || !description || !image) {
+      return res.status(400).json({
+        message: "All fields are required"
+      });
     }
 
-    const matchCategory = await Category.findOne({category});
-
-    if(matchCategory){
-      return res.status(208).json({
-        message :"Category name already register"
-      })
+    const matchCategory = await Category.findOne({ category });
+    if (matchCategory) {
+      return res.status(409).json({
+        message: "Category name already registered"
+      });
     }
 
     const categoryData = await Category.create({
-      category, 
-      description, 
+      category,
+      description,
       image
     });
-    await categoryData.save();
 
-    res.status(200).json({
-      message : "category create successfully..."
+    res.status(201).json({
+      message: "Category created successfully",
+      data: categoryData
     });
   } catch (error) {
-        res.status(500).json({ 
-          message: "Server error", error: error.message 
-        });
+    res.status(500).json({
+      message: "Server error",
+      error: error.message
+    });
   }
-}
+};
 
-// ********user category  end**************
-// Get All Categories
 export const getAllCategory = async (req, res) => {
   try {
     const categories = await Category.find();
@@ -49,7 +44,6 @@ export const getAllCategory = async (req, res) => {
   }
 };
 
-// Get by ID
 export const getByIdCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,7 +55,6 @@ export const getByIdCategory = async (req, res) => {
   }
 };
 
-// Update Category
 export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -73,17 +66,19 @@ export const updateCategory = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!updatedCategory)
+    if (!updatedCategory) {
       return res.status(404).json({ message: "Category not found" });
-    return res
-      .status(200)
-      .json({ message: "Category updated successfully", Category: updatedCategory });
+    }
+
+    return res.status(200).json({
+      message: "Category updated successfully",
+      data: updatedCategory
+    });
   } catch (error) {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// Delete Category by ID
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
