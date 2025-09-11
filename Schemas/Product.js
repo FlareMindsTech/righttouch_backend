@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const Product = mongoose.Schema({
+const ProductSchema = mongoose.Schema({
   productName: {
     type: String,
     require: true,
@@ -37,3 +37,5 @@ const Product = mongoose.Schema({
   warranty: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
+
+export default mongoose.model("Product", ProductSchema);

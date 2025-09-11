@@ -42,12 +42,27 @@ export const serviceCategory = async (req , res)=>{
 // Get All Categories
 export const getAllCategory = async (req, res) => {
   try {
-    const categories = await Category.find();
-    return res.status(200).json(categories);
+    const { search } = req.query; // ?search=painting
+
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { category: { $regex: search, $options: "i" } },     // category name
+          { description: { $regex: search, $options: "i" } },  // category description
+        ],
+      };
+    }
+
+    const categories = await Category.find(query);
+
+    return res.status(200).json({ success: true, data: categories });
   } catch (error) {
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
 
 // Get by ID
 export const getByIdCategory = async (req, res) => {

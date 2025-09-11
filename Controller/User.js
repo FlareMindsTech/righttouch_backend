@@ -57,15 +57,15 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     // 5️⃣ Duplicate checks
-    if (await TempUser.findOne({ mobileNumber })) {
+    if (await TempUser.findOne({ mobileNumber }) || await User.findOne({ mobileNumber })) {
       return res
         .status(400)
         .json({ message: "Mobile number already registered" });
     }
-    if (await TempUser.findOne({ email })) {
+    if (await TempUser.findOne({ email }) || await User.findOne({ email })) {
       return res.status(400).json({ message: "Email already registered" });
     }
-    if (await TempUser.findOne({ username })) {
+    if (await TempUser.findOne({ username })  || await User.findOne({ username })) {
       return res.status(400).json({ message: "Username already exists" });
     }
 
@@ -135,13 +135,13 @@ export const signupAndSendOtp = async (req, res) => {
     console.log("OTP saved:", otpRecord);
 
     // Send OTP to email
-    // await sendEmail(email, "Your OTP Code", `Your OTP is: ${otpCode}`);
+    await sendEmail(email, "Your OTP Code", `Your OTP is: ${otpCode}`);
 
     // Send OTP to SMS --- 7010382383
     // await sendSms(mobileNumber, otpCode);
 
     // Send OTP to WhatsApp --- 6379498390
-    await sendWhatsapp(mobileNumber, otpCode);
+    // await sendWhatsapp(mobileNumber, otpCode);
 
     return res.status(201).json({
       message: "Temp user created and OTP sent successfully",
@@ -329,12 +329,32 @@ export const updateUser = async (req, res) => {
 // 2️⃣ Get All Users
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
-    res.status(200).json(users);
+    const { search } = req.query; // ?search=Vignesh
+
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+          { username: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+          { mobileNumber: { $regex: search, $options: "i" } },
+          { role: { $regex: search, $options: "i" } },
+          { status: { $regex: search, $options: "i" } },
+        ],
+      };
+    }
+
+    const users = await User.find(query).select("-password");
+
+    res.status(200).json({ success: true, data: users });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
 
 // 3️⃣ Get Particular User by ID
 export const getUserById = async (req, res) => {

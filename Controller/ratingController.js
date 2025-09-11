@@ -37,15 +37,30 @@ export const userRating = async (req , res)=>{
 // ********user rating  end**************
 export const getAllRatings = async (req, res) => {
   try {
-    const ratings = await Rating.find()
+    const { serviceId, technicianId, customerId, minRate, maxRate } = req.query;
+
+    // Build filter object
+    let filter = {};
+    if (serviceId) filter.serviceId = serviceId;
+    if (technicianId) filter.technicianId = technicianId;
+    if (customerId) filter.customerId = customerId;
+    if (minRate || maxRate) {
+      filter.rates = {};
+      if (minRate) filter.rates.$gte = Number(minRate);
+      if (maxRate) filter.rates.$lte = Number(maxRate);
+    }
+
+    const ratings = await Rating.find(filter)
       .populate("technicianId", "userId")
       .populate("serviceId", "serviceName")
       .populate("customerId", "email");
+
     res.status(200).json({ success: true, data: ratings });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
 
 // ✅ Get Rating by ID
 export const getRatingById = async (req, res) => {

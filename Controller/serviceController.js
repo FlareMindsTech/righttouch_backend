@@ -49,16 +49,31 @@ export const serivce = async (req , res)=>{
 // ✅ Get All Services
 export const getAllServices = async (req, res) => {
   try {
-    const services = await Service
-      .find()
+    const { search } = req.query; // ?search=cleaning
+
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { serviceName: { $regex: search, $options: "i" } }, // service name
+          { description: { $regex: search, $options: "i" } }, // service description
+          { status: { $regex: search, $options: "i" } },      // if you have status field
+        ],
+      };
+    }
+
+    const services = await Service.find(query)
       .populate("technicianId", "name email")
       .populate("userId", "firstName lastName email")
       .populate("categoryId", "category description");
+
     return res.status(200).json(services);
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
 };
+
 
 // ✅ Get Service by ID
 export const getServiceById = async (req, res) => {
