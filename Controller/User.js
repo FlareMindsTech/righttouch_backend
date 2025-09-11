@@ -6,19 +6,15 @@ import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import sendSms from "../utils/sendSMS.js";
-import sendWhatsapp  from "../utils/sendWhatsapp.js";
-
-
-
+import sendWhatsapp from "../utils/sendWhatsapp.js";
 
 // Generate Username
 const generateUsername = (firstName, mobileNumber) => {
   const firstThree = firstName.slice(0, 3).toLowerCase();
   const lastTwo = mobileNumber.slice(-2);
   const randomOne = Math.floor(0 + Math.random() * 9);
-  return `${firstThree}${lastTwo}${randomOne}`
-
-}
+  return `${firstThree}${lastTwo}${randomOne}`;
+};
 
 // Utility to generate OTP
 const generateOtp = () => {
@@ -27,28 +23,26 @@ const generateOtp = () => {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password regex example: min 6 chars, 1 letter, 1 number
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
+const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 // Controller
 export const signupAndSendOtp = async (req, res) => {
   try {
-    const { firstName, lastName, gender, mobileNumber, email, role, locality } = req.body;
-    
+    const { firstName, lastName, gender, mobileNumber, email, role, locality } =
+      req.body;
+
     const username = generateUsername(firstName, mobileNumber);
     // Basic validations
-    if (!firstName) return res.status(400).json({ message: "First name is required" });
-    if (!lastName) return res.status(400).json({ message: "Last name is required" });
+    if (!firstName)
+      return res.status(400).json({ message: "First name is required" });
+    if (!lastName)
+      return res.status(400).json({ message: "Last name is required" });
     if (!gender) return res.status(400).json({ message: "Gender is required" });
-    if (!mobileNumber) return res.status(400).json({ message: "Mobile number is required" });
+    if (!mobileNumber)
+      return res.status(400).json({ message: "Mobile number is required" });
     if (!email) return res.status(400).json({ message: "Email is required" });
     if (!role) return res.status(400).json({ message: "Role is required" });
-
-    // name valitation
-
-    const validateFirstName = (names)=>{
-      return names
-      names.chartAt(0).toUpperCase() + names.slice(1).toLowerCase()};
 
     // 2️⃣ Mobile validation (must be 10 digits)
     const mobileRegex = /^[0-9]{10}$/;
@@ -62,10 +56,11 @@ export const signupAndSendOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-
     // 5️⃣ Duplicate checks
     if (await TempUser.findOne({ mobileNumber })) {
-      return res.status(400).json({ message: "Mobile number already registered" });
+      return res
+        .status(400)
+        .json({ message: "Mobile number already registered" });
     }
     if (await TempUser.findOne({ email })) {
       return res.status(400).json({ message: "Email already registered" });
@@ -75,55 +70,90 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     if (role.toLowerCase() === "technician" && !locality) {
-      return res.status(400).json({ message: "Locality is required for technicians" });
+      return res
+        .status(400)
+        .json({ message: "Locality is required for technicians" });
     }
 
-    // Generate username
+    //  username check format
+
+    // name valitation
+    function formatNames(firstName, lastName) {
+      const nameRegex = /^[A-Za-z ]+$/; 
+
+      if (nameRegex.test(firstName) && nameRegex.test(lastName)) {
+        const validateName = (name) => {
+          return name
+            .trim()
+            .split(/\s+/) 
+            .filter((word) => word.length > 0)
+            .map(
+              (word) =>
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            )
+            .join(" ");
+        };
+
+        return {
+          firstName: validateName(firstName),
+          lastName: validateName(lastName),
+        };
+      } else {
+        console.log("Invalid name: only letters and spaces allowed.");
+        return null;
+      }
+    }
+
+    const formattedNames = formatNames(firstName, lastName);
+
+    if (!formattedNames) {
+      return res.status(400).json({ message: "Invalid name format" });
+    }
 
     // Save temp user
     const newTempUser = await TempUser.create({
-      firstName,
-      lastName,
+      firstName: formattedNames.firstName,
+      lastName: formattedNames.lastName,
       username,
       gender,
       mobileNumber,
       email,
       role,
-      locality
+      locality,
     });
 
     // Generate OTP
     const otpCode = generateOtp();
 
     // Save OTP in DB
-const otpRecord = new Otp({
+    const otpRecord = new Otp({
       userId: newTempUser._id,
       otp: otpCode,
-      expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes expiry
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
     });
     await otpRecord.save();
-console.log("OTP saved:", otpRecord);
+    console.log("OTP saved:", otpRecord);
 
     // Send OTP to email
     // await sendEmail(email, "Your OTP Code", `Your OTP is: ${otpCode}`);
-    
+
     // Send OTP to SMS --- 7010382383
     // await sendSms(mobileNumber, otpCode);
-    
+
     // Send OTP to WhatsApp --- 6379498390
     await sendWhatsapp(mobileNumber, otpCode);
-    
+
     return res.status(201).json({
       message: "Temp user created and OTP sent successfully",
-      tempUserId: newTempUser._id
+      tempUserId: newTempUser._id,
     });
-
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
-
 
 //  Verify OTP
 export const verifyOtp = async (req, res) => {
@@ -131,7 +161,9 @@ export const verifyOtp = async (req, res) => {
     const { tempUserId, otp } = req.body;
 
     if (!tempUserId || !otp) {
-      return res.status(400).json({ message: "TempUser ID and OTP are required" });
+      return res
+        .status(400)
+        .json({ message: "TempUser ID and OTP are required" });
     }
 
     // Find OTP record
@@ -161,29 +193,31 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
-
-
 // Create Password and Move to User
 export const createPassword = async (req, res) => {
   try {
     const { tempUserId, password } = req.body;
 
     if (!tempUserId || !password) {
-      return res.status(400).json({ message: "TempUser ID and password are required" });
+      return res
+        .status(400)
+        .json({ message: "TempUser ID and password are required" });
     }
 
     // 1️⃣ Validate password strength
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         message:
-          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character"
+          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character",
       });
     }
 
     // 2️⃣ Check OTP status
     const otpRecord = await Otp.findOne({ userId: tempUserId });
     if (!otpRecord || !otpRecord.isVerified) {
-      return res.status(400).json({ message: "OTP not verified for this user" });
+      return res
+        .status(400)
+        .json({ message: "OTP not verified for this user" });
     }
 
     // 3️⃣ Get temp user data
@@ -198,7 +232,7 @@ export const createPassword = async (req, res) => {
     // 5️⃣ Create final User
     const newUser = new User({
       ...tempUser.toObject(),
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     await newUser.save();
@@ -208,14 +242,11 @@ export const createPassword = async (req, res) => {
     await Otp.deleteOne({ userId: tempUserId });
 
     return res.status(201).json({ message: "User registered successfully" });
-
   } catch (error) {
     console.error("Error in createPassword:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
 
 export const login = async (req, res) => {
   try {
@@ -225,7 +256,7 @@ export const login = async (req, res) => {
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
-    if (!emailRegex.test(email)) { 
+    if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
@@ -235,7 +266,8 @@ export const login = async (req, res) => {
     }
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
-        message: "Password must be at least 6 characters long, contain at least one letter and one number"
+        message:
+          "Password must be at least 6 characters long, contain at least one letter and one number",
       });
     }
 
@@ -260,14 +292,15 @@ export const login = async (req, res) => {
 
     // 6️⃣ Send response
     return res.status(200).json({
-      message: "Login successful", 
+      message: "Login successful",
       token,
-      role: user.role
+      role: user.role,
     });
-
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
 
@@ -282,9 +315,12 @@ export const updateUser = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-password");
 
-    if (!updatedUser) return res.status(404).json({ message: "User not found" });
+    if (!updatedUser)
+      return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ message: "User updated successfully", user: updatedUser });
+    res
+      .status(200)
+      .json({ message: "User updated successfully", user: updatedUser });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -327,16 +363,18 @@ export const getMyProfile = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    
-        // New Password validation ---
- 
+
+    // New Password validation ---
+
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: "Old Password and New Password are required" });
+      return res
+        .status(400)
+        .json({ message: "Old Password and New Password are required" });
     }
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
         message:
-          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character"
+          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character",
       });
     }
 
@@ -345,7 +383,8 @@ export const changePassword = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Old password is incorrect" });
+    if (!isMatch)
+      return res.status(400).json({ message: "Old password is incorrect" });
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
@@ -372,14 +411,18 @@ export const requestPasswordResetOtp = async (req, res) => {
     // Save OTP in DB
     // await Otp.deleteMany({ userId: user._id }); // remove old OTPs
     const otpRecord = new Otp({
-      userId: user._id,  
+      userId: user._id,
       otp: otpCode,
-      expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes expiry
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
     });
     await otpRecord.save();
 
     // Send OTP via email
-    await sendEmail(email, "Your Password Reset OTP", `Your OTP is: ${otpCode}`);
+    await sendEmail(
+      email,
+      "Your Password Reset OTP",
+      `Your OTP is: ${otpCode}`
+    );
 
     res.status(200).json({ message: "OTP sent to your email" });
   } catch (error) {
@@ -399,7 +442,8 @@ export const verifyPasswordResetOtp = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const otpRecord = await Otp.findOne({ userId: user._id });
-    if (!otpRecord) return res.status(400).json({ message: "OTP not found for this user" });
+    if (!otpRecord)
+      return res.status(400).json({ message: "OTP not found for this user" });
 
     if (otpRecord.otp !== otp || otpRecord.expiresAt < Date.now()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
@@ -419,7 +463,9 @@ export const resetPassword = async (req, res) => {
     const { email, newPassword } = req.body;
 
     if (!email || !newPassword) {
-      return res.status(400).json({ message: "Email and new password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and new password are required" });
     }
 
     const user = await User.findOne({ email });
@@ -427,7 +473,9 @@ export const resetPassword = async (req, res) => {
 
     const otpRecord = await Otp.findOne({ userId: user._id });
     if (!otpRecord || !otpRecord.isVerified) {
-      return res.status(400).json({ message: "OTP not verified for this user" });
+      return res
+        .status(400)
+        .json({ message: "OTP not verified for this user" });
     }
 
     // Hash password
@@ -455,4 +503,3 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-

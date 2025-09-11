@@ -4,7 +4,7 @@ import Service from "../Schemas/Service.js";
 
 export const serivce = async (req , res)=>{
   try {
-    const  { technicianId , userId , categoryId , serviceName ,description, cost, quantity, active, status , duration} = req.body;
+    const  { categoryId , serviceName ,description, cost, quantity, active, status , duration} = req.body;
 
     if(!categoryId , !serviceName , !description, !cost, !quantity, !active, !status){
       return res.status(404).json({
@@ -21,8 +21,6 @@ export const serivce = async (req , res)=>{
     }
 
     const serviceData = await Service.create({
-      technicianId, 
-      userId, 
       categoryId, 
       serviceName,
       description, 
@@ -137,4 +135,3 @@ export const deleteService = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
-
