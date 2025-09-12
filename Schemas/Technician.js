@@ -72,7 +72,7 @@ const technicianSchema = new mongoose.Schema({
     ref: "Rating",
     default: null
   },
-erienceYear: {
+exprienceYear: {
     type: Number,
     default: 0,
     min: [0, "Years cannot be negative"]

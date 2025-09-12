@@ -29,7 +29,20 @@ export const userReport = async (req, res) => {
 
 export const getAllReports = async (req, res) => {
   try {
-    const reports = await Report.find()
+    const { search } = req.query; // ?search=painting
+
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { complaint: { $regex: search, $options: "i" } }, // text inside complaint
+          { status: { $regex: search, $options: "i" } },    // report status if you have one
+        ],
+      };
+    }
+
+    const reports = await Report.find(query)
       .populate("serviceId", "serviceName")
       .populate("customerId", "email")
       .populate("technicianId", "userId");
@@ -40,6 +53,8 @@ export const getAllReports = async (req, res) => {
   }
 };
 
+
+// ✅ Get Report by ID
 export const getReportById = async (req, res) => {
   try {
     const { id } = req.params;

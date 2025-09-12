@@ -89,15 +89,32 @@ export const TechnicianData = async (req, res) => {
 
 
 // Get all technicians with their reports
-export const TechnicianAll = async (req, res) => {  
+export const TechnicianAll = async (req, res) => {
   try {
-    const technicians = await Technician.find().populate("reports"); // virtual populate
-    res.status(200).json(technicians);
-    
+    const { search } = req.query; // ?search=Ramesh
+
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { name: { $regex: search, $options: "i" } },         // technician name
+          { email: { $regex: search, $options: "i" } },        // technician email
+          { mobileNumber: { $regex: search, $options: "i" } }, // technician phone
+          { status: { $regex: search, $options: "i" } },       // if you track active/inactive
+          { locality: { $regex: search, $options: "i" } },     // area/locality
+        ],
+      };
+    }
+
+    const technicians = await Technician.find(query).populate("reports"); // virtual populate
+
+    res.status(200).json({ success: true, data: technicians });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };

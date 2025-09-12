@@ -32,7 +32,20 @@ export const userRating = async (req, res) => {
 
 export const getAllRatings = async (req, res) => {
   try {
-    const ratings = await Rating.find()
+    const { serviceId, technicianId, customerId, minRate, maxRate } = req.query;
+
+    // Build filter object
+    let filter = {};
+    if (serviceId) filter.serviceId = serviceId;
+    if (technicianId) filter.technicianId = technicianId;
+    if (customerId) filter.customerId = customerId;
+    if (minRate || maxRate) {
+      filter.rates = {};
+      if (minRate) filter.rates.$gte = Number(minRate);
+      if (maxRate) filter.rates.$lte = Number(maxRate);
+    }
+
+    const ratings = await Rating.find(filter)
       .populate("technicianId", "userId")
       .populate("serviceId", "serviceName")
       .populate("customerId", "email");
@@ -43,6 +56,8 @@ export const getAllRatings = async (req, res) => {
   }
 };
 
+
+// ✅ Get Rating by ID
 export const getRatingById = async (req, res) => {
   try {
     const { id } = req.params;
