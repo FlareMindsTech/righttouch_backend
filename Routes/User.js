@@ -6,6 +6,7 @@ import {
   getMyProfile,
   getUserById,
   login,
+  resendOtp,
   requestPasswordResetOtp,
   resetPassword,
   signupAndSendOtp,
@@ -50,7 +51,9 @@ import {
 import {
   product,
   getProduct,
-  getOneProduct
+  getOneProduct,
+  deleteProduct,
+  updateProduct
 } from "../Controller/productController.js"
 import { Auth } from "../Middleware/Auth.js";
 
@@ -58,6 +61,7 @@ const router = express.Router();
 
 router.post("/signup", signupAndSendOtp);
 router.post("/login", login);
+router.post("/resendOtp", resendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/create-password", createPassword);
 router.put("/update-user/:id", updateUser);
@@ -111,8 +115,8 @@ router.delete("/deleteRating/:id", deleteRating);
 router.post("/product", product);
 router.get("/getProduct", getProduct);
 router.get("/getOneProduct/:id", getOneProduct);
-// router.put("/updateRating/:id", updateRating);
-// router.delete("/deleteRating/:id", deleteRating);
+router.put("/updateProduct/:id", updateProduct);
+router.delete("/deleteProduct/:id", deleteProduct);
 // ******product end**********
 
 export default router;

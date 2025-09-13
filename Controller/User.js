@@ -155,19 +155,72 @@ export const signupAndSendOtp = async (req, res) => {
   }
 };
 
+
+// resend OTP
+
+
+export const resendOtp = async (req, res) => {
+  try {
+    const { email, mobileNumber } = req.body;
+
+    if (!email && !mobileNumber) {
+      return res.status(400).json({ message: "Email or Mobile number is required" });
+    }
+
+    // Find temp user by email or mobile
+    const tempUser = await TempUser.findOne({
+      $or: [{ email }, { mobileNumber }],
+    });
+
+    if (!tempUser) {
+      return res.status(404).json({ message: "Temp user not found" });
+    }
+
+    // Generate new OTP
+    const otpCode = generateOtp();
+
+    // Save OTP in DB
+    const otpRecord = await Otp.create({
+      userId: tempUser._id,
+      otp: otpCode,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+    });
+    console.log("OTP saved:", otpRecord);
+    // Send OTP via email
+    if (tempUser.email) {
+      await sendEmail(tempUser.email, "Your OTP Code", `Your OTP is: ${otpCode}`);
+    }
+
+    // Send OTP to email
+    await sendEmail(email, "Your OTP Code", `Your OTP is: ${otpCode}`);
+
+    // Send OTP to SMS --- 7010382383
+    // await sendSms(mobileNumber, otpCode);
+
+    // Send OTP to WhatsApp --- 6379498390
+    // await sendWhatsapp(mobileNumber, otpCode);
+
+
+    return res.status(200).json({
+      message: "OTP resent successfully",
+      tempUserId: tempUser._id,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
 //  Verify OTP
 export const verifyOtp = async (req, res) => {
   try {
     const { tempUserId, otp } = req.body;
 
     if (!tempUserId || !otp) {
-      return res
-        .status(400)
-        .json({ message: "TempUser ID and OTP are required" });
+      return res.status(400).json({ message: "TempUser ID and OTP are required" });
     }
 
-    // Find OTP record
-    const otpRecord = await Otp.findOne({ userId: tempUserId });
+    // Find the latest OTP record
+    const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({ createdAt: -1 });
 
     if (!otpRecord) {
       return res.status(404).json({ message: "OTP not found for this user" });
@@ -186,6 +239,12 @@ export const verifyOtp = async (req, res) => {
     // Mark OTP as verified
     otpRecord.isVerified = true;
     await otpRecord.save();
+
+    // Optionally mark temp user as verified
+    await TempUser.findByIdAndUpdate(tempUserId, { isVerified: true });
+
+    // Optionally delete all OTPs for this user
+    await Otp.deleteMany({ userId: tempUserId });
 
     return res.status(200).json({ message: "OTP verified successfully" });
   } catch (error) {
