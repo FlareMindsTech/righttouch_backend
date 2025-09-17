@@ -1,4 +1,4 @@
-import Category from "../Schemas/category.js";
+import Category from "../Schemas/Category.js";
 
 export const serviceCategory = async (req, res) => {
   try {

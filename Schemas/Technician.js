@@ -1,127 +1,144 @@
 import mongoose from "mongoose";
 
-const technicianSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User", //   your main User model
-    required: true,
-  },
-
-  panNumber: {      
-    type: String,
-    match: /^[A-Z]{5}[0-9]{4}[A-Z ]{1}$/, // Format: ABCDE1234F
-    required: true,
-    unique: true,
-  },
-
-  aadhaarNumber: {
-    type: String,
-    match: /^\d{12}$/, // Aadhaar should be 12 digits
-    required: true,
-    unique: true,
-  },
-
-  passportNumber: {
-    type: String,
-    match: /^[A-PR-WY][1-9]\d{6}$/, // Indian Passport format
-    required: false,
-    unique: true,
-    sparse: true, // allows null/empty without uniqueness conflicts
-  },
-
-  drivingLicenseNumber: {
-    type: String,
-    match: /^[A-Z]{2}\d{2} \d{11}$/, // Example: TN10 20202020202
-    required: true,
-    unique: true,
-  },
-
-  documents: {
-    panCard: { data: Buffer, contentType: String },
-    aadhaarCard: {
-      data: Buffer,
-      contentType: String,
+const technicianSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", //   your main User model
+      required: true,
     },
-    passport: { data: Buffer, contentType: String },
-    drivingLicense: { data: Buffer, contentType: String },
-  },
 
-  balance: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-
-  status: {
-    type: String,
-    enum: ["active", "inactive", "suspended"],
-    default: "active",
-  },
-
-
-
-  // performance
-
-  report: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Report",
-    default: null
-  },
-  rating: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Rating",
-    default: null
-  },
-exprienceYear: {
-    type: Number,
-    default: 0,
-    min: [0, "Years cannot be negative"]
-  },
-
-  experienceMonths: {
-    type: Number,
-    min: [3, "Minimum 3 months of experience required"],
-    required: function () {
-      return this.experienceYear === 0;
+    panNumber: {
+      type: String,
+      match: /^[A-Z]{5}[0-9]{4}[A-Z ]{1}$/, // Format: ABCDE1234F
+      required: true,
+      unique: true,
     },
-    default: 0
-  },
 
-  totalJobCompleted : {
-    type : Number,
-    default : 0
-  },
-  tracking: {
-    type: String,
-    enum: ["waiting", "accepted","comming","reached" , "working" , "completed"],
-    default: "waiting",
-  },
-  // image
+    aadhaarNumber: {
+      type: String,
+      match: /^\d{12}$/, // Aadhaar should be 12 digits
+      required: true,
+      unique: true,
+    },
 
-  image: {
-    type: String,
-  },
+    passportNumber: {
+      type: String,
+      match: /^[A-PR-WY][1-9]\d{6}$/, // Indian Passport format
+      required: false,
+      unique: true,
+      sparse: true, // allows null/empty without uniqueness conflicts
+    },
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
+    drivingLicenseNumber: {
+      type: String,
+      match: /^[A-Z]{2}\d{2} \d{11}$/, // Example: TN10 20202020202
+      required: true,
+      unique: true,
+    },
+
+    documents: {
+      panCard: {
+        data: Buffer,
+        contentType: String,
+      },
+      aadhaarCard: {
+        data: Buffer,
+        contentType: String,
+      },
+      passport: {
+        data: Buffer,
+        contentType: String,
+      },
+      drivingLicense: {
+        data: Buffer,
+        contentType: String,
+      },
+    },
+
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    status: {
+      type: String,
+      enum: ["active", "inactive", "suspended"],
+      default: "active",
+    },
+
+    // performance
+
+    report: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Report",
+      default: null,
+    },
+    rating: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Rating",
+      default: null,
+    },
+    serviceBooking :{
+      type : mongoose.Schema.Types.ObjectId,
+      ref :"ServiceBooking",
+      default : null
+    },
+    exprienceYear: {
+      type: Number,
+      default: 0,
+      min: [0, "Years cannot be negative"],
+    },
+
+    experienceMonths: {
+      type: Number,
+      min: [3, "Minimum 3 months of experience required"],
+      required: function () {
+        return this.experienceYear === 0;
+      },
+      default: 0,
+    },
+
+    totalJobCompleted: {
+      type: Number,
+      default: 0,
+    },
+    tracking: {
+      type: String,
+      enum: [
+        "waiting",
+        "accepted",
+        "comming",
+        "reached",
+        "working",
+        "completed",
+      ],
+      default: "waiting",
+    },
+    // image
+
+    image: {
+      type: String,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
-},
-{
-  toJSON : { virtuals  : true }
-}
+  {
+    toJSON: { virtuals: true },
+  }
 );
 
 // create virtual data not store in db
 
 technicianSchema.virtual("reports", {
-  ref: "report",           
-  localField: "_id",        
-  foreignField: "technicianId" 
+  ref: "report",
+  localField: "_id",
+  foreignField: "technicianId",
 });
-
-
-
 
 // technicianSchema.pre("save", function (next) {
 //   Object.keys(this.toObject()).forEach((key) => {
@@ -132,33 +149,7 @@ technicianSchema.virtual("reports", {
 //   next();
 // });
 
-
-
 export default mongoose.model("Technician", technicianSchema);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // const mongoose = require("mongoose");
 

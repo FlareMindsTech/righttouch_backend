@@ -44,6 +44,7 @@ import {
 
 import {
   serviceBook,
+  getAllServiceBooking,
   serviceBookUpdate,
   serviceBookingCancel,
 } from "../Controller/serviceBookController.js";
@@ -97,7 +98,8 @@ router.delete("/deleteService/:id", deleteService);
 // ******service end**********
 
 // *********Service Book***********
-router.post("/serviceBook/:id", serviceBook);
+router.post("/serviceBook", serviceBook);
+router.get("/getAllServiceBooking", getAllServiceBooking);
 router.put("/serviceBookUpdate/:id", serviceBookUpdate);
 router.put("/serviceBookingCancel/:id", serviceBookingCancel);
 

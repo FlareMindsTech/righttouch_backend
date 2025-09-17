@@ -46,9 +46,15 @@ export const getAllRatings = async (req, res) => {
     }
 
     const ratings = await Rating.find(filter)
-      .populate("technicianId", "userId")
       .populate("serviceId", "serviceName")
-      .populate("customerId", "email");
+      .populate("customerId", "email")
+      .populate({
+        path: "technicianId",
+        populate: {
+          path: "userId",
+          select: "username",
+        },
+      });;
 
     res.status(200).json({ success: true, data: ratings });
   } catch (err) {

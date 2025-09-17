@@ -2,58 +2,78 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-  firstName: {
-    type: String,
-    required: [true, "First name is required"],
-    minlength: [3, "First name must be at least 3 characters"],
-    maxlength: [50, "First name cannot exceed 50 characters"],
-  },
-  lastName: {
-    type: String,
-    required: [true, "Last name is required"],
-    minlength: [1, "Last name must be at least 1 character"],
-    maxlength: [50, "Last name cannot exceed 50 characters"],
-},
+    firstName: {
+      type: String,
+      required: [true, "First name is required"],
+      minlength: [3, "First name must be at least 3 characters"],
+      maxlength: [50, "First name cannot exceed 50 characters"],
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      required: [true, "Last name is required"],
+      minlength: [1, "Last name must be at least 1 character"],
+      maxlength: [50, "Last name cannot exceed 50 characters"],
+      trim: true,
+    },
     username: {
       type: String,
-      required: true,
+      required: [true, "Username is required"],
       unique: true,
+      trim: true,
+      minlength: [3, "Username must be at least 3 characters"],
+      maxlength: [30, "Username cannot exceed 30 characters"],
+      match: [/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"],
     },
     gender: {
       type: String,
       enum: ["Male", "Female", "Other"],
-      required: true,
+      required: [true, "Gender is required"],
     },
     mobileNumber: {
       type: String,
-      required: true,
-      match: /^[0-9]{10}$/,
+      required: [true, "Mobile number is required"],
+      unique: true,
+      match: [/^[0-9]{10}$/, "Mobile number must be 10 digits"],
     },
     email: {
       type: String,
-      required: true,
+      required: [true, "Email is required"],
+      unique: true,
       lowercase: true,
-      match: /^\S+@\S+\.\S+$/,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email address"],
     },
     role: {
       type: String,
       enum: ["Owner", "Customer", "Technician", "Developer"],
-      required: true,
+      required: [true, "Role is required"],
     },
     locality: {
       type: String,
       required: function () {
         return this.role === "Technician";
       },
+      trim: true,
     },
-    password: { 
-      type: String,
-      required: true,
+   password: {
+  type: String,
+  required: [true, "Password is required"],
+  minlength: [8, "Password must be at least 8 characters"],
+  validate: {
+    validator: function (v) {
+      // Must contain at least 1 letter, 1 number, and 1 special character
+      return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(v);
     },
+    message:
+      "Password must contain at least one letter, one number, and one special character",
+  },
+},
+
     status: {
       type: String,
       enum: ["Active", "Inactive"],
-      default: "Active", 
+      default: "Active",
     },
   },
   { timestamps: true }

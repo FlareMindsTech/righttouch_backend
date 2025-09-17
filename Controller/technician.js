@@ -12,6 +12,7 @@ export const TechnicianData = async (req, res) => {
       status,      
       report,
       rating,
+      serviceBooking,
       experienceYear,
       experienceMonths,
       totalJobCompleted,
@@ -64,6 +65,7 @@ export const TechnicianData = async (req, res) => {
       status: status || "active",            
       report,
       rating,
+      serviceBooking,
       experienceYear,
       experienceMonths,
       totalJobCompleted,
@@ -131,7 +133,7 @@ export const technicianById = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(id).populate("reports");
+    const technician = await Technician.findById(id).populate("report").populate("rating").populate("serviceBooking");
 
     if (!technician) {
       return res.status(404).json({
@@ -155,36 +157,16 @@ export const technicianById = async (req, res) => {
 export const technicianUpdate =  async (req ,res)=>{
   try {
     const { 
-        panNumber,
-        aadhaarNumber,
-        passportNumber,
-        drivingLicenseNumber,
-        balance,
-        status,
-        report,
-        rating,
         experienceYear,
         experienceMonths,
-        totalJobCompleted,
-        tracking,
         image 
       } = req.body;
       
       const technicianUpdateOne = await Technician.findByIdAndUpdate(
       req.params.id,
       {
-        panNumber,
-        aadhaarNumber,
-        passportNumber,
-        drivingLicenseNumber,
-        balance,
-        status,
-        report,
-        rating,
         experienceYear,
         experienceMonths,
-        totalJobCompleted,
-        tracking,
         image
       } 
     );

@@ -244,7 +244,7 @@ export const verifyOtp = async (req, res) => {
     await TempUser.findByIdAndUpdate(tempUserId, { isVerified: true });
 
     // Optionally delete all OTPs for this user
-    await Otp.deleteMany({ userId: tempUserId });
+    // await Otp.deleteMany({ userId: tempUserId });
 
     return res.status(200).json({ message: "OTP verified successfully" });
   } catch (error) {

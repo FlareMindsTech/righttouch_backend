@@ -3,9 +3,9 @@ import Service from "../Schemas/Service.js";
 // ******** Create Service **************
 export const service = async (req, res) => {
   try {
-    const { categoryId, serviceName, description, cost, quantity, active, status, duration } = req.body;
+    const { categoryId, serviceName, description, serviceCost, commissionPercentage, serviceDiscountPercentage, quantity, active, status, duration } = req.body;
 
-    if (!categoryId || !serviceName || !description || !cost || !quantity || status === undefined || active === undefined) {
+    if (!categoryId || !serviceName || !description || !serviceCost || !commissionPercentage || !quantity || status === undefined || active === undefined) {
       return res.status(400).json({
         message: "All fields are required"
       });
@@ -22,7 +22,8 @@ export const service = async (req, res) => {
       categoryId,
       serviceName,
       description,
-      cost,
+      serviceCost, commissionPercentage,
+      serviceDiscountPercentage,
       quantity,
       active,
       status,
@@ -60,8 +61,6 @@ export const getAllServices = async (req, res) => {
     }
 
     const services = await Service.find(query)
-      .populate("technicianId", "name email")
-      .populate("userId", "firstName lastName email")
       .populate("categoryId", "category description");
 
     return res.status(200).json(services);
@@ -77,8 +76,6 @@ export const getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
     const service = await Service.findById(id)
-      .populate("technicianId", "name email")
-      .populate("userId", "firstName lastName email")
       .populate("categoryId", "category description");
 
     if (!service) return res.status(404).json({ message: "Service not found" });

@@ -29,6 +29,37 @@ export const serviceBook = async (req, res) => {
   }
 };
 
+export const getAllServiceBooking = async (req, res) => {
+  try {
+    const getAllBooking = await ServiceBook.find()
+      .populate("userId", "firstName lastName email")
+      .populate({
+        path: "technicianId",
+        populate: {
+          path: "userId",
+          select: "username email",
+        },
+      });;
+
+    if (getAllBooking.length === 0) {
+      return res.status(404).json({
+        message: "No service booking data found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Data fetched successfully",
+      data: getAllBooking,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching service bookings",
+      error: error.message,
+    });
+  }
+};
+
+
 export const serviceBookUpdate = async (req, res) => {
   try {
     const { technicianId, userId, categoryId, serviceId } = req.body;
