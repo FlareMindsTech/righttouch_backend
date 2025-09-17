@@ -49,6 +49,12 @@ export const getAllCategory = async (req, res) => {
       ];
     }
     const categories = await Category.find(query);
+
+    if (categories.length === 0) {
+      return res.status(404).json({
+        message: "No categories data found",
+      });
+    }
     return res.status(200).json({ success: true, data: categories });
   } catch (error) {
     return res

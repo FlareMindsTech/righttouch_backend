@@ -1,13 +1,13 @@
 import Rating from "../Schemas/Rating.js";
 
-// Create new rating 
+// Create new rating
 export const userRating = async (req, res) => {
   try {
     const { technicianId, serviceId, customerId, rates, comment } = req.body;
 
     if (!serviceId || !customerId || !rates || !comment) {
       return res.status(400).json({
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
@@ -16,17 +16,17 @@ export const userRating = async (req, res) => {
       serviceId,
       customerId,
       rates,
-      comment
+      comment,
     });
 
     res.status(201).json({
       message: "Rating created successfully",
-      data: ratingData
+      data: ratingData,
     });
   } catch (error) {
     res.status(500).json({
       message: "Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -37,16 +37,10 @@ export const getAllRatings = async (req, res) => {
 
     let query = {};
 
-    if (serviceId) query.serviceId = serviceId;
-    if (technicianId) query.technicianId = technicianId;
-    if (customerId) query.customerId = customerId;
-
     if (search) {
       const searchAsNumber = Number(search);
 
-      query.$or = [
-        { comment: { $regex: search, $options: "i" } }
-      ];
+      query.$or = [{ comment: { $regex: search, $options: "i" } }];
 
       if (!isNaN(searchAsNumber)) {
         query.$or.push({ rates: searchAsNumber });
@@ -54,16 +48,23 @@ export const getAllRatings = async (req, res) => {
     }
 
     const ratings = await Rating.find(query)
-      .populate("technicianId", "userId name email")
       .populate("serviceId", "serviceName")
-      .populate("customerId", "email name");
-
+      .populate("customerId", "email name")
+      .populate({
+        path: "technicianId",
+        populate: { path: "userId", select: "username email" },
+      });
+    
+    if (services.length === 0) {
+      return res.status(404).json({
+        message: "No rating data found",
+      });
+    }
     return res.status(200).json({
       success: true,
       message: "Ratings fetched successfully",
       data: ratings,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -73,18 +74,27 @@ export const getAllRatings = async (req, res) => {
   }
 };
 
-
-
 // ✅ Get Rating by ID
 export const getRatingById = async (req, res) => {
   try {
     const { id } = req.params;
     const rating = await Rating.findById(id)
-      .populate("technicianId", "userId")
       .populate("serviceId", "serviceName")
-      .populate("customerId", "email");
-
-    if (!rating) return res.status(404).json({ success: false, message: "Rating not found" });
+      .populate("customerId", "email")
+      .populate({
+        path: "technicianId",
+        populate: { path: "userId", select: "username email" },
+      });
+    
+    if (rating.length === 0) {
+      return res.status(404).json({
+        message: "No rating data found",
+      });
+    }
+    if (!rating)
+      return res
+        .status(404)
+        .json({ success: false, message: "Rating not found" });
 
     res.status(200).json({ success: true, data: rating });
   } catch (err) {
@@ -102,7 +112,10 @@ export const updateRating = async (req, res) => {
       runValidators: true,
     });
 
-    if (!rating) return res.status(404).json({ success: false, message: "Rating not found" });
+    if (!rating)
+      return res
+        .status(404)
+        .json({ success: false, message: "Rating not found" });
 
     res.status(200).json({ success: true, data: rating });
   } catch (err) {
@@ -115,9 +128,14 @@ export const deleteRating = async (req, res) => {
     const { id } = req.params;
     const rating = await Rating.findByIdAndDelete(id);
 
-    if (!rating) return res.status(404).json({ success: false, message: "Rating not found" });
+    if (!rating)
+      return res
+        .status(404)
+        .json({ success: false, message: "Rating not found" });
 
-    res.status(200).json({ success: true, message: "Rating deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Rating deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

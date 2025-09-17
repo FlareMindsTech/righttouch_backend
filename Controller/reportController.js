@@ -39,18 +39,20 @@ export const getAllReports = async (req, res) => {
     if (search) {
       query.$or = [
         { complaint: { $regex: search, $options: "i" } }, // search inside complaint
-        { status: { $regex: search, $options: "i" } },    // search by status
+        { status: { $regex: search, $options: "i" } }, // search by status
       ];
     }
-  
 
     // 📦 Fetch with relations
     const reports = await Report.find(query)
       .populate("serviceId", "serviceName")
       .populate("customerId", "email name")
-      .populate("technicianId", "userId name email");
+      .populate({
+        path: "technicianId",
+        populate: { path: "userId", select: "username email" },
+      });
 
-    if (!reports.length) {
+    if (reports.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No reports found",
@@ -62,7 +64,6 @@ export const getAllReports = async (req, res) => {
       message: "Reports fetched successfully",
       data: reports,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -72,8 +73,6 @@ export const getAllReports = async (req, res) => {
   }
 };
 
-
-
 // ✅ Get Report by ID
 export const getReportById = async (req, res) => {
   try {
@@ -81,7 +80,16 @@ export const getReportById = async (req, res) => {
     const report = await Report.findById(id)
       .populate("serviceId", "serviceName")
       .populate("customerId", "email")
-      .populate("technicianId", "userId");
+      .populate({
+        path: "technicianId",
+        populate: { path: "userId", select: "username email" },
+      });
+
+      if (report.length === 0) {
+      return res.status(404).json({
+        message: "No report data found",
+      });
+    }
 
     if (!report)
       return res

@@ -91,6 +91,12 @@ export const getProduct = async (req, res) => {
 
     const getProduct = await Product.find(query);
 
+    if (getProduct.length === 0) {
+      return res.status(404).json({
+        message: "No product data found",
+      });
+    }
+
     return res.status(200).json({
       message: "Fetch data successfully",
       data: getProduct,

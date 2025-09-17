@@ -34,6 +34,7 @@ export const getAllServiceBooking = async (req, res) => {
   try {
     const getAllBooking = await ServiceBook.find()
       .populate("userId", "firstName lastName email")
+      .populate("serviceId", "serviceName")
       .populate({
         path: "technicianId",
         populate: {
