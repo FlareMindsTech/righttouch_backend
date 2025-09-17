@@ -1,5 +1,6 @@
 import Report from "../Schemas/Report.js";
 
+// Create Report
 export const userReport = async (req, res) => {
   try {
     const { technicianId, customerId, serviceId, complaint, image } = req.body;
@@ -27,30 +28,27 @@ export const userReport = async (req, res) => {
   }
 };
 
+// Get All Reports
 export const getAllReports = async (req, res) => {
   try {
-    const { search } = req.query; // ?search=painting
+    const { search } = req.query;
+
     let query = {};
 
+    // 🔍 Search filter
     if (search) {
-      query = {
-        $or: [
-          { complaint: { $regex: search, $options: "i" } },
-          { status: { $regex: search, $options: "i" } },
-        ],
-      };
+      query.$or = [
+        { complaint: { $regex: search, $options: "i" } }, // search inside complaint
+        { status: { $regex: search, $options: "i" } },    // search by status
+      ];
     }
+  
 
-    let reports = await Report.find(query)
+    // 📦 Fetch with relations
+    const reports = await Report.find(query)
       .populate("serviceId", "serviceName")
-      .populate("customerId", "email")
-      .populate({
-        path: "technicianId",
-        populate: {
-          path: "userId",
-          select: "username",
-        },
-      });
+      .populate("customerId", "email name")
+      .populate("technicianId", "userId name email");
 
     if (!reports.length) {
       return res.status(404).json({
@@ -61,17 +59,19 @@ export const getAllReports = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      count: reports.length,
+      message: "Reports fetched successfully",
       data: reports,
     });
+
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Error fetching reports",
+      message: "Server error",
       error: error.message,
     });
   }
 };
+
 
 
 // ✅ Get Report by ID

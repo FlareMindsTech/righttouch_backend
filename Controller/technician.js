@@ -71,7 +71,7 @@ export const TechnicianData = async (req, res) => {
       totalJobCompleted,
       tracking,
       image,
-    });
+    }); 
 
     await technician.save();
     res.status(201).json({ success: true, data: technician });
@@ -109,7 +109,7 @@ export const TechnicianAll = async (req, res) => {
       };
     }
 
-    const technicians = await Technician.find(query).populate("reports"); // virtual populate
+    const technicians = await Technician.find(query).populate("report"); // virtual populate
 
     res.status(200).json({ success: true, data: technicians });
   } catch (error) {

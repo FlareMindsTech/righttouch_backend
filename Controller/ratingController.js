@@ -1,5 +1,6 @@
 import Rating from "../Schemas/Rating.js";
 
+// Create new rating 
 export const userRating = async (req, res) => {
   try {
     const { technicianId, serviceId, customerId, rates, comment } = req.body;
@@ -32,35 +33,46 @@ export const userRating = async (req, res) => {
 
 export const getAllRatings = async (req, res) => {
   try {
-    const { serviceId, technicianId, customerId, minRate, maxRate } = req.query;
+    const { search, serviceId, technicianId, customerId } = req.query;
 
-    // Build filter object
-    let filter = {};
-    if (serviceId) filter.serviceId = serviceId;
-    if (technicianId) filter.technicianId = technicianId;
-    if (customerId) filter.customerId = customerId;
-    if (minRate || maxRate) {
-      filter.rates = {};
-      if (minRate) filter.rates.$gte = Number(minRate);
-      if (maxRate) filter.rates.$lte = Number(maxRate);
+    let query = {};
+
+    if (serviceId) query.serviceId = serviceId;
+    if (technicianId) query.technicianId = technicianId;
+    if (customerId) query.customerId = customerId;
+
+    if (search) {
+      const searchAsNumber = Number(search);
+
+      query.$or = [
+        { comment: { $regex: search, $options: "i" } }
+      ];
+
+      if (!isNaN(searchAsNumber)) {
+        query.$or.push({ rates: searchAsNumber });
+      }
     }
 
-    const ratings = await Rating.find(filter)
+    const ratings = await Rating.find(query)
+      .populate("technicianId", "userId name email")
       .populate("serviceId", "serviceName")
-      .populate("customerId", "email")
-      .populate({
-        path: "technicianId",
-        populate: {
-          path: "userId",
-          select: "username",
-        },
-      });;
+      .populate("customerId", "email name");
 
-    res.status(200).json({ success: true, data: ratings });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    return res.status(200).json({
+      success: true,
+      message: "Ratings fetched successfully",
+      data: ratings,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
+
 
 
 // ✅ Get Rating by ID

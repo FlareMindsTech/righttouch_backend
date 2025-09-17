@@ -68,13 +68,30 @@ export const product = async (req, res) => {
 
 export const getProduct = async (req, res) => {
   try {
-    const getProduct = await Product.find();
-    if (!getProduct) {
-      res.status(400).json({
-        message: "No Product",
-      });
+    const { search } = req.query;
+
+    let query = {};
+
+    if (search) {
+      // Try converting search to number
+      const searchAsNumber = Number(search);
+
+      query.$or = [
+        { productName: { $regex: search, $options: "i" } },
+        { productDescription: { $regex: search, $options: "i" } },
+        { productBrand: { $regex: search, $options: "i" } },
+        { warranty: { $regex: search, $options: "i" } },
+      ];
+
+      // If search is a valid number, also search in price
+      if (!isNaN(searchAsNumber)) {
+        query.$or.push({ productPrice: searchAsNumber });
+      }
     }
-    res.status(200).json({
+
+    const getProduct = await Product.find(query);
+
+    return res.status(200).json({
       message: "Fetch data successfully",
       data: getProduct,
     });
@@ -203,4 +220,3 @@ export const updateProduct = async (req, res) => {
     });
   }
 };
-
