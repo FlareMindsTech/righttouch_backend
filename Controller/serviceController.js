@@ -45,23 +45,21 @@ export const service = async (req, res) => {
 // ******** Get All Services **************
 export const getAllServices = async (req, res) => {
   try {
-    const { search } = req.query; // ?search=cleaning
+    const { search } = req.query;
 
     let query = {};
 
     if (search) {
       query = {
         $or: [
-          { serviceName: { $regex: search, $options: "i" } }, // service name
-          { description: { $regex: search, $options: "i" } }, // service description
-          { status: { $regex: search, $options: "i" } },      // if you have status field
+          { serviceName: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } }, 
+          { status: { $regex: search, $options: "i" } },      
         ],
       };
     }
 
     const services = await Service.find(query)
-      .populate("technicianId", "name email")
-      .populate("userId", "firstName lastName email")
       .populate("categoryId", "category description");
 
     return res.status(200).json(services);

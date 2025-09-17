@@ -243,8 +243,6 @@ export const verifyOtp = async (req, res) => {
     // Optionally mark temp user as verified
     await TempUser.findByIdAndUpdate(tempUserId, { isVerified: true });
 
-    // Optionally delete all OTPs for this user
-    await Otp.deleteMany({ userId: tempUserId });
 
     return res.status(200).json({ message: "OTP verified successfully" });
   } catch (error) {
@@ -367,10 +365,12 @@ export const updateUser = async (req, res) => {
   try {
     const { id } = req.params; // userId from URL
     const { email, mobileNumber, firstName, lastName } = req.body;
+    
+    const username = generateUsername(firstName, mobileNumber);
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      { email, mobileNumber, firstName, lastName },
+      { email, mobileNumber, firstName, lastName, username },
       { new: true, runValidators: true }
     ).select("-password");
 
@@ -388,31 +388,52 @@ export const updateUser = async (req, res) => {
 // 2️⃣ Get All Users
 export const getAllUsers = async (req, res) => {
   try {
-    const { search } = req.query; // ?search=Vignesh
+    const { search, role, status } = req.query; // extra filters
 
     let query = {};
 
+    // 🔍 Flexible search across multiple fields
     if (search) {
-      query = {
-        $or: [
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
-          { username: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-          { mobileNumber: { $regex: search, $options: "i" } },
-          { role: { $regex: search, $options: "i" } },
-          { status: { $regex: search, $options: "i" } },
-        ],
-      };
+      query.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { username: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { mobileNumber: { $regex: search, $options: "i" } },
+        { role: { $regex: search, $options: "i" } },
+        { status: { $regex: search, $options: "i" } },
+      ];
     }
 
+    // ✅ Specific filters (if passed in query)
+    if (role) query.role = role;
+    if (status) query.status = status;
+
+    // 📦 Fetch all users except password
     const users = await User.find(query).select("-password");
 
-    res.status(200).json({ success: true, data: users });
+    if (!users.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No users found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Users fetched successfully",
+      data: users,
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 
 
 // 3️⃣ Get Particular User by ID
@@ -464,6 +485,11 @@ export const changePassword = async (req, res) => {
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch)
       return res.status(400).json({ message: "Old password is incorrect" });
+    
+    // newpassword Already PassWord is same 
+    const isMatchNewAndOld = await bcrypt.compare(newPassword, user.password);
+    if (!isMatchNewAndOld)
+      return res.status(400).json({ message: "Already Exist Password" });
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
@@ -485,7 +511,7 @@ export const requestPasswordResetOtp = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Generate OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Save OTP in DB
     // await Otp.deleteMany({ userId: user._id }); // remove old OTPs
@@ -556,6 +582,18 @@ export const resetPassword = async (req, res) => {
         .status(400)
         .json({ message: "OTP not verified for this user" });
     }
+
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character",
+      });
+    }
+
+    // New password Already PassWord is same 
+    const isMatchNewAndOld = await bcrypt.compare(newPassword, user.password);
+    if (!isMatchNewAndOld)
+      return res.status(400).json({ message: "Old password is incorrect" });
 
     // Hash password
     const hashedPassword = await bcrypt.hash(newPassword, 10);

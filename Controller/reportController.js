@@ -1,5 +1,6 @@
 import Report from "../Schemas/Report.js";
 
+// Create Report
 export const userReport = async (req, res) => {
   try {
     const { technicianId, customerId, serviceId, complaint, image } = req.body;
@@ -27,31 +28,55 @@ export const userReport = async (req, res) => {
   }
 };
 
+// Get All Reports
 export const getAllReports = async (req, res) => {
   try {
-    const { search } = req.query; // ?search=painting
+    const { search } = req.query;
 
     let query = {};
 
+    // 🔍 Search filter
     if (search) {
-      query = {
-        $or: [
-          { complaint: { $regex: search, $options: "i" } }, // text inside complaint
-          { status: { $regex: search, $options: "i" } },    // report status if you have one
-        ],
-      };
+      query.$or = [
+        { complaint: { $regex: search, $options: "i" } }, // search inside complaint
+        { status: { $regex: search, $options: "i" } },    // search by status
+      ];
     }
 
+    // ✅ Specific filters
+    if (serviceId) query.serviceId = serviceId;
+    if (technicianId) query.technicianId = technicianId;
+    if (customerId) query.customerId = customerId;
+    if (status) query.status = status;
+
+    // 📦 Fetch with relations
     const reports = await Report.find(query)
       .populate("serviceId", "serviceName")
-      .populate("customerId", "email")
-      .populate("technicianId", "userId");
+      .populate("customerId", "email name")
+      .populate("technicianId", "userId name email");
 
-    return res.status(200).json({ success: true, data: reports });
+    if (!reports.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No reports found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Reports fetched successfully",
+      data: reports,
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 
 
 // ✅ Get Report by ID

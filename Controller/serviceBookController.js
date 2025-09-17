@@ -1,5 +1,6 @@
 import ServiceBook from "../Schemas/ServiceBooking.js";
 
+// Create A new Services
 export const serviceBook = async (req, res) => {
   try {
     const { technicianId, userId, categoryId, serviceId } = req.body;
@@ -29,6 +30,7 @@ export const serviceBook = async (req, res) => {
   }
 };
 
+//  Update A Service
 export const serviceBookUpdate = async (req, res) => {
   try {
     const { technicianId, userId, categoryId, serviceId } = req.body;
