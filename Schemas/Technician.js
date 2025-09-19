@@ -32,9 +32,12 @@ const technicianSchema = new mongoose.Schema(
 
     drivingLicenseNumber: {
       type: String,
-      match: /^[A-Z]{2}\d{2} \d{11}$/, // Example: TN10 20202020202
-      required: true,
+      required: [true, "Driving License Number is required"],
       unique: true,
+      match: [
+        /^([A-Z]{2}\d{2}\s\d{11}|[A-Z]{2}\d{2}[A-Z]{1}\d{10})$/,
+        "Driving License Number must be either 'TN10 12345678901' or 'TN60Z2024001234' format",
+      ],
     },
 
     documents: {
@@ -80,10 +83,10 @@ const technicianSchema = new mongoose.Schema(
       ref: "Rating",
       default: null,
     },
-    serviceBooking :{
-      type : mongoose.Schema.Types.ObjectId,
-      ref :"ServiceBooking",
-      default : null
+    serviceBooking: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ServiceBooking",
+      default: null,
     },
     exprienceYear: {
       type: Number,
@@ -94,6 +97,7 @@ const technicianSchema = new mongoose.Schema(
     experienceMonths: {
       type: Number,
       min: [3, "Minimum 3 months of experience required"],
+      max: [12, "Maximum 12 months of experience required"],
       required: function () {
         return this.experienceYear === 0;
       },

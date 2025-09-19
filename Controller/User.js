@@ -57,15 +57,24 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     // 5️⃣ Duplicate checks
-    if (await TempUser.findOne({ mobileNumber }) || await User.findOne({ mobileNumber })) {
+    if (
+      (await TempUser.findOne({ mobileNumber })) ||
+      (await User.findOne({ mobileNumber }))
+    ) {
       return res
         .status(400)
         .json({ message: "Mobile number already registered" });
     }
-    if (await TempUser.findOne({ email }) || await User.findOne({ email })) {
+    if (
+      (await TempUser.findOne({ email })) ||
+      (await User.findOne({ email }))
+    ) {
       return res.status(400).json({ message: "Email already registered" });
     }
-    if (await TempUser.findOne({ username })  || await User.findOne({ username })) {
+    if (
+      (await TempUser.findOne({ username })) ||
+      (await User.findOne({ username }))
+    ) {
       return res.status(400).json({ message: "Username already exists" });
     }
 
@@ -79,13 +88,13 @@ export const signupAndSendOtp = async (req, res) => {
 
     // name valitation
     function formatNames(firstName, lastName) {
-      const nameRegex = /^[A-Za-z ]+$/; 
+      const nameRegex = /^[A-Za-z ]+$/;
 
       if (nameRegex.test(firstName) && nameRegex.test(lastName)) {
         const validateName = (name) => {
           return name
             .trim()
-            .split(/\s+/) 
+            .split(/\s+/)
             .filter((word) => word.length > 0)
             .map(
               (word) =>
@@ -155,16 +164,16 @@ export const signupAndSendOtp = async (req, res) => {
   }
 };
 
-
 // resend OTP
-
 
 export const resendOtp = async (req, res) => {
   try {
     const { email, mobileNumber } = req.body;
 
     if (!email && !mobileNumber) {
-      return res.status(400).json({ message: "Email or Mobile number is required" });
+      return res
+        .status(400)
+        .json({ message: "Email or Mobile number is required" });
     }
 
     // Find temp user by email or mobile
@@ -188,7 +197,11 @@ export const resendOtp = async (req, res) => {
     console.log("OTP saved:", otpRecord);
     // Send OTP via email
     if (tempUser.email) {
-      await sendEmail(tempUser.email, "Your OTP Code", `Your OTP is: ${otpCode}`);
+      await sendEmail(
+        tempUser.email,
+        "Your OTP Code",
+        `Your OTP is: ${otpCode}`
+      );
     }
 
     // Send OTP to email
@@ -199,7 +212,6 @@ export const resendOtp = async (req, res) => {
 
     // Send OTP to WhatsApp --- 6379498390
     // await sendWhatsapp(mobileNumber, otpCode);
-
 
     return res.status(200).json({
       message: "OTP resent successfully",
@@ -216,11 +228,15 @@ export const verifyOtp = async (req, res) => {
     const { tempUserId, otp } = req.body;
 
     if (!tempUserId || !otp) {
-      return res.status(400).json({ message: "TempUser ID and OTP are required" });
+      return res
+        .status(400)
+        .json({ message: "TempUser ID and OTP are required" });
     }
 
     // Find the latest OTP record
-    const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({ createdAt: -1 });
+    const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({
+      createdAt: -1,
+    });
 
     if (!otpRecord) {
       return res.status(404).json({ message: "OTP not found for this user" });
@@ -345,8 +361,8 @@ export const login = async (req, res) => {
     // 5️⃣ Generate JWT
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      process.env.JWT_SECRET
+      // { expiresIn: "1d" }
     );
 
     // 6️⃣ Send response
@@ -366,26 +382,37 @@ export const login = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params; // userId from URL
-    const { email, mobileNumber, firstName, lastName } = req.body;
-    
-    const username = generateUsername(firstName, mobileNumber);
+    const { firstName, lastName } = req.body;
 
+    // Find user first
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate new username using updated firstName and existing mobileNumber
+    const username = generateUsername(firstName || user.firstName, user.mobileNumber);
+
+    // Update user
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      { email, mobileNumber, firstName, lastName, username },
+      {
+        firstName,
+        lastName,
+        username,
+      },
       { new: true, runValidators: true }
     ).select("-password");
 
-    if (!updatedUser)
-      return res.status(404).json({ message: "User not found" });
-
-    res
-      .status(200)
-      .json({ message: "User updated successfully", user: updatedUser });
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 // 2️⃣ Get All Users
 export const getAllUsers = async (req, res) => {
@@ -426,7 +453,6 @@ export const getAllUsers = async (req, res) => {
       message: "Users fetched successfully",
       data: users,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -435,8 +461,6 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
-
-
 
 // 3️⃣ Get Particular User by ID
 export const getUserById = async (req, res) => {
@@ -462,43 +486,65 @@ export const getMyProfile = async (req, res) => {
 };
 
 // 5️⃣ Change Password
+
 export const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    // New Password validation ---
-
+    // 1. Validation
     if (!oldPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ message: "Old Password and New Password are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Old Password and New Password are required",
+      });
     }
+
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
+        success: false,
         message:
           "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character",
       });
     }
 
+    // 2. Find user
     const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
 
-    if (!user) return res.status(404).json({ message: "User not found" });
-
+    // 3. Verify old password
     const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch)
-      return res.status(400).json({ message: "Old password is incorrect" });
-    
-    // newpassword Already PassWord is same 
-    const isMatchNewAndOld = await bcrypt.compare(newPassword, user.password);
-    if (!isMatchNewAndOld)
-      return res.status(400).json({ message: "Already Exist Password" });
+    if (!isMatch) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Old password is incorrect" });
+    }
 
+    // 4. Prevent same password reuse
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "New password cannot be same as old password",
+        });
+    }
+
+    // 5. Save new password
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    res.status(200).json({ message: "Password changed successfully" });
+    return res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
   }
 };
 
@@ -592,10 +638,10 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // New password Already PassWord is same 
+    // New password Already PassWord is same
     const isMatchNewAndOld = await bcrypt.compare(newPassword, user.password);
-    if (!isMatchNewAndOld)
-      return res.status(400).json({ message: "Old password is incorrect" });
+    if (isMatchNewAndOld)
+      return res.status(400).json({ message: " password already is enter" });
 
     // Hash password
     const hashedPassword = await bcrypt.hash(newPassword, 10);

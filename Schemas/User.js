@@ -23,7 +23,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
       minlength: [3, "Username must be at least 3 characters"],
       maxlength: [30, "Username cannot exceed 30 characters"],
-      match: [/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"],
+      match: [
+        /^[a-zA-Z0-9_]+$/,
+        "Username can only contain letters, numbers, and underscores",
+      ],
     },
     gender: {
       type: String,
@@ -56,18 +59,11 @@ const userSchema = new mongoose.Schema(
       },
       trim: true,
     },
-   password: {
-  type: String,
-  required: [true, "Password is required"],
-  minlength: [8, "Password must be at least 8 characters"],
-  validate: {
-    validator: function (v) {
-      return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(v);
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [8, "Password must be at least 8 characters"],
     },
-    message:
-      "Password must contain at ex : name@1234",
-  },
-},
 
     status: {
       type: String,

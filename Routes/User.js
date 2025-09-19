@@ -56,6 +56,14 @@ import {
   deleteProduct,
   updateProduct
 } from "../Controller/productController.js"
+
+import {
+  productBooking,
+  getAllProductBooking,
+  productBookingUpdate,
+  productBookingCancel,
+} from "../Controller/productBooking.js";
+
 import { Auth } from "../Middleware/Auth.js";
 
 const router = express.Router();
@@ -120,5 +128,13 @@ router.get("/getOneProduct/:id", getOneProduct);
 router.put("/updateProduct/:id", updateProduct);
 router.delete("/deleteProduct/:id", deleteProduct);
 // ******product end**********
+
+// *********product Book***********
+router.post("/productBooking", productBooking);
+router.get("/getAllProductBooking", getAllProductBooking);
+router.put("/productBookingUpdate/:id", productBookingUpdate);
+router.put("/productBookingCancel/:id", productBookingCancel);
+
+// *********product Book end***********
 
 export default router;
