@@ -5,6 +5,7 @@ import User from "../Schemas/User.js";
 import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import sendSms from "../utils/sendSMS.js";
 import sendWhatsapp from "../utils/sendWhatsapp.js";
 
@@ -29,10 +30,11 @@ const passwordRegex =
 // Controller
 export const signupAndSendOtp = async (req, res) => {
   try {
-    const { firstName, lastName, gender, mobileNumber, email, role, locality } =
+    const { firstName, lastName, gender, mobileNumber, email, role, locality, password } =
       req.body;
 
     const username = generateUsername(firstName, mobileNumber);
+
     // Basic validations
     if (!firstName)
       return res.status(400).json({ message: "First name is required" });
@@ -43,70 +45,47 @@ export const signupAndSendOtp = async (req, res) => {
       return res.status(400).json({ message: "Mobile number is required" });
     if (!email) return res.status(400).json({ message: "Email is required" });
     if (!role) return res.status(400).json({ message: "Role is required" });
+    if (!password) return res.status(400).json({ message: "Password is required" });
 
-    // 2️⃣ Mobile validation (must be 10 digits)
+    // Mobile validation
     const mobileRegex = /^[0-9]{10}$/;
     if (!mobileRegex.test(mobileNumber)) {
       return res.status(400).json({ message: "Invalid mobile number format" });
     }
 
-    // 3️⃣ Email validation
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    // 5️⃣ Duplicate checks
-    if (
-      (await TempUser.findOne({ mobileNumber })) ||
-      (await User.findOne({ mobileNumber }))
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Mobile number already registered" });
+    // Duplicate checks
+    if ((await TempUser.findOne({ mobileNumber })) || (await User.findOne({ mobileNumber }))) {
+      return res.status(400).json({ message: "Mobile number already registered" });
     }
-    if (
-      (await TempUser.findOne({ email })) ||
-      (await User.findOne({ email }))
-    ) {
+    if ((await TempUser.findOne({ email })) || (await User.findOne({ email }))) {
       return res.status(400).json({ message: "Email already registered" });
     }
-    if (
-      (await TempUser.findOne({ username })) ||
-      (await User.findOne({ username }))
-    ) {
+    if ((await TempUser.findOne({ username })) || (await User.findOne({ username }))) {
       return res.status(400).json({ message: "Username already exists" });
     }
 
     if (role.toLowerCase() === "technician" && !locality) {
-      return res
-        .status(400)
-        .json({ message: "Locality is required for technicians" });
+      return res.status(400).json({ message: "Locality is required for technicians" });
     }
 
-    //  username check format
-
-    // name valitation
+    // Name formatting
     function formatNames(firstName, lastName) {
       const nameRegex = /^[A-Za-z ]+$/;
-
       if (nameRegex.test(firstName) && nameRegex.test(lastName)) {
-        const validateName = (name) => {
-          return name
+        const validateName = (name) =>
+          name
             .trim()
             .split(/\s+/)
             .filter((word) => word.length > 0)
-            .map(
-              (word) =>
-                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            )
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .join(" ");
-        };
-
-        return {
-          firstName: validateName(firstName),
-          lastName: validateName(lastName),
-        };
+        return { firstName: validateName(firstName), lastName: validateName(lastName) };
       } else {
         console.log("Invalid name: only letters and spaces allowed.");
         return null;
@@ -114,12 +93,14 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     const formattedNames = formatNames(firstName, lastName);
-
     if (!formattedNames) {
       return res.status(400).json({ message: "Invalid name format" });
     }
 
-    // Save temp user
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save temp user with status Pending
     const newTempUser = await TempUser.create({
       firstName: formattedNames.firstName,
       lastName: formattedNames.lastName,
@@ -129,7 +110,11 @@ export const signupAndSendOtp = async (req, res) => {
       email,
       role,
       locality,
+      password: hashedPassword
     });
+
+    // Delete any existing OTPs for this user
+    await Otp.deleteMany({ userId: newTempUser._id });
 
     // Generate OTP
     const otpCode = generateOtp();
@@ -151,7 +136,6 @@ export const signupAndSendOtp = async (req, res) => {
 
     // Send OTP to WhatsApp --- 6379498390
     // await sendWhatsapp(mobileNumber, otpCode);
-
     return res.status(201).json({
       message: "Temp user created and OTP sent successfully",
       tempUserId: newTempUser._id,
@@ -159,8 +143,8 @@ export const signupAndSendOtp = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res
-      .status(500)
-      .json({ message: "Server error", error: error.message });
+    .status(500)
+    .json({ message: "Server error", error: error.message });
   }
 };
 
@@ -223,105 +207,145 @@ export const resendOtp = async (req, res) => {
   }
 };
 //  Verify OTP
+
+
 export const verifyOtp = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { tempUserId, otp } = req.body;
 
     if (!tempUserId || !otp) {
       return res
-        .status(400)
-        .json({ message: "TempUser ID and OTP are required" });
+      .status(400)
+      .json({ message: "TempUser ID and OTP are required" });
     }
 
-    // Find the latest OTP record
-    const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({
-      createdAt: -1,
-    });
-
+    // 1️⃣ Find latest OTP record
+    const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({ createdAt: -1 }).session(session);
     if (!otpRecord) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "OTP not found for this user" });
     }
 
-    // Check expiry
+    // 2️⃣ Check expiry
     if (otpRecord.expiresAt < Date.now()) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // Check match
+    // 3️⃣ Check match
     if (otpRecord.otp !== otp) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Mark OTP as verified
+    // 4️⃣ Mark OTP as verified
     otpRecord.isVerified = true;
-    await otpRecord.save();
+    await otpRecord.save({ session });
 
-    // Optionally mark temp user as verified
-    await TempUser.findByIdAndUpdate(tempUserId, { isVerified: true });
+    // 5️⃣ Update TempUser status to "Verified"
+    const tempUser = await TempUser.findByIdAndUpdate(
+      tempUserId,
+      { tempstatus: "Verified" },
+      { new: true, session }
+    );
 
-    // Optionally delete all OTPs for this user
-    // await Otp.deleteMany({ userId: tempUserId });
+    if (!tempUser) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: "TempUser not found" });
+    }
 
-    return res.status(200).json({ message: "OTP verified successfully" });
+    // 6️⃣ Move data to User schema
+    const newUser = await User.create(
+      [
+        {
+          firstName: tempUser.firstName,
+          lastName: tempUser.lastName,
+          username: tempUser.username,
+          gender: tempUser.gender,
+          mobileNumber: tempUser.mobileNumber,
+          email: tempUser.email,
+          password: tempUser.password,
+          role: tempUser.role,
+          locality: tempUser.locality,
+          tempstatus: "Expired", // Set tempstatus as Expired in User
+        },
+      ],
+      { session }
+    );
+
+    // 7️⃣ Delete TempUser
+    await TempUser.findByIdAndDelete(tempUserId).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({ message: "OTP verified and user created successfully", user: newUser[0] });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    await session.abortTransaction();
+    session.endSession();
+    console.error(error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 // Create Password and Move to User
-export const createPassword = async (req, res) => {
-  try {
-    const { tempUserId, password } = req.body;
+// export const createPassword = async (req, res) => {
+//   try {
+//     const { tempUserId, password } = req.body;
 
-    if (!tempUserId || !password) {
-      return res
-        .status(400)
-        .json({ message: "TempUser ID and password are required" });
-    }
+//     if (!tempUserId || !password) {
+//       return res
+//         .status(400)
+//         .json({ message: "TempUser ID and password are required" });
+//     }
 
-    // 1️⃣ Validate password strength
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        message:
-          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character",
-      });
-    }
+//     // 1️⃣ Validate password strength
+//     if (!passwordRegex.test(password)) {
+//       return res.status(400).json({
+//         message:
+//           "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character",
+//       });
+//     }
 
-    // 2️⃣ Check OTP status
-    const otpRecord = await Otp.findOne({ userId: tempUserId });
-    if (!otpRecord || !otpRecord.isVerified) {
-      return res
-        .status(400)
-        .json({ message: "OTP not verified for this user" });
-    }
+//     // 2️⃣ Check OTP status
+//     const otpRecord = await Otp.findOne({ userId: tempUserId });
+//     if (!otpRecord || !otpRecord.isVerified) {
+//       return res
+//         .status(400)
+//         .json({ message: "OTP not verified for this user" });
+//     }
 
-    // 3️⃣ Get temp user data
-    const tempUser = await TempUser.findById(tempUserId);
-    if (!tempUser) {
-      return res.status(404).json({ message: "Temp user not found" });
-    }
+//     // 3️⃣ Get temp user data
+//     const tempUser = await TempUser.findById(tempUserId);
+//     if (!tempUser) {
+//       return res.status(404).json({ message: "Temp user not found" });
+//     }
 
-    // 4️⃣ Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+//     // 4️⃣ Hash password
+//     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 5️⃣ Create final User
-    const newUser = new User({
-      ...tempUser.toObject(),
-      password: hashedPassword,
-    });
+//     // 5️⃣ Create final User
+//     const newUser = new User({
+//       ...tempUser.toObject(),
+//       password: hashedPassword,
+//     });
 
-    await newUser.save();
+//     await newUser.save();
 
-    // 6️⃣ Cleanup - remove TempUser & OTP
-    await TempUser.findByIdAndDelete(tempUserId);
-    await Otp.deleteOne({ userId: tempUserId });
+//     // 6️⃣ Cleanup - remove TempUser & OTP
+//     await TempUser.findByIdAndDelete(tempUserId);
+//     await Otp.deleteOne({ userId: tempUserId });
 
-    return res.status(201).json({ message: "User registered successfully" });
-  } catch (error) {
-    console.error("Error in createPassword:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+//     return res.status(201).json({ message: "User registered successfully" });
+//   } catch (error) {
+//     console.error("Error in createPassword:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 
 export const login = async (req, res) => {
   try {

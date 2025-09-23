@@ -1,7 +1,7 @@
 import express from "express";
 import {
   changePassword,
-  createPassword,
+  // createPassword,
   getAllUsers,
   getMyProfile,
   getUserById,
@@ -72,7 +72,7 @@ router.post("/signup", signupAndSendOtp);
 router.post("/login", login);
 router.post("/resendOtp", resendOtp);
 router.post("/verify-otp", verifyOtp);
-router.post("/create-password", createPassword);
+// router.post("/create-password", createPassword);
 router.put("/update-user/:id", updateUser);
 router.get("/getallusers", getAllUsers);
 router.get("/getuserbyid/:id", getUserById);

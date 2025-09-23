@@ -23,7 +23,7 @@ mongoose.set("strictQuery", false);
 //   .catch((err) =>
 //     console.error("Could not connect to MongoDB... " + err.message)
 //   );
-mongoose.connect('mongodb+srv://flaremindstech:flareminds%401308@cluster0.12wutsc.mongodb.net/emailsender?retryWrites=true&w=majority&appName=Cluster0')
+mongoose.connect('mongodb+srv://flaremindstech:flareminds%401308@cluster0.12wutsc.mongodb.net/Righttouch?retryWrites=true&w=majority&appName=Cluster0')
 .then(() => console.log('Connected to MongoDB Atlas...'))
 .catch(err => console.error('Could not connect to MongoDB...'));
  
