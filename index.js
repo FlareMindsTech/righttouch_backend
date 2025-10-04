@@ -26,6 +26,7 @@ mongoose.set("strictQuery", false);
 mongoose.connect('mongodb+srv://flaremindstech:flareminds%401308@cluster0.12wutsc.mongodb.net/Righttouch?retryWrites=true&w=majority&appName=Cluster0')
 .then(() => console.log('Connected to MongoDB Atlas...'))
 .catch(err => console.error('Could not connect to MongoDB...'));
+
  
 App.get("/", (req, res) => {
   res.send("welcome"); 

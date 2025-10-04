@@ -25,9 +25,10 @@ const tempUserSchema = new mongoose.Schema(
     },
     mobileNumber: {
       type: String,
+      required: [true, "Mobile number is required"],
       unique: true,
-      required: true,
-      match: /^[0-9]{10}$/,
+      match: [/^[0-9]{10}$/, "Mobile number must be 10 digits"],
+      sparse: true,
     },
     email: {
       type: String,
@@ -48,7 +49,7 @@ const tempUserSchema = new mongoose.Schema(
     tempstatus: {
       type: String,
       enum: ["Pending", "Verified", "Expired"],
-      default: "Pending"
+      default: "Pending",
     },
     locality: {
       type: String,
