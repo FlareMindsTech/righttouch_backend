@@ -15,6 +15,11 @@ const ProductBookingSchema = new mongoose.Schema({
     enum: ["active", "cancelled", "completed"],
     default: "active",
   },
+  amount: {
+    type: Number,
+    required: true,
+    min: [0, "Amount must be positive"],
+  },
     createdAt: { type: Date, default: Date.now },
 
 });

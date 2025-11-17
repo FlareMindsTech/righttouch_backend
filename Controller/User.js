@@ -24,8 +24,8 @@ const generateOtp = () => {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password regex example: min 6 chars, 1 letter, 1 number
-const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;       // this one new change
+
 
 // Controller
 export const signupAndSendOtp = async (req, res) => {
@@ -263,7 +263,7 @@ export const verifyOtp = async (req, res) => {
         {
           firstName: tempUser.firstName,
           lastName: tempUser.lastName,
-          username: tempUser.username,
+          username: tempUser.username,  
           gender: tempUser.gender,
           mobileNumber: tempUser.mobileNumber,
           email: tempUser.email,

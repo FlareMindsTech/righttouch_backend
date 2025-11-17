@@ -21,6 +21,12 @@ const serviceSchema = new mongoose.Schema({
     enum: ["active", "cancelled", "completed"],
     default: "active",
   },
+   amount: {
+    type: Number,
+    required: true,
+    min: [0, "Amount must be a positive number"],
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
