@@ -4,18 +4,18 @@ export const sendEmail = async (to, subject, text) => {
   try {
     // Create transporter
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST, // e.g. "smtp.gmail.com"
-      port: process.env.SMTP_PORT, // e.g. 587
+      host:"smtp.gmail.com", // e.g. "smtp.gmail.com"
+      port: "587", // e.g. 587
       secure: false, // true for 465, false for other ports
       auth: {
-        user: process.env.SMTP_USER, // Your email
-        pass: process.env.SMTP_PASS  // Your email password or app password
+        user:"gokila1305@gmail.com", // Your email
+        pass: "dklocgiabjsvozwm"  // Your email password or app password
       }
     });
 
     // Send mail
     const info = await transporter.sendMail({
-      from: `"Service App" <${process.env.SMTP_USER}>`,
+      from: `"Service App" <${"gokila1305@gmail.com"}>`,
       to,
       subject,
       text
