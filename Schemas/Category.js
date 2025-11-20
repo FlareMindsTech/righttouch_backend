@@ -5,7 +5,7 @@ const categorySchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    match: [/^[A-Za-z ]{2,50}$/, "Category name must contain only letters and spaces (2-50 characters)"],
+    match: [/^[A-Za-z &]{2,50}$/, "Category name must contain only letters, spaces, or '&' (2-50 characters)"],
     set: function (value) {
       return value
         .toLowerCase()

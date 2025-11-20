@@ -65,6 +65,7 @@ import {
 } from "../Controller/productBooking.js";
 
 import { Auth } from "../Middleware/Auth.js";
+import { authorizeRoles } from"../Middleware/Auth.js";
 
 const router = express.Router();
 
@@ -74,7 +75,7 @@ router.post("/resendOtp", resendOtp);
 router.post("/verify-otp", verifyOtp);
 // router.post("/create-password", createPassword);
 router.put("/update-user/:id", updateUser);
-router.get("/getallusers", getAllUsers);
+router.get("/getallusers", Auth,authorizeRoles('Owner'), getAllUsers);
 router.get("/getuserbyid/:id", getUserById);
 router.get("/getMyProfile", Auth, getMyProfile);
 

@@ -1,13 +1,11 @@
 import Otp from "../Schemas/Otp.js";
 import TempUser from "../Schemas/TempUser.js";
 import User from "../Schemas/User.js";
-// import User from "../Schemas/User.js";
 import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
-import sendSms from "../utils/sendSMS.js";
-import sendWhatsapp from "../utils/sendWhatsapp.js";
+// import sendSms from "../utils/sendSMS.js";
+// import sendWhatsapp from "../utils/sendWhatsapp.js";
 
 // Generate Username
 const generateUsername = (firstName, mobileNumber) => {
@@ -24,8 +22,8 @@ const generateOtp = () => {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password regex example: min 6 chars, 1 letter, 1 number
-const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;       // this one new change
+
 
 // Controller
 export const signupAndSendOtp = async (req, res) => {
@@ -251,18 +249,23 @@ export const verifyOtp = async (req, res) => {
     }
 
     // 6️⃣ Move data to User schema
-    const newUser = await User.create({
-      firstName: tempUser.firstName,
-      lastName: tempUser.lastName,
-      username: tempUser.username,
-      gender: tempUser.gender,
-      mobileNumber: tempUser.mobileNumber,
-      email: tempUser.email,
-      password: tempUser.password,
-      role: tempUser.role,
-      locality: tempUser.locality,
-      tempstatus: "Expired", // Set tempstatus as Expired in User
-    });
+    const newUser = await User.create(
+      [
+        {
+          firstName: tempUser.firstName,
+          lastName: tempUser.lastName,
+          username: tempUser.username,  
+          gender: tempUser.gender,
+          mobileNumber: tempUser.mobileNumber,
+          email: tempUser.email,
+          password: tempUser.password,
+          role: tempUser.role,
+          locality: tempUser.locality,
+          tempstatus: "Expired", // Set tempstatus as Expired in User
+        },
+      ],
+      { session }
+    );
 
     // 7️⃣ Delete TempUser
     await TempUser.findByIdAndDelete(tempUserId);
