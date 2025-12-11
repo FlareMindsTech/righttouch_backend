@@ -23,7 +23,8 @@ const generateOtp = () => {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password regex example: min 6 chars, 1 letter, 1 number
-const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;       // this one new change
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
+      // this one new change
 
 
 // Controller
