@@ -7,7 +7,9 @@ export const userRating = async (req, res) => {
 
     if (!serviceId || !customerId || !rates || !comment) {
       return res.status(400).json({
+        success: false,
         message: "All fields are required",
+        result: "Missing required fields"
       });
     }
 
@@ -20,13 +22,15 @@ export const userRating = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: "Rating created successfully",
-      data: ratingData,
+      result: ratingData
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message
     });
   }
 };
@@ -55,21 +59,23 @@ export const getAllRatings = async (req, res) => {
         populate: { path: "userId", select: "username email" },
       });
     
-    if (services.length === 0) {
+    if (ratings.length === 0) {
       return res.status(404).json({
+        success: false,
         message: "No rating data found",
+        result: "No ratings match the search criteria"
       });
     }
     return res.status(200).json({
       success: true,
       message: "Ratings fetched successfully",
-      data: ratings,
+      result: ratings
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message
     });
   }
 };
@@ -88,17 +94,19 @@ export const getRatingById = async (req, res) => {
     
     if (rating.length === 0) {
       return res.status(404).json({
+        success: false,
         message: "No rating data found",
+        result: "No rating exists with this ID"
       });
     }
     if (!rating)
       return res
         .status(404)
-        .json({ success: false, message: "Rating not found" });
+        .json({ success: false, message: "Rating not found", result: "No rating exists with this ID" });
 
-    res.status(200).json({ success: true, data: rating });
+    res.status(200).json({ success: true, message: "Rating fetched successfully", result: rating });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, message: "Server Error", result: err.message });
   }
 };
 
@@ -115,11 +123,11 @@ export const updateRating = async (req, res) => {
     if (!rating)
       return res
         .status(404)
-        .json({ success: false, message: "Rating not found" });
+        .json({ success: false, message: "Rating not found", result: "No rating exists with this ID" });
 
-    res.status(200).json({ success: true, data: rating });
+    res.status(200).json({ success: true, message: "Rating updated successfully", result: rating });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, message: "Server Error", result: err.message });
   }
 };
 
@@ -131,12 +139,12 @@ export const deleteRating = async (req, res) => {
     if (!rating)
       return res
         .status(404)
-        .json({ success: false, message: "Rating not found" });
+        .json({ success: false, message: "Rating not found", result: "No rating exists with this ID" });
 
     res
       .status(200)
-      .json({ success: true, message: "Rating deleted successfully" });
+      .json({ success: true, message: "Rating deleted successfully", result: "Rating has been deleted" });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, message: "Server Error", result: err.message });
   }
 };

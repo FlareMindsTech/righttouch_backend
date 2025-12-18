@@ -42,30 +42,32 @@ export const signupAndSendOtp = async (req, res) => {
       req.body;
 
     // Basic validations
-    if (!firstName) return res.status(400).json({ message: "First name is required" });
-    if (!lastName) return res.status(400).json({ message: "Last name is required" });
-    if (!gender) return res.status(400).json({ message: "Gender is required" });
-    if (!mobileNumber) return res.status(400).json({ message: "Mobile number is required" });
-    if (!email) return res.status(400).json({ message: "Email is required" });
-    if (!role) return res.status(400).json({ message: "Role is required" });
-    if (!password) return res.status(400).json({ message: "Password is required" });
+    if (!firstName) return res.status(400).json({ success: false, message: "First name is required", result: "Validation error: First name is missing" });
+    if (!lastName) return res.status(400).json({ success: false, message: "Last name is required", result: "Validation error: Last name is missing" });
+    if (!gender) return res.status(400).json({ success: false, message: "Gender is required", result: "Validation error: Gender is missing" });
+    if (!mobileNumber) return res.status(400).json({ success: false, message: "Mobile number is required", result: "Validation error: Mobile number is missing" });
+    if (!email) return res.status(400).json({ success: false, message: "Email is required", result: "Validation error: Email is missing" });
+    if (!role) return res.status(400).json({ success: false, message: "Role is required", result: "Validation error: Role is missing" });
+    if (!password) return res.status(400).json({ success: false, message: "Password is required", result: "Validation error: Password is missing" });
 
     // Password validation
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
+        success: false,
         message: "Password must be at least 6 characters long and include at least 1 letter and 1 number",
+        result: "Password validation failed"
       });
     }
 
     // Mobile validation
     const mobileRegex = /^[0-9]{10}$/;
     if (!mobileRegex.test(mobileNumber)) {
-      return res.status(400).json({ message: "Invalid mobile number format" });
+      return res.status(400).json({ success: false, message: "Invalid mobile number format", result: "Mobile number must be 10 digits" });
     }
 
     // Email validation
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
+      return res.status(400).json({ success: false, message: "Invalid email format", result: "Email format validation failed" });
     }
 
     // Name formatting & validation
@@ -87,12 +89,12 @@ export const signupAndSendOtp = async (req, res) => {
 
     const formattedNames = formatNames(firstName, lastName);
     if (!formattedNames) {
-      return res.status(400).json({ message: "Invalid name format (letters and spaces only)" });
+      return res.status(400).json({ success: false, message: "Invalid name format (letters and spaces only)", result: "Name validation failed" });
     }
 
     // Role-specific validations
     if (role.toLowerCase() === "technician" && !locality) {
-      return res.status(400).json({ message: "Locality is required for technicians" });
+      return res.status(400).json({ success: false, message: "Locality is required for technicians", result: "Technician locality validation failed" });
     }
 
     // Duplicate checks across TempUser and User
@@ -103,10 +105,10 @@ export const signupAndSendOtp = async (req, res) => {
       User.findOne({ email }),
     ]);
     if (tempByMobile || userByMobile) {
-      return res.status(400).json({ message: "Mobile number already registered" });
+      return res.status(400).json({ success: false, message: "Mobile number already registered", result: "Duplicate mobile number found" });
     }
     if (tempByEmail || userByEmail) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({ success: false, message: "Email already registered", result: "Duplicate email found" });
     }
 
     // Generate username and ensure uniqueness
@@ -148,12 +150,13 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     return res.status(201).json({
+      success: true,
       message: "Temp user created and OTP sent successfully",
-      tempUserId: newTempUser._id,
+      result: { tempUserId: newTempUser._id }
     });
   } catch (error) {
     console.error("signupAndSendOtp error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -163,7 +166,7 @@ export const resendOtp = async (req, res) => {
     const { email, mobileNumber } = req.body;
 
     if (!email && !mobileNumber) {
-      return res.status(400).json({ message: "Email or Mobile number is required" });
+      return res.status(400).json({ success: false, message: "Email or Mobile number is required", result: "Missing required field" });
     }
 
     // Find temp user by email or mobile
@@ -172,7 +175,7 @@ export const resendOtp = async (req, res) => {
     });
 
     if (!tempUser) {
-      return res.status(404).json({ message: "Temp user not found" });
+      return res.status(404).json({ success: false, message: "Temp user not found", result: "No temporary user exists with provided credentials" });
     }
 
     // Remove old OTPs for this temp user
@@ -198,12 +201,13 @@ export const resendOtp = async (req, res) => {
     }
 
     return res.status(200).json({
+      success: true,
       message: "OTP resent successfully",
-      tempUserId: tempUser._id,
+      result: { tempUserId: tempUser._id }
     });
   } catch (error) {
     console.error("resendOtp error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -213,25 +217,25 @@ export const verifyOtp = async (req, res) => {
     const { tempUserId, otp } = req.body;
 
     if (!tempUserId || !otp) {
-      return res.status(400).json({ message: "TempUser ID and OTP are required" });
+      return res.status(400).json({ success: false, message: "TempUser ID and OTP are required", result: "Missing required fields" });
     }
 
     // Get latest OTP for temp user
     const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({ createdAt: -1 });
 
     if (!otpRecord) {
-      return res.status(404).json({ message: "OTP not found for this user" });
+      return res.status(404).json({ success: false, message: "OTP not found for this user", result: "No OTP record exists" });
     }
 
     // Check expiry
     if (otpRecord.expiresAt < Date.now()) {
-      return res.status(400).json({ message: "OTP expired" });
+      return res.status(400).json({ success: false, message: "OTP expired", result: "OTP has expired, please request a new one" });
     }
 
     // Optionally protect from brute force: increment attempts
     if (typeof otpRecord.attempts === "number") {
       if (otpRecord.attempts >= 5) {
-        return res.status(429).json({ message: "Too many attempts. Try again later." });
+        return res.status(429).json({ success: false, message: "Too many attempts. Try again later.", result: "Maximum OTP attempts exceeded" });
       }
     } else {
       otpRecord.attempts = 0;
@@ -240,7 +244,7 @@ export const verifyOtp = async (req, res) => {
     if (otpRecord.otp !== otp) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
       await otpRecord.save();
-      return res.status(400).json({ message: "Invalid OTP" });
+      return res.status(400).json({ success: false, message: "Invalid OTP", result: "OTP does not match" });
     }
 
     // Mark verified
@@ -250,7 +254,7 @@ export const verifyOtp = async (req, res) => {
     // Get temp user
     const tempUser = await TempUser.findById(tempUserId);
     if (!tempUser) {
-      return res.status(404).json({ message: "TempUser not found" });
+      return res.status(404).json({ success: false, message: "TempUser not found", result: "Temporary user does not exist" });
     }
 
     // Check duplicates (email / mobile / username) in final User collection
@@ -263,7 +267,7 @@ export const verifyOtp = async (req, res) => {
       // Cleanup temp and OTPs (we keep temp for debugging but remove OTPs)
       await Otp.deleteMany({ userId: tempUserId });
       await TempUser.findByIdAndDelete(tempUserId);
-      return res.status(400).json({ message: "User already exists in main collection" });
+      return res.status(400).json({ success: false, message: "User already exists in main collection", result: "Duplicate user found" });
     }
 
     // Create final user
@@ -285,12 +289,13 @@ export const verifyOtp = async (req, res) => {
     await Otp.deleteMany({ userId: tempUserId });
 
     return res.status(200).json({
+      success: true,
       message: "OTP verified and user created successfully",
-      user: newUser,
+      result: newUser
     });
   } catch (error) {
     console.error("verifyOtp Error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -301,38 +306,40 @@ export const login = async (req, res) => {
 
     // Validate email
     if (!email) {
-      return res.status(400).json({ message: "Email is required" });
+      return res.status(400).json({ success: false, message: "Email is required", result: "Email field is missing" });
     }
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
+      return res.status(400).json({ success: false, message: "Invalid email format", result: "Email validation failed" });
     }
 
     // Validate password
     if (!password) {
-      return res.status(400).json({ message: "Password is required" });
+      return res.status(400).json({ success: false, message: "Password is required", result: "Password field is missing" });
     }
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
+        success: false,
         message: "Password must be at least 6 characters long, contain at least one letter and one number",
+        result: "Password validation failed"
       });
     }
 
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this email" });
     }
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid password" });
+      return res.status(400).json({ success: false, message: "Invalid password", result: "Password does not match" });
     }
 
     // Generate JWT (with expiry)
     if (!process.env.JWT_SECRET) {
       console.error("JWT_SECRET is not set in environment variables");
-      return res.status(500).json({ message: "Server configuration error" });
+      return res.status(500).json({ success: false, message: "Server configuration error", result: "JWT secret not configured" });
     }
 
     const token = jwt.sign(
@@ -342,13 +349,13 @@ export const login = async (req, res) => {
     );
 
     return res.status(200).json({
+      success: true,
       message: "Login successful",
-      token,
-      role: user.role,
+      result: { token, role: user.role }
     });
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -361,20 +368,20 @@ export const updateUser = async (req, res) => {
     // Find user
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });
     }
 
     // Validate names if provided
     if (firstName) {
       const nameRegex = /^[A-Za-z ]+$/;
       if (!nameRegex.test(firstName)) {
-        return res.status(400).json({ message: "Invalid first name format" });
+        return res.status(400).json({ success: false, message: "Invalid first name format", result: "First name validation failed" });
       }
     }
     if (lastName) {
       const nameRegex = /^[A-Za-z ]+$/;
       if (!nameRegex.test(lastName)) {
-        return res.status(400).json({ message: "Invalid last name format" });
+        return res.status(400).json({ success: false, message: "Invalid last name format", result: "Last name validation failed" });
       }
     }
 
@@ -389,12 +396,13 @@ export const updateUser = async (req, res) => {
     }).select("-password");
 
     res.status(200).json({
+      success: true,
       message: "User updated successfully",
-      user: updatedUser,
+      result: updatedUser
     });
   } catch (error) {
     console.error("updateUser error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -450,11 +458,11 @@ export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findById(id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
+    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });
+    res.status(200).json({ success: true, message: "User fetched successfully", result: user });
   } catch (error) {
     console.error("getUserById error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -462,11 +470,11 @@ export const getUserById = async (req, res) => {
 export const getMyProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
+    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });
+    res.status(200).json({ success: true, message: "Profile fetched successfully", result: user });
   } catch (error) {
     console.error("getMyProfile error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -476,38 +484,39 @@ export const changePassword = async (req, res) => {
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({ success: false, message: "Old and new passwords are required" });
+      return res.status(400).json({ success: false, message: "Old and new passwords are required", result: "Missing required fields" });
     }
 
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
         success: false,
         message: "Password must be at least 6 characters long and include at least 1 letter and 1 number",
+        result: "Password validation failed"
       });
     }
 
     const user = await User.findById(req.user.userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });
     }
 
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
-      return res.status(400).json({ success: false, message: "Old password is incorrect" });
+      return res.status(400).json({ success: false, message: "Old password is incorrect", result: "Old password does not match" });
     }
 
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
     if (isSamePassword) {
-      return res.status(400).json({ success: false, message: "New password cannot be same as old password" });
+      return res.status(400).json({ success: false, message: "New password cannot be same as old password", result: "Password must be different from current password" });
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    return res.status(200).json({ success: true, message: "Password changed successfully" });
+    return res.status(200).json({ success: true, message: "Password changed successfully", result: "Password has been changed successfully" });
   } catch (error) {
     console.error("changePassword error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -515,10 +524,10 @@ export const changePassword = async (req, res) => {
 export const requestPasswordResetOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
+    if (!email) return res.status(400).json({ success: false, message: "Email is required", result: "Email field is missing" });
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this email" });
 
     // Remove old OTPs
     await Otp.deleteMany({ userId: user._id });
@@ -535,10 +544,10 @@ export const requestPasswordResetOtp = async (req, res) => {
 
     await sendEmail(email, "Your Password Reset OTP", `Your OTP is: ${otpCode}`);
 
-    res.status(200).json({ message: "OTP sent to your email" });
+    res.status(200).json({ success: true, message: "OTP sent to your email", result: "Password reset OTP sent successfully" });
   } catch (error) {
     console.error("requestPasswordResetOtp error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -548,30 +557,30 @@ export const verifyPasswordResetOtp = async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ message: "Email and OTP are required" });
+      return res.status(400).json({ success: false, message: "Email and OTP are required", result: "Missing required fields" });
     }
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this email" });
 
     const otpRecord = await Otp.findOne({ userId: user._id }).sort({ createdAt: -1 });
-    if (!otpRecord) return res.status(400).json({ message: "OTP not found for this user" });
+    if (!otpRecord) return res.status(400).json({ success: false, message: "OTP not found for this user", result: "No OTP record exists" });
 
-    if (otpRecord.expiresAt < Date.now()) return res.status(400).json({ message: "OTP expired" });
+    if (otpRecord.expiresAt < Date.now()) return res.status(400).json({ success: false, message: "OTP expired", result: "OTP has expired" });
 
     if (otpRecord.otp !== otp) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
       await otpRecord.save();
-      return res.status(400).json({ message: "Invalid OTP" });
+      return res.status(400).json({ success: false, message: "Invalid OTP", result: "OTP does not match" });
     }
 
     otpRecord.isVerified = true;
     await otpRecord.save();
 
-    res.status(200).json({ message: "OTP verified successfully" });
+    res.status(200).json({ success: true, message: "OTP verified successfully", result: "OTP verification successful" });
   } catch (error) {
     console.error("verifyPasswordResetOtp error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -581,25 +590,27 @@ export const resetPassword = async (req, res) => {
     const { email, newPassword } = req.body;
 
     if (!email || !newPassword) {
-      return res.status(400).json({ message: "Email and new password are required" });
+      return res.status(400).json({ success: false, message: "Email and new password are required", result: "Missing required fields" });
     }
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this email" });
 
     const otpRecord = await Otp.findOne({ userId: user._id }).sort({ createdAt: -1 });
     if (!otpRecord || !otpRecord.isVerified) {
-      return res.status(400).json({ message: "OTP not verified for this user" });
+      return res.status(400).json({ success: false, message: "OTP not verified for this user", result: "OTP verification required" });
     }
 
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
+        success: false,
         message: "Password must be at least 6 characters long and include at least 1 letter and 1 number",
+        result: "Password validation failed"
       });
     }
 
     const isMatchNewAndOld = await bcrypt.compare(newPassword, user.password);
-    if (isMatchNewAndOld) return res.status(400).json({ message: "New password must be different from old password" });
+    if (isMatchNewAndOld) return res.status(400).json({ success: false, message: "New password must be different from old password", result: "Password cannot be the same as old password" });
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
@@ -608,10 +619,10 @@ export const resetPassword = async (req, res) => {
     // Cleanup OTP
     await Otp.deleteOne({ userId: user._id });
 
-    res.status(200).json({ message: "Password reset successfully" });
+    res.status(200).json({ success: true, message: "Password reset successfully", result: "Password has been reset successfully" });
   } catch (error) {
     console.error("resetPassword error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };
 
@@ -621,11 +632,11 @@ export const deleteUser = async (req, res) => {
     const { id } = req.params;
 
     const user = await User.findByIdAndDelete(id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });
 
-    res.status(200).json({ message: "User deleted successfully" });
+    res.status(200).json({ success: true, message: "User deleted successfully", result: "User has been deleted" });
   } catch (error) {
     console.error("deleteUser error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: error.message });
   }
 };

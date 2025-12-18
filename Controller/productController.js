@@ -26,7 +26,9 @@ export const product = async (req, res) => {
       inStock === undefined
     ) {
       return res.status(400).json({
+        success: false,
         message: "All fields are required",
+        result: "Missing required fields"
       });
     }
 
@@ -34,7 +36,9 @@ export const product = async (req, res) => {
     const matchProduct = await Product.findOne({ productName });
     if (matchProduct) {
       return res.status(400).json({
+        success: false,
         message: "Product already registered",
+        result: "Duplicate product found"
       });
     }
 
@@ -55,8 +59,9 @@ export const product = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: "Product created successfully",
-      data: productData,
+      result: productData
     });
   } catch (error) {
     res.status(500).json({
@@ -93,18 +98,22 @@ export const getProduct = async (req, res) => {
 
     if (getProduct.length === 0) {
       return res.status(404).json({
+        success: false,
         message: "No product data found",
+        result: "No products match the search criteria"
       });
     }
 
     return res.status(200).json({
+      success: true,
       message: "Fetch data successfully",
-      data: getProduct,
+      result: getProduct
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message
     });
   }
 };
@@ -116,18 +125,22 @@ export const getOneProduct = async (req, res) => {
 
     if (!getOneProduct) {
       return res.status(404).json({
+        success: false,
         message: "Product not found",
+        result: "No product exists with this ID"
       });
     }
 
     res.status(200).json({
+      success: true,
       message: "Fetch data successfully",
-      data: getOneProduct,
+      result: getOneProduct
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message
     });
   }
 };
@@ -138,17 +151,22 @@ export const deleteProduct = async (req, res) => {
     const deleteProductDate = await Product.findByIdAndDelete(id);
     if (!deleteProductDate) {
       return res.status(404).json({
+        success: false,
         message: "Product not found",
+        result: "No product exists with this ID"
       });
     }
 
     res.status(200).json({
+      success: true,
       message: "successfully delete product",
+      result: "Product has been deleted"
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message
     });
   }
 };
@@ -157,7 +175,7 @@ export const updateProduct = async (req, res) => {
   try {
     // req.body exists
     if (!req.body) {
-      return res.status(400).json({ message: "No data provided to update" });
+      return res.status(400).json({ success: false, message: "No data provided to update", result: "Missing request body" });
     }
 
     const {
@@ -212,17 +230,19 @@ export const updateProduct = async (req, res) => {
     );
 
     if (!updateData) {
-      return res.status(404).json({ message: "No Product Found" });
+      return res.status(404).json({ success: false, message: "No Product Found", result: "No product exists with this ID" });
     }
 
     res.status(200).json({
+      success: true,
       message: "Product updated successfully",
-      data: updateData,
+      result: updateData
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message
     });
   }
 };
