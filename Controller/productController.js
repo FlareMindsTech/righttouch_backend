@@ -155,69 +155,78 @@ export const deleteProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    // req.body exists
-    if (!req.body) {
-      return res.status(400).json({ message: "No data provided to update" });
+    const productId = req.params.id;
+
+    const existingProduct = await Product.findById(productId);
+    if (!existingProduct) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
-    const {
-      productName,
-      productDescription,
-      productPrice,
-      productDiscountPercentage,
-      productGst,
-      productCount,
-      inStock,
-      productImage,
-      productBrand,
-      productFeatures,
-      warranty,
-    } = req.body;
+    // ✅ Allow all updatable fields
+    const allowedFields = [
+      "productName",
+      "productDescription",
+      "productPrice",
+      "productDiscountPercentage",
+      "productGst",
+      "productCount",
+      "inStock",
+      "outStock",
+      "productImage",
+      "productBrand",
+      "productFeatures",
+      "warranty",
+    ];
 
-    // Discount calculation
+    const updatePayload = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updatePayload[field] = req.body[field];
+      }
+    });
+
+    // ✅ Stock status
+    if (updatePayload.inStock !== undefined) {
+      updatePayload.status =
+        updatePayload.inStock === 0 ? "Unavailable" : "Available";
+    }
+
+    // ✅ Price calculations (safe fallback)
+    const price =
+      updatePayload.productPrice ?? existingProduct.productPrice;
+    const discount =
+      updatePayload.productDiscountPercentage ??
+      existingProduct.productDiscountPercentage;
+    const gst =
+      updatePayload.productGst ?? existingProduct.productGst;
+
     let discountAmount = 0;
-    let discountedPrice = productPrice;
+    let discountedPrice = price;
 
-    if (productDiscountPercentage > 0) {
-      discountAmount = (productPrice * productDiscountPercentage) / 100;
-      discountedPrice = productPrice - discountAmount;
+    if (discount > 0) {
+      discountAmount = (price * discount) / 100;
+      discountedPrice = price - discountAmount;
     }
 
-    // GST calculation
-    const gstAmount = (discountedPrice * productGst) / 100;
+    const gstAmount = (discountedPrice * gst) / 100;
     const finalPrice = discountedPrice + gstAmount;
 
-    // Update product
-    const updateData = await Product.findByIdAndUpdate(
-      req.params.id,
-      {
-        productName,
-        productDescription,
-        productPrice,
-        productDiscountPercentage,
-        productGst,
-        productCount,
-        inStock,
-        productImage,
-        productBrand,
-        productFeatures,
-        warranty,
-        status: inStock === 0 ? "Unavailable" : "Available",
-        discountAmount,
-        discountedPrice,
-        gstAmount,
-        finalPrice,
-      },
-      { new: true, runValidators: true } // return updated doc & validate
-    );
+    updatePayload.discountAmount = discountAmount;
+    updatePayload.discountedPrice = discountedPrice;
+    updatePayload.gstAmount = gstAmount;
+    updatePayload.finalPrice = finalPrice;
 
-    if (!updateData) {
-      return res.status(404).json({ message: "No Product Found" });
-    }
+    // ✅ Update product
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      updatePayload,
+      { new: true, runValidators: true }
+    );
 
     res.status(200).json({
       message: "Product updated successfully",
-      data: updateData,
+      data: updatedProduct,
     });
   } catch (error) {
     res.status(500).json({
@@ -226,3 +235,4 @@ export const updateProduct = async (req, res) => {
     });
   }
 };
+

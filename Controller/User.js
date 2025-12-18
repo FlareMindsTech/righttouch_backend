@@ -4,7 +4,6 @@ import User from "../Schemas/User.js";
 import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 
 // ---------- Helpers ----------
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
