@@ -2,1263 +2,357 @@
 	"info": {
 		"_postman_id": "c5f6f7c5-e9fb-423a-a8dc-5cacc81350f2",
 		"name": "rightTouch",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "48380987",
-		"_collection_link": "https://flareminds-righttouch.postman.co/workspace/FlareMinds-rightTouch~99ede336-ca1d-41cc-8fae-ef887708d336/collection/40808509-c5f6f7c5-e9fb-423a-a8dc-5cacc81350f2?action=share&source=collection_link&creator=48380987"
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Signup",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"gender\": \"Male\",\n  \"mobileNumber\": \"9876543210\",\n  \"email\": \"john.doe@example.com\",\n  \"role\": \"Customer\",\n  \"password\": \"Password@123\",\n  \"locality\": \"New York\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/signup",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"signup"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify OTP (Signup)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempUserId\": \"TEMP_USER_ID_HERE\",\n  \"otp\": \"1234\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/verify-otp",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"verify-otp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"Password@123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/login",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Resend OTP",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/resendOtp",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"resendOtp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Request Password Reset OTP",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/requestPasswordResetOtp",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"requestPasswordResetOtp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Password Reset OTP",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"otp\": \"1234\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/verifyPasswordResetOtp",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"verifyPasswordResetOtp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"newPassword\": \"NewPassword@123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/resetPassword",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"resetPassword"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password (Logged In)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"oldPassword\": \"Password@123\",\n  \"newPassword\": \"NewPassword@456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/changepassword",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"changepassword"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
 		{
 			"name": "User",
 			"item": [
 				{
-					"name": "Reports",
-					"item": [
-						{
-							"name": "Report",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1NzMxMzk1OCwiZXhwIjoxNzU3NDAwMzU4fQ.X2TfpNDe25gwFxsvRCJk-PmO8Pz8sVAgwMUzD522mxw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"TechnicianId\" : \"68bda3b50d7573700f2d5efa\" , \r\n    \"customerId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"serviceId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"complaint\" : \"he is working very slow\" , \r\n    \"image\"  :\"hi\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/report",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"report"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getReportById",
-							"request": {
-								"method": "GET",
-								"header": []
-							},
-							"response": []
-						},
-						{
-							"name": "getAll",
-							"request": {
-								"method": "GET",
-								"header": []
-							},
-							"response": []
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getallusers",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getallusers"
+							]
 						}
-					]
+					},
+					"response": []
 				},
 				{
-					"name": "Category",
-					"item": [
-						{
-							"name": "GetAll",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "http://localhost:2025/api/user/getAllcategory",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"getAllcategory"
-									]
+					"name": "Get User By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getuserbyid/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getuserbyid",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "USER_ID"
 								}
-							},
-							"response": []
-						},
-						{
-							"name": "category",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1NzMxMzk1OCwiZXhwIjoxNzU3NDAwMzU4fQ.X2TfpNDe25gwFxsvRCJk-PmO8Pz8sVAgwMUzD522mxw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"category\" : \"Home Services\",\r\n    \"description\" : \"This is service All home services\",\r\n    \"image\" : \"service\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/category",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"category"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "GetByIdCategories",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "http://localhost:2025/api/user/getByIdcategory/:id",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"getByIdcategory",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": ""
-										}
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Update",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"category\": \"Repair\",\r\n   \"description\" : \"\", \r\n   \"image\" : \"\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "http://localhost:2025/api/user/updatecategory/68bbdf94f373d2a0235efc07",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"updatecategory",
-										"68bbdf94f373d2a0235efc07"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Delete",
-							"request": {
-								"method": "DELETE",
-								"header": [],
-								"url": {
-									"raw": "http://localhost:2025/api/user/deletecategory/:id",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"deletecategory",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": ""
-										}
-									]
-								}
-							},
-							"response": []
+							]
 						}
-					]
+					},
+					"response": []
 				},
 				{
-					"name": "Services",
-					"item": [
-						{
-							"name": "getAllServices",
-							"protocolProfileBehavior": {
-								"disableBodyPruning": true
-							},
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "GET",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1NzMxMzk1OCwiZXhwIjoxNzU3NDAwMzU4fQ.X2TfpNDe25gwFxsvRCJk-PmO8Pz8sVAgwMUzD522mxw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\" , \r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"categoryId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"serviceName\" : \"Painting\" ,\r\n    \"description\" : \"Painting the wall\", \r\n    \"cost\" : 500, \r\n    \"quantity\" : 1, \r\n    \"active\"  :\"active\", \r\n    \"status\" : \"waithing\", \r\n    \"duration\" : \"2\"\r\n}"
-								},
-								"url": {
-									"raw": "http://localhost:2025/api/user/getAllServices",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"getAllServices"
-									]
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Johnny\",\n  \"lastName\": \"D\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
 								}
-							},
-							"response": []
+							}
 						},
-						{
-							"name": "getOneServices",
-							"protocolProfileBehavior": {
-								"disableBodyPruning": true
-							},
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "GET",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1NzMxMzk1OCwiZXhwIjoxNzU3NDAwMzU4fQ.X2TfpNDe25gwFxsvRCJk-PmO8Pz8sVAgwMUzD522mxw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\" , \r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"categoryId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"serviceName\" : \"Painting\" ,\r\n    \"description\" : \"Painting the wall\", \r\n    \"cost\" : 500, \r\n    \"quantity\" : 1, \r\n    \"active\"  :\"active\", \r\n    \"status\" : \"waithing\", \r\n    \"duration\" : \"2\"\r\n}"
-								},
-								"url": {
-									"raw": "http://localhost:2025/api/user/getServiceById/:id",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"getServiceById",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": ""
-										}
-									]
+						"url": {
+							"raw": "{{baseURL}}/api/user/update-user/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"update-user",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "USER_ID"
 								}
-							},
-							"response": []
-						},
-						{
-							"name": "service",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1NzMxMzk1OCwiZXhwIjoxNzU3NDAwMzU4fQ.X2TfpNDe25gwFxsvRCJk-PmO8Pz8sVAgwMUzD522mxw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\" , \r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"categoryId\" : \"68b5c0d93f1f861f9eb58a4c\" , \r\n    \"serviceName\" : \"Painting\" ,\r\n    \"description\" : \"Painting the wall\", \r\n    \"cost\" : 500, \r\n    \"quantity\" : 1, \r\n    \"active\"  :\"active\", \r\n    \"status\" : \"waithing\", \r\n    \"duration\" : \"2\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/service",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"service"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Update",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"serviceName\" : \"cleaning\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "http://localhost:2025/api/user/updateService/68bbdf94f373d2a0235efc07",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"updateService",
-										"68bbdf94f373d2a0235efc07"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Delete",
-							"request": {
-								"method": "DELETE",
-								"header": [],
-								"url": {
-									"raw": "http://localhost:2025/api/user/deleteService/:id",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"deleteService",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": ""
-										}
-									]
-								}
-							},
-							"response": []
+							]
 						}
-					]
+					},
+					"response": []
 				},
 				{
-					"name": "Rating",
-					"item": [
-						{
-							"name": "getAllRatings",
-							"request": {
-								"method": "GET",
-								"header": []
-							},
-							"response": []
-						},
-						{
-							"name": "rating",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1NzMxMzk1OCwiZXhwIjoxNzU3NDAwMzU4fQ.X2TfpNDe25gwFxsvRCJk-PmO8Pz8sVAgwMUzD522mxw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n      \"technicianId\" : \"68be8acfe09e23d0f95d713d\", \r\n      \"serviceId\" : \"68be8acfe09e23d0f95d713d\", \r\n      \"customerId\" : \"68b5c0d93f1f861f9eb58a4c\", \r\n      \"rates\" : 4, \r\n      \"comment\" : \"he is good\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/rating",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"rating"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getRatingById",
-							"request": {
-								"method": "GET",
-								"header": []
-							},
-							"response": []
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getMyProfile",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getMyProfile"
+							]
 						}
-					]
-				},
-				{
-					"name": "Service Book",
-					"item": [
-						{
-							"name": "ServiceUpdate",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\",\r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\",\r\n    \"categoryId\" : \"68c1040ebca5bd8803a9c9f1\",\r\n    \"serviceId\" : \"68be8acfe09e23d0f95d713d\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/serviceBookUpdate/68c25eb1655066caa1c82bbe",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"serviceBookUpdate",
-										"68c25eb1655066caa1c82bbe"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "serviceBook",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\",\r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\",\r\n    \"categoryId\" : \"68c1040ebca5bd8803a9c9f1\",\r\n    \"serviceId\" : \"68be8acfe09e23d0f95d713d\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/serviceBook/68be8acfe09e23d0f95d713d",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"serviceBook",
-										"68be8acfe09e23d0f95d713d"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "serviceBookingCancel",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/serviceBookingCancel/68c25eb1655066caa1c82bbe",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"serviceBookingCancel",
-										"68c25eb1655066caa1c82bbe"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getAllServiceBooking",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseURL}}/api/user/getAllServiceBooking",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"getAllServiceBooking"
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "product",
-					"item": [
-						{
-							"name": "product",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n      \"productName\" : \"Solar Project\",\r\n      \"productDescription\" : \"Generate eco-friendly electricity using solar panels\",\r\n      \"productPrice\" : \"1200000\", \r\n      \"productDiscountPrice\" : \"5000\", \r\n      \"productImage\" : \"image\",\r\n      \"productBrand\" : \"dhi\",\r\n      \"productFeatures\" : \"Solar PV Panels: Convert sunlight into electricity.\",\r\n      \"status\" : \"Available\",\r\n      \"warranty\" : \"2\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/product",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"product"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getProduct",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseURL}}/api/user/getProduct",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"getProduct"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getOneProduct",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "http://localhost:2025/api/user/getOneProduct/68c28a18635dac821f2ec291",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"getOneProduct",
-										"68c28a18635dac821f2ec291"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "deleteProduct",
-							"request": {
-								"method": "DELETE",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n      \"productName\" : \"Solar Project\",\r\n      \"productDescription\" : \"Generate eco-friendly electricity using solar panels\",\r\n      \"productPrice\" : \"1200000\", \r\n      \"productDiscountPrice\" : \"5000\", \r\n      \"productImage\" : \"image\",\r\n      \"productBrand\" : \"dhi\",\r\n      \"productFeatures\" : \"Solar PV Panels: Convert sunlight into electricity.\",\r\n      \"status\" : \"Available\",\r\n      \"warranty\" : \"2\"\r\n}"
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/deleteProduct/68c3bc034580e50921481e7f",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"deleteProduct",
-										"68c3bc034580e50921481e7f"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "updateProduct",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n      \"productName\" : \"Solar Project Dm\",\r\n      \"productDescription\" : \"Generate eco-friendly electricity using solar panels\",\r\n      \"productPrice\" : \"100\", \r\n      \"productDiscountPercentage\" : \"0\", \r\n      \"productGst\" : \"18\",\r\n      \"productCount\" : \"1\",\r\n      \"inStock\" : \"0\",\r\n      \"productImage\" : \"image\",\r\n      \"productBrand\" : \"dhi\",\r\n      \"productFeatures\" : \"Solar PV Panels: Convert sunlight into electricity.\",\r\n      \"status\" : \"Available\",\r\n      \"warranty\" : \"2\"\r\n}"
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/updateProduct/68c3bbe94580e50921481e7c",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"updateProduct",
-										"68c3bbe94580e50921481e7c"
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "LoginORSignIn",
-					"item": [
-						{
-							"name": "SignUp",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n   \"firstName\":\"Kartheeshwaran g\",\r\n    \"lastName\": \"G\", \r\n    \"gender\" : \"Male\", \r\n    \"mobileNumber\" : \"8110913778\",\r\n    \"email\" : \"sivakumarbca@gmail.com\", \r\n    \"role\" : \"Developer\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/signup",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"signup"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "verify-otp",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"tempUserId\" : \"68ca474f69dcf506abab0f16\", \r\n    \"otp\" : \"1204\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "http://192.168.1.20:2025/api/user/verify-otp",
-									"protocol": "http",
-									"host": [
-										"192",
-										"168",
-										"1",
-										"20"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"verify-otp"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Login",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"email\" : \"dwaranp@gmail.com\",\r\n    \"password\" : \"Dhisha@123\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/login",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"login"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "resendOtp",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n  \"email\": \"sivakumarbca@gmail.com\",\r\n  \"mobileNumber\": \"8110913778\"\r\n}\r\n",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/resendOtp",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"resendOtp"
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Password",
-					"item": [
-						{
-							"name": "create-password",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"tempUserId\" : \"68ca474f69dcf506abab0f16\",\r\n    \"password\" : \"Karthee@123a\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/create-password",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"create-password"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "changepassword",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "PUT",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGNhNDc0ZjY5ZGNmNTA2YWJhYjBmMTYiLCJlbWFpbCI6InNpdmFrdW1hcmJjYUBnbWFpbC5jb20iLCJyb2xlIjoiRGV2ZWxvcGVyIiwiaWF0IjoxNzU4MDg3NTU3LCJleHAiOjE3NTgxNzM5NTd9.DUM9fkAfedna4uOwAUjDgqxPUicRBjhFRSc_PmzElaw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"oldPassword\" : \"Karthee@198v\", \r\n    \"newPassword\" : \"Karthesh@134\"\r\n }",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/changepassword",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"changepassword"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "requestPasswordResetOtp",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGNhNDc0ZjY5ZGNmNTA2YWJhYjBmMTYiLCJlbWFpbCI6InNpdmFrdW1hcmJjYUBnbWFpbC5jb20iLCJyb2xlIjoiRGV2ZWxvcGVyIiwiaWF0IjoxNzU4MDg3NTU3LCJleHAiOjE3NTgxNzM5NTd9.DUM9fkAfedna4uOwAUjDgqxPUicRBjhFRSc_PmzElaw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"email\" : \"sivakumarbca@gmail.com\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/requestPasswordResetOtp",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"requestPasswordResetOtp"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "verifyPasswordResetOtp",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGNhNDc0ZjY5ZGNmNTA2YWJhYjBmMTYiLCJlbWFpbCI6InNpdmFrdW1hcmJjYUBnbWFpbC5jb20iLCJyb2xlIjoiRGV2ZWxvcGVyIiwiaWF0IjoxNzU4MDg3NTU3LCJleHAiOjE3NTgxNzM5NTd9.DUM9fkAfedna4uOwAUjDgqxPUicRBjhFRSc_PmzElaw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"email\" : \"sivakumarbca@gmail.com\", \r\n    \"otp\" : \"646172\" \r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/verifyPasswordResetOtp",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"verifyPasswordResetOtp"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "resetPassword",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "POST",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGNhNDc0ZjY5ZGNmNTA2YWJhYjBmMTYiLCJlbWFpbCI6InNpdmFrdW1hcmJjYUBnbWFpbC5jb20iLCJyb2xlIjoiRGV2ZWxvcGVyIiwiaWF0IjoxNzU4MDg3NTU3LCJleHAiOjE3NTgxNzM5NTd9.DUM9fkAfedna4uOwAUjDgqxPUicRBjhFRSc_PmzElaw",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n     \"email\" : \"sivakumarbca@gmail.com\", \r\n    \"newPassword\" : \"Karthee@198v\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/resetPassword",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"resetPassword"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "New Request",
-							"request": {
-								"method": "GET",
-								"header": []
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "User Data",
-					"item": [
-						{
-							"name": "getallusers",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "http://192.168.1.20:2025/api/user/getallusers",
-									"protocol": "http",
-									"host": [
-										"192",
-										"168",
-										"1",
-										"20"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"getallusers"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getuserbyid",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseURL}}/api/user/getuserbyid/68b5c0d93f1f861f9eb58a4c",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"getuserbyid",
-										"68b5c0d93f1f861f9eb58a4c"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "update-user",
-							"request": {
-								"auth": {
-									"type": "noauth"
-								},
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"email\" : \"\",\r\n    \"mobileNumber\" : \"\", \r\n    \"firstName\" : \"\", \r\n    \"lastName\" : \"\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "http://localhost:7372/api/user/update-user/:id",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "7372",
-									"path": [
-										"api",
-										"user",
-										"update-user",
-										":id"
-									],
-									"variable": [
-										{
-											"key": "id",
-											"value": ""
-										}
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getMyProfile",
-							"protocolProfileBehavior": {
-								"disableBodyPruning": true
-							},
-							"request": {
-								"auth": {
-									"type": "bearer",
-									"bearer": [
-										{
-											"key": "token",
-											"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1Njc4NzE3MywiZXhwIjoxNzU2ODczNTczfQ.Z9247bJlgBWGPjdMcwTy0coKG0h3oKUqxZoaHrn4jH0",
-											"type": "string"
-										}
-									]
-								},
-								"method": "GET",
-								"header": [
-									{
-										"key": "token",
-										"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGI1YzBkOTNmMWY4NjFmOWViNThhNGMiLCJlbWFpbCI6ImR3YXJhbnBAZ21haWwuY29tIiwicm9sZSI6IkRldmVsb3BlciIsImlhdCI6MTc1Njc4NzE3MywiZXhwIjoxNzU2ODczNTczfQ.Z9247bJlgBWGPjdMcwTy0coKG0h3oKUqxZoaHrn4jH0",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/getMyProfile",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"getMyProfile"
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "productBooking",
-					"item": [
-						{
-							"name": "productUpdate",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\",\r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\",\r\n    \"categoryId\" : \"68c1040ebca5bd8803a9c9f1\",\r\n    \"serviceId\" : \"68be8acfe09e23d0f95d713d\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "http://localhost:2025/api/user/serviceBookUpdate/68c25eb1655066caa1c82bbe",
-									"protocol": "http",
-									"host": [
-										"localhost"
-									],
-									"port": "2025",
-									"path": [
-										"api",
-										"user",
-										"serviceBookUpdate",
-										"68c25eb1655066caa1c82bbe"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "productBook",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\r\n    \"technicianId\" : \"68bda3b50d7573700f2d5efa\",\r\n    \"userId\" : \"68b5c0d93f1f861f9eb58a4c\",\r\n    \"categoryId\" : \"68c1040ebca5bd8803a9c9f1\",\r\n    \"serviceId\" : \"68be8acfe09e23d0f95d713d\"\r\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/serviceBook/68be8acfe09e23d0f95d713d",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"serviceBook",
-										"68be8acfe09e23d0f95d713d"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "productBookingCancel",
-							"request": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseURL}}/api/user/serviceBookingCancel/68c25eb1655066caa1c82bbe",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"serviceBookingCancel",
-										"68c25eb1655066caa1c82bbe"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "getAllProductBooking",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseURL}}/api/user/getAllServiceBooking",
-									"host": [
-										"{{baseURL}}"
-									],
-									"path": [
-										"api",
-										"user",
-										"getAllServiceBooking"
-									]
-								}
-							},
-							"response": []
-						}
-					]
+					},
+					"response": []
 				}
 			]
 		},
@@ -1266,16 +360,13 @@
 			"name": "Technician",
 			"item": [
 				{
-					"name": "technicianData",
+					"name": "Create Technician Data",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"userId\": \"68bd8a4248c6b5d5997fc3cb\",\r\n  \"panNumber\": \"ABCDE1234F\",\r\n  \"aadhaarNumber\": \"142453268596\",\r\n  \"passportNumber\": \"\",\r\n  \"drivingLicenseNumber\": \"TN10 20202020202\",\r\n  \"balance\": 1000,\r\n  \"status\": \"active\",\r\n  \"report\": null,\r\n  \"rating\": null,\r\n  \"experienceYear\": 1,\r\n  \"experienceMonths\": 6,\r\n  \"totalJobCompleted\": 0,\r\n  \"tracking\": \"waiting\",\r\n  \"image\": \"\"\r\n}\r\n",
+							"raw": "{\n  \"userId\": \"USER_ID_HERE\",\n  \"panNumber\": \"ABCDE1234F\",\n  \"aadhaarNumber\": \"123456789012\",\n  \"drivingLicenseNumber\": \"DL12 12345678901\",\n  \"experienceYear\": 5,\n  \"experienceMonths\": 2,\n  \"locality\": \"Downtown\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1297,7 +388,7 @@
 					"response": []
 				},
 				{
-					"name": "TechnicianAll",
+					"name": "Get All Technicians",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -1316,12 +407,12 @@
 					"response": []
 				},
 				{
-					"name": "oneTechnician",
+					"name": "Get Technician By ID",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseURL}}/api/technician/technicianById/68bd8eb430308865ce837f00",
+							"raw": "{{baseURL}}/api/technician/technicianById/:id",
 							"host": [
 								"{{baseURL}}"
 							],
@@ -1329,20 +420,26 @@
 								"api",
 								"technician",
 								"technicianById",
-								"68bd8eb430308865ce837f00"
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "TECHNICIAN_ID"
+								}
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "technicianUpdate",
+					"name": "Update Technician",
 					"request": {
 						"method": "PUT",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"userId\": \"68bd8a4248c6b5d5997fc3cb\",\r\n  \"panNumber\": \"ABCDE1234F\",\r\n  \"aadhaarNumber\": \"142453268596\",\r\n  \"passportNumber\": \"\",\r\n  \"drivingLicenseNumber\": \"TN10 20202020202\",\r\n  \"balance\": 1000,\r\n  \"status\": \"active\",\r\n  \"report\": \"68be7ca532b1a96a18fa7e82\",\r\n  \"rating\": \"68bf0a478964cadacb9adb5f\",\r\n  \"experienceYear\": 1,\r\n  \"experienceMonths\": 6,\r\n  \"totalJobCompleted\": 0,\r\n  \"tracking\": \"waiting\",\r\n  \"image\": \"\"\r\n}\r\n",
+							"raw": "{\n  \"experienceYear\": 6,\n  \"experienceMonths\": 0\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1350,7 +447,7 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseURL}}/api/technician/technicianUpdate/68bda3b50d7573700f2d5efa",
+							"raw": "{{baseURL}}/api/technician/technicianUpdate/:id",
 							"host": [
 								"{{baseURL}}"
 							],
@@ -1358,23 +455,25 @@
 								"api",
 								"technician",
 								"technicianUpdate",
-								"68bda3b50d7573700f2d5efa"
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "TECHNICIAN_ID"
+								}
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "deleteTechnicain",
+					"name": "Delete Technician",
 					"request": {
 						"method": "DELETE",
 						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
 						"url": {
-							"raw": "{{baseURL}}/api/technician/technicianDelete/68bd8eb430308865ce837f00",
+							"raw": "{{baseURL}}/api/technician/technicianDelete/:id",
 							"host": [
 								"{{baseURL}}"
 							],
@@ -1382,7 +481,887 @@
 								"api",
 								"technician",
 								"technicianDelete",
-								"68bd8eb430308865ce837f00"
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "TECHNICIAN_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Services",
+			"item": [
+				{
+					"name": "Create Service",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categoryId\": \"CATEGORY_ID_HERE\",\n  \"serviceName\": \"House Cleaning\",\n  \"description\": \"Deep cleaning of the entire house\",\n  \"serviceCost\": 1500,\n  \"commissionPercentage\": 10,\n  \"serviceDiscountPercentage\": 5,\n  \"quantity\": 1,\n  \"active\": \"active\",\n  \"status\": \"available\",\n  \"duration\": \"2 hours\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/service",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"service"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Services",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getAllServices",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getAllServices"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getServiceById/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getServiceById",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "SERVICE_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Service",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"serviceCost\": 1600\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/updateService/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"updateService",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "SERVICE_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Service",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/deleteService/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"deleteService",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "SERVICE_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Category",
+			"item": [
+				{
+					"name": "Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"category\": \"Cleaning\",\n  \"description\": \"Cleaning Services\",\n  \"image\": \"http://example.com/image.jpg\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/category",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"category"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getAllcategory",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getAllcategory"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Category By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getByIdcategory/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getByIdcategory",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "CATEGORY_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"All kinds of cleaning services\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/updatecategory/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"updatecategory",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "CATEGORY_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Category",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/deletecategory/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"deletecategory",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "CATEGORY_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Products",
+			"item": [
+				{
+					"name": "Create Product",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productName\": \"Solar Panel\",\n  \"productDescription\": \"High efficiency solar panel\",\n  \"productPrice\": 5000,\n  \"productDiscountPercentage\": 10,\n  \"productGst\": 18,\n  \"productCount\": 100,\n  \"inStock\": 1,\n  \"productImage\": \"http://example.com/solar.jpg\",\n  \"productBrand\": \"SunPower\",\n  \"productFeatures\": \"Waterproof, 25 years warranty\",\n  \"warranty\": \"25 years\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/product",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"product"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Products",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getProduct",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getProduct"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Product By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getOneProduct/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getOneProduct",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "PRODUCT_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"productPrice\": 4800,\n  \"productCount\": 95\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/updateProduct/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"updateProduct",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "PRODUCT_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Product",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/deleteProduct/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"deleteProduct",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "PRODUCT_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bookings",
+			"item": [
+				{
+					"name": "Book Service",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"USER_ID\",\n  \"technicianId\": \"TECHNICIAN_ID\",\n  \"serviceId\": \"SERVICE_ID\",\n  \"bookingDate\": \"2025-10-10\",\n  \"address\": \"123 Main St\",\n  \"paymentMode\": \"COD\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/serviceBook",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"serviceBook"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Service Bookings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getAllServiceBooking",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getAllServiceBooking"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Service Booking",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Completed\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/serviceBookUpdate/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"serviceBookUpdate",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "BOOKING_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Service Booking",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/serviceBookingCancel/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"serviceBookingCancel",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "BOOKING_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Book Product",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"USER_ID\",\n  \"productId\": \"PRODUCT_ID\",\n  \"quantity\": 1,\n  \"address\": \"123 Main St\",\n  \"paymentMode\": \"Online\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/productBooking",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"productBooking"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Product Bookings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getAllProductBooking",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getAllProductBooking"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product Booking",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Shipped\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/productBookingUpdate/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"productBookingUpdate",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "PRODUCT_BOOKING_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Product Booking",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/productBookingCancel/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"productBookingCancel",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "PRODUCT_BOOKING_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Reports & Ratings",
+			"item": [
+				{
+					"name": "Create Report",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"technicianId\": \"TECHNICIAN_ID\",\n  \"complaint\": \"Rude behavior\",\n  \"image\": \"http://example.com/proof.jpg\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/report",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"report"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Reports",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getAllReports",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getAllReports"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Report By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getReportById/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getReportById",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "REPORT_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Rating",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"technicianId\": \"TECHNICIAN_ID\",\n  \"serviceId\": \"SERVICE_ID\",\n  \"rates\": 5,\n  \"comment\": \"Excellent service\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/rating",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"rating"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Ratings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getAllRatings",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getAllRatings"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Rating By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/getRatingById/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"getRatingById",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "RATING_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Rating",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rates\": 4,\n  \"comment\": \"Good service\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseURL}}/api/user/updateRating/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"updateRating",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "RATING_ID"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Rating",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseURL}}/api/user/deleteRating/:id",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"deleteRating",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "RATING_ID"
+								}
 							]
 						}
 					},
@@ -1394,6 +1373,11 @@
 	"variable": [
 		{
 			"key": "baseURL",
+			"value": "http://localhost:2025",
+			"type": "default"
+		},
+		{
+			"key": "token",
 			"value": "",
 			"type": "default"
 		}
