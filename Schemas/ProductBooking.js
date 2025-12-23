@@ -20,7 +20,7 @@ const ProductBookingSchema = new mongoose.Schema({
     required: true,
     min: [0, "Amount must be positive"],
   },
-    createdAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now },
 
 });
 

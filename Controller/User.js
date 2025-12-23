@@ -7,7 +7,7 @@ import jwt from "jsonwebtoken";
 
 // ---------- Helpers ----------
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
+const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>])(?=.*\d).{6,}$/;
 
 
 // Generate Username with collision avoidance
@@ -489,7 +489,7 @@ export const changePassword = async (req, res) => {
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters long and include at least 1 letter and 1 number",
+        message: "Password must be at least 6 characters long and include at least 1 capital letter, 1 special character and 1 number",
         result: "Password validation failed"
       });
     }
@@ -603,7 +603,7 @@ export const resetPassword = async (req, res) => {
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters long and include at least 1 letter and 1 number",
+        message: "Password must be at least 6 characters long and include at least 1 capital letter, 1 special character and 1 number",
         result: "Password validation failed"
       });
     }

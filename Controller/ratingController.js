@@ -92,13 +92,6 @@ export const getRatingById = async (req, res) => {
         populate: { path: "userId", select: "username email" },
       });
     
-    if (rating.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No rating data found",
-        result: "No rating exists with this ID"
-      });
-    }
     if (!rating)
       return res
         .status(404)
