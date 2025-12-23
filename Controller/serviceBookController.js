@@ -1,38 +1,40 @@
 import ServiceBook from "../Schemas/ServiceBooking.js";
 
-// Create A new Services
+
+// Create A new Service Booking
 export const serviceBook = async (req, res) => {
   try {
-    const { technicianId, userId, categoryId, serviceId } = req.body;
+    const { technicianId, userId, serviceId, amount } = req.body;
 
-    if (!technicianId || !userId || !categoryId || !serviceId) {
+    if (!technicianId || !userId || !serviceId || amount === undefined) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
-        result: "Missing required fields"
+        result: "Missing required fields",
       });
     }
 
     const serviceData = await ServiceBook.create({
       technicianId,
       userId,
-      categoryId,
       serviceId,
+      amount,
     });
 
     res.status(201).json({
       success: true,
       message: "Service booking created successfully",
-      result: serviceData
+      result: serviceData,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message
+      result: error.message,
     });
   }
 };
+
 
 export const getAllServiceBooking = async (req, res) => {
   try {

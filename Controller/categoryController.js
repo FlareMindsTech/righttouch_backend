@@ -2,44 +2,59 @@ import Category from "../Schemas/Category.js";
 
 export const serviceCategory = async (req, res) => {
   try {
-    const { category, description, image } = req.body;
+    const { category, description } = req.body;
 
-    if (!category || !description || !image) {
+    // ✅ IMAGE VALIDATION
+    if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
-        result: "Missing required fields"
+        message: "Category image is required",
+        result: "Image missing",
       });
     }
 
+    if (!category || !description) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+        result: "Missing required fields",
+      });
+    }
+
+    // ✅ DUPLICATE CHECK
     const matchCategory = await Category.findOne({ category });
     if (matchCategory) {
       return res.status(409).json({
         success: false,
         message: "Category name already registered",
-        result: "Duplicate category found"
+        result: "Duplicate category found",
       });
     }
+
+    // ✅ CLOUDINARY IMAGE URL
+    const imageUrl = req.file.path;
 
     const categoryData = await Category.create({
       category,
       description,
-      image,
+      image: imageUrl,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Category created successfully",
-      result: categoryData
+      result: categoryData,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("serviceCategory error:", error);
+    return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message
+      result: error.message,
     });
   }
 };
+
 
 // Get All Category WIth Filter
 export const getAllCategory = async (req, res) => {

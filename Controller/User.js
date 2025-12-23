@@ -182,7 +182,7 @@ export const resendOtp = async (req, res) => {
 
     // Generate new OTP
     const otpCode = generateOtp();
-
+    console.log(otpCode)
     // Save OTP in DB
     const otpRecord = await Otp.create({
       userId: tempUser._id,
@@ -520,35 +520,72 @@ export const changePassword = async (req, res) => {
 };
 
 // Request password reset OTP
+// Request Password Reset OTP
 export const requestPasswordResetOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ success: false, message: "Email is required", result: "Email field is missing" });
 
+    // 1. Validate email
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    // 2. User must exist
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this email" });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-    // Remove old OTPs
+    // 3. DELETE old OTPs (IMPORTANT FIX)
     await Otp.deleteMany({ userId: user._id });
 
+    // 4. Generate OTP
     const otpCode = generateOtp();
 
-    const otpRecord = new Otp({
+    // 5. Save OTP
+    await Otp.create({
       userId: user._id,
       otp: otpCode,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       attempts: 0,
+      isVerified: false,
     });
-    await otpRecord.save();
 
-    await sendEmail(email, "Your Password Reset OTP", `Your OTP is: ${otpCode}`);
+    // 6. SEND EMAIL (this WILL run now)
+    await sendEmail(
+      email,
+      "Password Reset OTP",
+      `Your password reset OTP is: ${otpCode}`
+    );
 
-    res.status(200).json({ success: true, message: "OTP sent to your email", result: "Password reset OTP sent successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Password reset OTP sent to email",
+    });
+
   } catch (error) {
     console.error("requestPasswordResetOtp error:", error);
-    res.status(500).json({ success: false, message: "Server error", result: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
+
+
 
 // Verify password reset OTP
 export const verifyPasswordResetOtp = async (req, res) => {
