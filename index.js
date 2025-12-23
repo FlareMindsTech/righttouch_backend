@@ -19,17 +19,14 @@ App.use(express.static("public"));
 App.use((req, res, next) => {
   res.setTimeout(60000, () => { // 60 seconds
     console.log("⏳ Request timed out");
-    return res.status(408).json({ message: "Request timeout" });
+    return res.status(408).json({ success: false, message: "Request timeout", result: "Request took too long to process" });
   });
   next();
 });
 
 mongoose.set("strictQuery", false);
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log('Connected to MongoDB Atlas...'))
 .catch(err => console.error('Could not connect to MongoDB...', err));
 

@@ -65,7 +65,7 @@ import {
 } from "../Controller/productBooking.js";
 
 import { Auth } from "../Middleware/Auth.js";
-import { authorizeRoles } from"../Middleware/Auth.js";
+import { authorizeRoles } from "../Middleware/Auth.js";
 
 const router = express.Router();
 
@@ -80,7 +80,7 @@ router.get("/getMyProfile", Auth, getMyProfile);
 
 router.post("/requestPasswordResetOtp",  requestPasswordResetOtp);
 router.post("/verifyPasswordResetOtp",  verifyPasswordResetOtp);
-router.put("/changepassword",  changePassword);
+router.put("/changepassword", Auth, changePassword);
 router.post("/resetPassword", Auth, resetPassword);
 
 // ******category**********

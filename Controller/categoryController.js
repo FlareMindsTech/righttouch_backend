@@ -97,7 +97,7 @@ export const getByIdCategory = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Server error", error: error.message });
+      .json({ success: false, message: "Server error", result: error.message });
   }
 };
 

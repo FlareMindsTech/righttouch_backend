@@ -65,8 +65,9 @@ export const product = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Server Error",
-      error: error.message,
+      result: error.message,
     });
   }
 };
@@ -177,7 +178,7 @@ export const updateProduct = async (req, res) => {
 
     const existingProduct = await Product.findById(productId);
     if (!existingProduct) {
-      return res.status(400).json({ success: false, message: "No data provided to update", result: "Missing request body" });
+      return res.status(404).json({ success: false, message: "Product not found", result: "No product exists with this ID" });
     }
 
     // ✅ Allow all updatable fields
@@ -245,7 +246,7 @@ export const updateProduct = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Product updated successfully",
-      data: updatedProduct,
+      result: updatedProduct,
     });
   } catch (error) {
     res.status(500).json({
