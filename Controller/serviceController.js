@@ -122,8 +122,10 @@ export const getServiceById = async (req, res) => {
       });
     }
     if (!service) return res.status(404).json({ success: false, message: "Service not found", result: "No service exists with this ID" });
+
     return res.status(200).json({ success: true, message: "Service fetched successfully", result: service });
-  } catch (error) {
+  } 
+  catch (error) {
     return res.status(400).json({ success: false, message: "Server error", result: error.message });
   }
 };

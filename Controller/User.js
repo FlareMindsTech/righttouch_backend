@@ -53,7 +53,7 @@ export const signupAndSendOtp = async (req, res) => {
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters long and include at least 1 letter and 1 number",
+        message: "Password must be at least 6 characters long and include at least 1 capital letter, 1 special character and 1 number",
         result: "Password validation failed"
       });
     }
@@ -318,7 +318,7 @@ export const login = async (req, res) => {
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters long, contain at least one letter and one number",
+        message: "Password must be at least 6 characters long and include at least 1 capital letter, 1 special character and 1 number",
         result: "Password validation failed"
       });
     }
@@ -433,21 +433,21 @@ export const getAllUsers = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "No users found",
-        data: [],
+        result: [],
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Users fetched successfully",
-      data: users,
+      result: users,
     });
   } catch (error) {
     console.error("getAllUsers error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",
-      error: error.message,
+      result: error.message,
     });
   }
 };
