@@ -1,7 +1,8 @@
 import express from "express";
+import { upload } from "../utils/cloudinaryUpload.js";
+
 import {
   changePassword,
-  // createPassword,
   getAllUsers,
   getMyProfile,
   getUserById,
@@ -14,8 +15,10 @@ import {
   verifyOtp,
   verifyPasswordResetOtp,
 } from "../Controller/User.js";
+
 import {
   serviceCategory,
+  uploadCategoryImage,
   getAllCategory,
   getByIdCategory,
   updateCategory,
@@ -29,13 +32,16 @@ import {
   updateRating,
   deleteRating,
 } from "../Controller/ratingController.js";
+
 import {
   userReport,
   getAllReports,
   getReportById,
 } from "../Controller/reportController.js";
+
 import {
-  service,
+  createService,
+  uploadServiceImages,
   getAllServices,
   getServiceById,
   updateService,
@@ -50,12 +56,13 @@ import {
 } from "../Controller/serviceBookController.js";
 
 import {
-  product,
+  createProduct,
   getProduct,
   getOneProduct,
   deleteProduct,
-  updateProduct
-} from "../Controller/productController.js"
+  uploadProductImages,
+  updateProduct,
+} from "../Controller/productController.js";
 
 import {
   productBooking,
@@ -64,11 +71,11 @@ import {
   productBookingCancel,
 } from "../Controller/productBooking.js";
 
-import { Auth } from "../Middleware/Auth.js";
-import { authorizeRoles } from "../Middleware/Auth.js";
+import { Auth, authorizeRoles } from "../Middleware/Auth.js";
 
 const router = express.Router();
 
+/* ================= USER ================= */
 router.post("/signup", signupAndSendOtp);
 router.post("/login", login);
 router.post("/resendOtp", resendOtp);
@@ -77,64 +84,101 @@ router.put("/update-user/:id", updateUser);
 router.get("/getallusers", Auth, getAllUsers);
 router.get("/getuserbyid/:id", getUserById);
 router.get("/getMyProfile", Auth, getMyProfile);
-
-router.post("/requestPasswordResetOtp",  requestPasswordResetOtp);
-router.post("/verifyPasswordResetOtp",  verifyPasswordResetOtp);
+router.post("/requestPasswordResetOtp", requestPasswordResetOtp);
+router.post("/verifyPasswordResetOtp", verifyPasswordResetOtp);
 router.put("/changepassword", Auth, changePassword);
 router.post("/resetPassword", Auth, resetPassword);
 
-// ******category**********
-router.post("/category", Auth, serviceCategory);
-router.get("/getAllcategory", getAllCategory);
-router.get("/getByIdcategory/:id", getByIdCategory);
-router.put("/updatecategory/:id", updateCategory);
-router.delete("/deletecategory/:id", deleteCategory);
-// ******category end**********
+/* ================= CATEGORY ================= */
 
-// ******report**********
+// 1️⃣ Create category (NO image)
+router.post("/category", Auth, serviceCategory);
+
+// 2️⃣ Upload category image (SEPARATE API)
+router.post(
+  "/category/upload-image",
+  Auth,
+  upload.single("image"),
+  uploadCategoryImage
+);
+
+// 3️⃣ Get all categories
+router.get("/getAllcategory", getAllCategory);
+
+// 4️⃣ Get category by ID
+router.get("/getByIdcategory/:id", getByIdCategory);
+
+// 5️⃣ Update category (TEXT ONLY)
+router.put("/updatecategory/:id", Auth, updateCategory);
+
+// 6️⃣ Delete category
+router.delete("/deletecategory/:id", Auth, deleteCategory);
+
+/* ================= REPORT ================= */
 router.post("/report", Auth, userReport);
 router.get("/getAllReports", getAllReports);
 router.get("/getReportById/:id", getReportById);
-// ******report end**********
 
-// ******service**********
-router.post("/service", Auth, service);
-router.get("/getAllServices", getAllServices);
-router.get("/getServiceById/:id", getServiceById);
-router.put("/updateService/:id", updateService);
-router.delete("/deleteService/:id", deleteService);
-// ******service end**********
+/* ================= SERVICE ================= */
+router.post("/service", Auth, createService);
 
-// *********Service Book***********
+// UPLOAD SERVICE IMAGES
+router.post(
+  "/services/upload-images",
+  Auth,
+  upload.array("serviceImages", 5),
+  uploadServiceImages
+);
+
+// GET
+router.get("/services", getAllServices);
+router.get("/services/:id", getServiceById);
+
+// UPDATE
+router.put("/services/:id", Auth, updateService);
+
+// DELETE
+router.delete("/services/:id", Auth, deleteService);
+
+/* ================= SERVICE BOOKING ================= */
 router.post("/serviceBook", serviceBook);
 router.get("/getAllServiceBooking", getAllServiceBooking);
 router.put("/serviceBookUpdate/:id", serviceBookUpdate);
 router.put("/serviceBookingCancel/:id", serviceBookingCancel);
 
-// *********Service Book end***********
-
-// ******rating**********
+/* ================= RATING ================= */
 router.post("/rating", Auth, userRating);
 router.get("/getAllRatings", getAllRatings);
 router.get("/getRatingById/:id", getRatingById);
 router.put("/updateRating/:id", updateRating);
 router.delete("/deleteRating/:id", deleteRating);
-// ******rating end**********
 
-// ******product**********
-router.post("/product", product);
+/* ================= PRODUCT ================= */
+router.post("/product", Auth, createProduct);
+
+router.post(
+  "/product/upload-images",
+  Auth,
+  upload.array("productImages", 5),
+  uploadProductImages
+);
+
 router.get("/getProduct", getProduct);
 router.get("/getOneProduct/:id", getOneProduct);
-router.put("/updateProduct/:id", updateProduct);
-router.delete("/deleteProduct/:id", deleteProduct);
-// ******product end**********
 
-// *********product Book***********
+router.put(
+  "/updateProduct/:id",
+  Auth,
+  upload.array("productImages", 5),
+  updateProduct
+);
+
+router.delete("/deleteProduct/:id", Auth, deleteProduct);
+
+/* ================= PRODUCT BOOKING ================= */
 router.post("/productBooking", productBooking);
 router.get("/getAllProductBooking", getAllProductBooking);
 router.put("/productBookingUpdate/:id", productBookingUpdate);
 router.put("/productBookingCancel/:id", productBookingCancel);
-
-// *********product Book end***********
 
 export default router;
