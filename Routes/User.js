@@ -91,62 +91,47 @@ router.post("/resetPassword", Auth, resetPassword);
 
 /* ================= CATEGORY ================= */
 
-// 1️⃣ Create category (NO image)
 router.post("/category", Auth, serviceCategory);
-
-// 2️⃣ Upload category image (SEPARATE API)
 router.post(
   "/category/upload-image",
   Auth,
   upload.single("image"),
   uploadCategoryImage
 );
-
-// 3️⃣ Get all categories
 router.get("/getAllcategory", getAllCategory);
-
-// 4️⃣ Get category by ID
 router.get("/getByIdcategory/:id", getByIdCategory);
-
-// 5️⃣ Update category (TEXT ONLY)
 router.put("/updatecategory/:id", Auth, updateCategory);
-
-// 6️⃣ Delete category
 router.delete("/deletecategory/:id", Auth, deleteCategory);
 
 /* ================= REPORT ================= */
+
 router.post("/report", Auth, userReport);
 router.get("/getAllReports", getAllReports);
 router.get("/getReportById/:id", getReportById);
 
 /* ================= SERVICE ================= */
-router.post("/service", Auth, createService);
 
-// UPLOAD SERVICE IMAGES
+router.post("/service", Auth, createService);
 router.post(
   "/services/upload-images",
   Auth,
   upload.array("serviceImages", 5),
   uploadServiceImages
 );
-
-// GET
-router.get("/services", getAllServices);
-router.get("/services/:id", getServiceById);
-
-// UPDATE
-router.put("/services/:id", Auth, updateService);
-
-// DELETE
+router.get("/getAllServices", getAllServices);
+router.get("/getServiceById/:id", getServiceById);
+router.put("/updateService/:id", Auth, updateService);
 router.delete("/services/:id", Auth, deleteService);
 
 /* ================= SERVICE BOOKING ================= */
+
 router.post("/serviceBook", serviceBook);
 router.get("/getAllServiceBooking", getAllServiceBooking);
 router.put("/serviceBookUpdate/:id", serviceBookUpdate);
 router.put("/serviceBookingCancel/:id", serviceBookingCancel);
 
 /* ================= RATING ================= */
+
 router.post("/rating", Auth, userRating);
 router.get("/getAllRatings", getAllRatings);
 router.get("/getRatingById/:id", getRatingById);
@@ -154,28 +139,26 @@ router.put("/updateRating/:id", updateRating);
 router.delete("/deleteRating/:id", deleteRating);
 
 /* ================= PRODUCT ================= */
-router.post("/product", Auth, createProduct);
 
+router.post("/product", Auth, createProduct);
 router.post(
   "/product/upload-images",
   Auth,
   upload.array("productImages", 5),
   uploadProductImages
 );
-
 router.get("/getProduct", getProduct);
 router.get("/getOneProduct/:id", getOneProduct);
-
 router.put(
   "/updateProduct/:id",
   Auth,
   upload.array("productImages", 5),
   updateProduct
 );
-
 router.delete("/deleteProduct/:id", Auth, deleteProduct);
 
 /* ================= PRODUCT BOOKING ================= */
+
 router.post("/productBooking", productBooking);
 router.get("/getAllProductBooking", getAllProductBooking);
 router.put("/productBookingUpdate/:id", productBookingUpdate);
