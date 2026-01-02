@@ -1,149 +1,329 @@
-import ServiceBook from "../Schemas/ServiceBooking.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
+import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
+import Technician from "../Schemas/Technician.js";
+import mongoose from "mongoose";
 
 
-// Create A new Service Booking
-export const serviceBook = async (req, res) => {
+export const createBooking = async (req, res) => {
   try {
-    const { technicianId, userId, serviceId, amount } = req.body;
+    const { serviceId, baseAmount, address, scheduledAt } = req.body;
 
-    if (!technicianId || !userId || !serviceId || amount === undefined) {
+    if (!serviceId || baseAmount == null || !address) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
-        result: "Missing required fields",
+        message: "All fields required",
       });
     }
 
-    const serviceData = await ServiceBook.create({
-      technicianId,
-      userId,
+    // 1️⃣ Create booking
+    const booking = await ServiceBooking.create({
+      customerId: req.user.userId,
       serviceId,
-      amount,
+      baseAmount,
+      address,
+      scheduledAt,
+      status: "broadcasted",
     });
 
-    res.status(201).json({
+    // 2️⃣ Find technicians (FIXED)
+    const technicians = await Technician.find({
+      status: "approved",
+      // "availability.isOnline": true,
+      // "skills.serviceId": new mongoose.Types.ObjectId(serviceId),
+    }).select("_id");
+
+    // 3️⃣ Create broadcast records
+    if (technicians.length > 0) {
+      
+      console.log(technicians)
+      let hel = await JobBroadcast.insertMany(
+        technicians.map((t) => ({
+          bookingId: booking._id,
+          technicianId: t._id,
+        }))
+      );
+      console.log(hel);
+
+    }
+
+    return res.status(201).json({
       success: true,
-      message: "Service booking created successfully",
-      result: serviceData,
+      message: "Booking created & broadcasted",
+      result: booking,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Server error",
-      result: error.message,
+      message: error.message,
     });
   }
 };
 
 
-export const getAllServiceBooking = async (req, res) => {
+/* =====================================================
+   GET BOOKINGS (ROLE BASED)
+===================================================== */
+export const getBookings = async (req, res) => {
   try {
-    const getAllBooking = await ServiceBook.find()
-      .populate("userId", "firstName lastName email")
-      .populate("serviceId", "serviceName")
-      .populate({
-        path: "technicianId",
-        populate: {
-          path: "userId",
-          select: "username email",
-        },
-      });
+    let filter = {};
 
-    if (getAllBooking.length === 0) {
+    if (req.user.role === "Customer") {
+      filter.customerId = req.user.userId;
+    }
+
+    if (req.user.role === "Technician") {
+      filter.technicianId = req.user.technicianId;
+    }
+
+    const bookings = await ServiceBooking.find(filter)
+      .populate("serviceId", "serviceName")
+      .populate("customerId", "firstName lastName phone")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      result: bookings,
+    });
+  } catch (error) {
+    console.error("getBookings:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/* =====================================================
+   GET BOOKING FOR (CUSTOMER)
+===================================================== */
+
+export const getCustomerBookings = async (req, res) => {
+  try {
+    const bookings = await ServiceBooking.find({
+      customerId: req.user.userId,
+    })
+      .populate("serviceId", "serviceName")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer booking history",
+      result: bookings,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+      result: null,
+    });
+  }
+};
+
+/* =====================================================
+   GET JOB FOR (TECHNICIAN)
+===================================================== */
+
+export const getTechnicianJobHistory = async (req, res) => {
+  try {
+    const technician = await Technician.findOne({
+      userId: req.user.userId,
+    });
+
+    const jobs = await ServiceBooking.find({
+      technicianId: technician._id,
+      status: { $in: ["accepted", "rejected", "complete"] },
+    })
+      // .populate("bookingId")
+      .sort({ updatedAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Job history fetched",
+      result: jobs,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+      result: null,
+    });
+  }
+};
+
+
+/* =====================================================
+   GET JOB FOR (TECHNICIAN)
+===================================================== */
+export const getTechnicianCurrentJobs = async (req, res) => {
+  try {
+    if (req.user.role !== "Technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+        result: null,
+      });
+    }
+
+    const technician = await Technician.findOne({
+      userId: req.user.userId,
+    });
+    const jobs = await ServiceBooking.find({
+      technicianId: technician._id,
+      status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
+    })
+    // .populate({
+    //   path: "bookingId",
+    //   populate: { path: "serviceId", select: "serviceName" },
+    // })
+    .sort({ createdAt: -1 });
+    console.log(technician._id)
+      
+
+    return res.status(200).json({
+      success: true,
+      message: "Active jobs fetched",
+      result: jobs,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+      result: null,
+    });
+  }
+};
+
+
+/* =====================================================
+   UPDATE BOOKING STATUS (TECHNICIAN)
+===================================================== */
+export const updateBookingStatus = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const { status } = req.body;
+
+    const allowedStatus = [
+      "on_the_way",
+      "reached",
+      "in_progress",
+      "completed",
+    ];
+
+    if (!bookingId || !allowedStatus.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status",
+      });
+    }
+
+    const booking = await ServiceBooking.findById(bookingId);
+
+    if (!booking) {
       return res.status(404).json({
         success: false,
-        message: "No service booking data found",
-        result: "No service bookings exist"
+        message: "Booking not found",
       });
     }
 
-    res.status(200).json({
+    // if (
+    //   req.user.role !== "Technician" ||
+    //   booking.technicianId?.toString() !== req.user.technicianId
+    // ) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied",
+    //   });
+    // }
+
+    booking.status = status;
+    await booking.save();
+
+    return res.status(200).json({
       success: true,
-      message: "Data fetched successfully",
-      result: getAllBooking
+      message: "Status updated",
+      result: booking,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("updateBookingStatus:", error);
+    return res.status(500).json({
       success: false,
-      message: "Error fetching service bookings",
-      result: error.message
+      message: error.message,
     });
   }
 };
 
 
-export const serviceBookUpdate = async (req, res) => {
-  try {
-    const { technicianId, userId, categoryId, serviceId } = req.body;
-
-    if (!technicianId || !userId || !categoryId || !serviceId) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-        result: "Missing required fields"
-      });
-    }
-
-    const updateBooking = await ServiceBook.findByIdAndUpdate(
-      req.params.id,
-      { technicianId, userId, categoryId, serviceId },
-      { new: true, runValidators: true }
-    );
-
-    if (!updateBooking) {
-      return res.status(404).json({ success: false, message: "Booking not found", result: "No booking exists with this ID" });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Booking updated successfully",
-      result: updateBooking
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      result: error.message
-    });
-  }
-};
-
-export const serviceBookingCancel = async (req, res) => {
+/* =====================================================
+   CANCEL BOOKING (CUSTOMER)
+===================================================== */
+export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: "Booking ID is required",
-        result: "Missing booking ID"
-      });
-    }
+    // 1️⃣ Find booking
+    const booking = await ServiceBooking.findById(id);
 
-    const cancelBooking = await ServiceBook.findByIdAndUpdate(
-      id,
-      { status: "cancelled" },
-      { new: true }
-    );
-
-    if (!cancelBooking) {
+    if (!booking) {
       return res.status(404).json({
         success: false,
-        message: "Your booking was not found",
-        result: "No booking exists with this ID"
+        message: "Booking not found",
       });
     }
 
-    res.status(200).json({
+    // 2️⃣ Only CUSTOMER who created booking can cancel
+    if (req.user.role !== "Customer") {
+      return res.status(403).json({
+        success: false,
+        message: "Only customer can cancel booking",
+      });
+    }
+
+    if (booking.customerId.toString() !== req.user.userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    // 3️⃣ Prevent double cancel
+    if (booking.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking already cancelled",
+      });
+    }
+
+    // 4️⃣ Prevent cancel after work completed
+    if (booking.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Completed booking cannot be cancelled",
+      });
+    }
+
+    // 5️⃣ OPTIONAL (recommended)
+    // Prevent cancel once technician is working
+    if (["on_the_way", "reached", "in_progress"].includes(booking.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking cannot be cancelled once technician started work",
+      });
+    }
+
+    // 6️⃣ Cancel booking
+    booking.status = "cancelled";
+    await booking.save();
+
+    return res.status(200).json({
       success: true,
-      message: "Your booking has been cancelled successfully",
-      result: cancelBooking
+      message: "Booking cancelled successfully",
+      result: booking,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("cancelBooking:", error);
+    return res.status(500).json({
       success: false,
-      message: "Server error",
-      result: error.message
+      message: error.message,
     });
   }
 };

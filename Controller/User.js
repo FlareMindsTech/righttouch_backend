@@ -413,6 +413,7 @@ export const login = async (req, res) => {
       result: {
         token,
         role: user.role,
+        id: user._id
       },
     });
   } catch (error) {

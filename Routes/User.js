@@ -49,11 +49,12 @@ import {
 } from "../Controller/serviceController.js";
 
 import {
-  serviceBook,
-  getAllServiceBooking,
-  serviceBookUpdate,
-  serviceBookingCancel,
-} from "../Controller/serviceBookController.js";
+  createBooking,
+  getBookings,
+  getCustomerBookings,
+  cancelBooking,
+} from "../controller/serviceBookController.js";
+
 
 import {
   createProduct,
@@ -125,10 +126,17 @@ router.delete("/services/:id", Auth, deleteService);
 
 /* ================= SERVICE BOOKING ================= */
 
-router.post("/serviceBook", serviceBook);
-router.get("/getAllServiceBooking", getAllServiceBooking);
-router.put("/serviceBookUpdate/:id", serviceBookUpdate);
-router.put("/serviceBookingCancel/:id", serviceBookingCancel);
+router.post("/serviceBook", Auth,
+   createBooking);
+
+// Admin / Technician / Customer view bookings
+router.get("/service/booking", Auth,
+  getBookings);
+
+// Customer / Admin cancels booking
+router.put("/booking/cancel/:id", Auth, cancelBooking);
+
+router.get("/booking/getCustomerBookings", Auth, getCustomerBookings);
 
 /* ================= RATING ================= */
 

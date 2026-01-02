@@ -1,240 +1,293 @@
+import mongoose from "mongoose";
 import Technician from "../Schemas/Technician.js";
+import User from "../Schemas/User.js";
 
-export const TechnicianData = async (req, res) => {
+/* ================= CREATE TECHNICIAN ================= */
+export const createTechnician = async (req, res) => {
   try {
-    const {
-      userId,
-      panNumber,
-      aadhaarNumber,
-      passportNumber,
-      drivingLicenseNumber,
-      balance,
-      status,      
-      report,
-      rating,
-      serviceBooking,
-      experienceYear,
-      experienceMonths,
-      totalJobCompleted,
-      tracking,
-      image,
-    } = req.body;
+    const { userId, skills } = req.body;
 
-    // ✅ Manual validations
     if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID is required", result: "Missing user ID" });
-    }
-    if (!panNumber || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber)) {
-      return res.status(400).json({ success: false, message: "Invalid or missing PAN number", result: "PAN validation failed" });
-    }
-    if (!aadhaarNumber || !/^\d{12}$/.test(aadhaarNumber)) {
-      return res.status(400).json({ success: false, message: "Invalid or missing Aadhaar number", result: "Aadhaar validation failed" });
-    }
-    if (passportNumber && !/^[A-PR-WY][1-9]\d{6}$/.test(passportNumber)) {
-      return res.status(400).json({ success: false, message: "Invalid Passport number", result: "Passport validation failed" });
-    }
-    if (!drivingLicenseNumber || !/^[A-Z]{2}\d{2}\s\d{11}$/.test(drivingLicenseNumber)) {
-      return res.status(400).json({ success: false, message: "Invalid or missing Driving License number", result: "Driving license validation failed" });
-    }
-
-    // ✅ Handle uploaded PDF documents from multer
-    const documents = {
-      panCard: req.files?.panCard
-        ? { data: req.files.panCard[0].buffer, contentType: req.files.panCard[0].mimetype }
-        : null,
-      aadhaarCard: req.files?.aadhaarCard
-        ? { data: req.files.aadhaarCard[0].buffer, contentType: req.files.aadhaarCard[0].mimetype }
-        : null,
-      passport: req.files?.passport
-        ? { data: req.files.passport[0].buffer, contentType: req.files.passport[0].mimetype }
-        : null,
-      drivingLicense: req.files?.drivingLicense
-        ? { data: req.files.drivingLicense[0].buffer, contentType: req.files.drivingLicense[0].mimetype }
-        : null
-    };
-
-    // ✅ Create new technician
-    const technician = new Technician({
-      userId,
-      panNumber,
-      aadhaarNumber,
-      passportNumber,
-      drivingLicenseNumber,
-      documents,
-      balance: balance || 0,
-      status: status || "active",            
-      report,
-      rating,
-      serviceBooking,
-      experienceYear,
-      experienceMonths,
-      totalJobCompleted,
-      tracking,
-      image,
-    }); 
-
-    await technician.save();
-    res.status(201).json({ success: true, message: "Technician created successfully", result: technician });
-
-  } catch (err) {
-    if (err.code === 11000) {
-      // Duplicate key error (unique fields)
       return res.status(400).json({
         success: false,
-        message: `Duplicate value for field: ${Object.keys(err.keyPattern)[0]}`,
-        result: "Duplicate entry found"
+        message: "User ID is required",
       });
     }
-    res.status(500).json({ success: false, message: "Server error", result: err.message });
-  }
-};
 
-
-
-// Get all technicians with their reports
-export const TechnicianAll = async (req, res) => {
-  try {
-    const { search } = req.query; // ?search=Ramesh
-
-    let query = {};
-
-    if (search) {
-      query = {
-        $or: [
-          { name: { $regex: search, $options: "i" } },         // technician name
-          { email: { $regex: search, $options: "i" } },        // technician email
-          { mobileNumber: { $regex: search, $options: "i" } }, // technician phone
-          { status: { $regex: search, $options: "i" } },       // if you track active/inactive
-          { locality: { $regex: search, $options: "i" } },     // area/locality
-        ],
-      };
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid User ID",
+      });
     }
 
-    const technicians = await Technician.find(query).populate("report"); // virtual populate
+    const userExists = await User.findById(userId);
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-    res.status(200).json({ success: true, message: "Technicians fetched successfully", result: technicians });
+    const existing = await Technician.findOne({ userId });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: "Technician already exists for this user",
+      });
+    }
+
+    const technician = await Technician.create({
+      userId,
+      skills,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Technician created successfully",
+      result: technician,
+    });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Server Error",
-      result: error.message
+      message: "Server error",
+      result: error.message,
     });
   }
 };
 
+/* ================= GET ALL TECHNICIANS ================= */
+export const getAllTechnicians = async (req, res) => {
+  try {
+    const { status, search } = req.query;
+    let query = {};
 
-// Get single technician with reports
-export const technicianById = async (req, res) => {
+    if (status) {
+      query.status = status;
+    }
+
+    if (search) {
+      query.$or = [{ status: { $regex: search, $options: "i" } }];
+    }
+
+    const technicians = await Technician.find(query)
+      .populate("userId", "name email phone")
+      .populate("skills.serviceId", "serviceName");
+
+    return res.status(200).json({
+      success: true,
+      message: "Technicians fetched successfully",
+      result: technicians,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: error.message,
+    });
+  }
+};
+
+/* ================= GET TECHNICIAN BY ID ================= */
+export const getTechnicianById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Technician ID is required",
-        result: "Missing technician ID"
+        message: "Invalid Technician ID",
       });
     }
 
-    const technician = await Technician.findById(id).populate("report").populate("rating").populate("serviceBooking");
+    const technician = await Technician.findById(id)
+      .populate("userId", "name email phone")
+      .populate("skills.serviceId", "serviceName");
 
     if (!technician) {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
-        result: "No technician exists with this ID"
       });
     }
 
-    res.status(200).json({ success: true, message: "Technician fetched successfully", result: technician });
-
+    return res.status(200).json({
+      success: true,
+      message: "Technician fetched successfully",
+      result: technician,
+    });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Server Error",
-      result: error.message
+      message: "Server error",
+      result: error.message,
     });
   }
 };
 
-
-// update technician 
-
-export const technicianUpdate =  async (req ,res)=>{
-  try {
-    const { 
-        experienceYear,
-        experienceMonths,
-        image 
-      } = req.body;
-      
-      const technicianUpdateOne = await Technician.findByIdAndUpdate(
-      req.params.id,
-      {
-        experienceYear,
-        experienceMonths,
-        image
-      } 
-    );
-    
-    if(!req.params.id){
-      return res.status(404).json({
-        success: false,
-        message : "Technician id is not found",
-        result: "Missing technician ID"
-      })
-    }
-    if(!technicianUpdateOne){
-      return res.status(404).json({
-        success: false,
-        message : "Technician is not found",
-        result: "No technician exists with this ID"
-      })
-    }
-    res.status(200).json({ success: true, message: "Technician updated successfully", result: technicianUpdateOne });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message : "Server Error",
-      result: error.message
-    })
-  }
-}
-
-// delete technician
-
-export const technicianDelete = async (req , res)=>{
+/* ================= UPDATE TECHNICIAN ================= */
+export const updateTechnician = async (req, res) => {
   try {
     const { id } = req.params;
-    if(!id){
-      return res.status(404).json({
+    const { skills, availability } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
         success: false,
-        message : "Technician id is not found",
-        result: "Missing technician ID"
-      })
+        message: "Invalid Technician ID",
+      });
     }
 
-    const technicianDeleteOne = await Technician.findByIdAndDelete(id);
-
-    if(!technicianDeleteOne){
+    const technician = await Technician.findById(id);
+    if (!technician) {
       return res.status(404).json({
         success: false,
-        message : "Technician id is not found",
-        result: "No technician exists with this ID"
-      })
+        message: "Technician not found",
+      });
     }
 
-    res.status(200).json({
+    // 🔐 Only technician himself
+    // if (
+    //   req.user.role !== "Technician" ||
+    //   technician.userId.toString() !== req.user.userId.toString()
+    // ) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied",
+    //   });
+    // }
+
+    // ✅ Update skills
+    if (skills) {
+      technician.skills = skills;
+    }
+
+    // ✅ Update availability
+    if (availability?.isOnline !== undefined) {
+      if (technician.status !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: "Only approved technicians can go online",
+        });
+      }
+      technician.availability.isOnline = availability.isOnline;
+    }
+
+    await technician.save();
+
+    return res.status(200).json({
       success: true,
-      message:"Delete successfully...",
-      result: "Technician has been deleted"
+      message: "Technician updated successfully",
+      result: technician,
     });
-    
   } catch (error) {
-    res.status(500).json({
-      message : "Server Error",
-      error : error.message
-    })
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: error.message,
+    });
   }
-}
+};
+
+/* ================= UPDATE TECHNICIAN STATUS (ADMIN) ================= */
+export const updateTechnicianStatus = async (req, res) => {
+  try {
+    const { technicianId, trainingCompleted, status } = req.body;
+
+    if (!technicianId) {
+      return res.status(400).json({
+        success: false,
+        message: "Technician ID is required",
+      });
+    }
+
+    // 🔐 Admin only
+    // if (req.user.role !== "Owner") {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Owner access only",
+    //   });
+    // }
+
+    const technician = await Technician.findById(technicianId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+      });
+    }
+
+    // ✅ Training update
+    if (trainingCompleted !== undefined) {
+      technician.trainingCompleted = trainingCompleted;
+
+      if (trainingCompleted === true) {
+        technician.status = "trained";
+      }
+    }
+
+    // ✅ Status update
+    if (status) {
+      if (!["approved", "suspended"].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status value",
+        });
+      }
+
+      technician.status = status;
+
+      if (status === "suspended") {
+        technician.availability.isOnline = false;
+      }
+    }
+
+    await technician.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician admin update successful",
+      result: technician,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: error.message,
+    });
+  }
+};
+
+/* ================= DELETE TECHNICIAN ================= */
+export const deleteTechnician = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Technician ID",
+      });
+    }
+
+    const technician = await Technician.findByIdAndDelete(id);
+
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: error.message,
+    });
+  }
+};
