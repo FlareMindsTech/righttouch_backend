@@ -53,7 +53,7 @@ import {
   getBookings,
   getCustomerBookings,
   cancelBooking,
-} from "../controller/serviceBookController.js";
+} from "../Controller/serviceBookController.js";
 
 
 import {
