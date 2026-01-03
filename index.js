@@ -5,8 +5,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import multer from "multer";
 
-import UserRoutes from "./Routes/User.js";
-import TechnicianRoutes from "./Routes/technician.js";
+import UserRoutes from "./routes/User.js";
+import TechnicianRoutes from "./routes/technician.js";
 
 dotenv.config();
 const App = express();

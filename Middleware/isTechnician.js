@@ -1,4 +1,4 @@
-import Technician from "../Schemas/Technician.js";
+import Technician from "../schemas/Technician.js";
 
 /* ================= TECHNICIAN ONLY ================= */
 const isTechnician = async (req, res, next) => {

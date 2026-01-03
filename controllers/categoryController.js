@@ -1,4 +1,4 @@
-import Category from "../Schemas/Category.js";
+import Category from "../schemas/Category.js";
 
 /* ================= CREATE CATEGORY (NO IMAGE) ================= */
 export const serviceCategory = async (req, res) => {

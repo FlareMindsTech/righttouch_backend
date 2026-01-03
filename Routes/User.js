@@ -14,7 +14,7 @@ import {
   updateUser,
   verifyOtp,
   verifyPasswordResetOtp,
-} from "../Controller/User.js";
+} from "../controllers/User.js";
 
 import {
   serviceCategory,
@@ -23,7 +23,7 @@ import {
   getByIdCategory,
   updateCategory,
   deleteCategory,
-} from "../Controller/categoryController.js";
+} from "../controllers/categoryController.js";
 
 import {
   userRating,
@@ -31,13 +31,13 @@ import {
   getRatingById,
   updateRating,
   deleteRating,
-} from "../Controller/ratingController.js";
+} from "../controllers/ratingController.js";
 
 import {
   userReport,
   getAllReports,
   getReportById,
-} from "../Controller/reportController.js";
+} from "../controllers/reportController.js";
 
 import {
   createService,
@@ -46,14 +46,14 @@ import {
   getServiceById,
   updateService,
   deleteService,
-} from "../Controller/serviceController.js";
+} from "../controllers/serviceController.js";
 
 import {
   createBooking,
   getBookings,
   getCustomerBookings,
   cancelBooking,
-} from "../Controller/serviceBookController.js";
+} from "../controllers/serviceBookController.js";
 
 
 import {
@@ -63,16 +63,16 @@ import {
   deleteProduct,
   uploadProductImages,
   updateProduct,
-} from "../Controller/productController.js";
+} from "../controllers/productController.js";
 
 import {
   productBooking,
   getAllProductBooking,
   productBookingUpdate,
   productBookingCancel,
-} from "../Controller/productBooking.js";
+} from "../controllers/productBooking.js";
 
-import { Auth, authorizeRoles } from "../Middleware/Auth.js";
+import { Auth, authorizeRoles } from "../middleware/Auth.js";
 
 const router = express.Router();
 

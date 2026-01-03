@@ -1,4 +1,4 @@
-import Service from "../Schemas/Service.js";
+import Service from "../schemas/Service.js";
 
 // CREATE SERVICE (NO IMAGE)
 export const createService = async (req, res) => {

@@ -1,11 +1,11 @@
 import express from "express";
-import { Auth } from "../Middleware/Auth.js";
+import { Auth } from "../middleware/Auth.js";
 import { upload } from "../utils/cloudinaryUpload.js";
 
 import {
   respondToJob,
   getMyJobs,
-} from "../controller/technicianBroadcastController.js";
+} from "../controllers/technicianBroadcastController.js";
 
 import {
   createTechnician,
@@ -14,7 +14,7 @@ import {
   updateTechnician,
   updateTechnicianStatus,
   deleteTechnician,
-} from "../controller/technician.js";
+} from "../controllers/technician.js";
 
 import {
   submitTechnicianKyc,
@@ -23,13 +23,13 @@ import {
   getAllTechnicianKyc,
   verifyTechnicianKyc,
   deleteTechnicianKyc,
-} from "../controller/technicianKycController.js";
+} from "../controllers/technicianKycController.js";
 
 import {
   updateBookingStatus,
   getTechnicianJobHistory,
   getTechnicianCurrentJobs
-} from "../controller/serviceBookController.js";
+} from "../controllers/serviceBookController.js";
 
 const router = express.Router();
 

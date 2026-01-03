@@ -1,4 +1,4 @@
-import Rating from "../Schemas/Rating.js";
+import Rating from "../schemas/Rating.js";
 
 /* ===============================
    CREATE RATING

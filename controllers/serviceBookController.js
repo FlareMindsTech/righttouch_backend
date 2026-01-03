@@ -1,6 +1,6 @@
-import ServiceBooking from "../Schemas/ServiceBooking.js";
-import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import Technician from "../Schemas/Technician.js";
+import ServiceBooking from "../schemas/ServiceBooking.js";
+import JobBroadcast from "../schemas/TechnicianBroadcast.js";
+import Technician from "../schemas/Technician.js";
 import mongoose from "mongoose";
 
 

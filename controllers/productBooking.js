@@ -1,4 +1,4 @@
-import ProductBooking from "../Schemas/ProductBooking.js";
+import ProductBooking from "../schemas/ProductBooking.js";
 
 // Create A new ProductBooking
 export const productBooking = async (req, res) => {

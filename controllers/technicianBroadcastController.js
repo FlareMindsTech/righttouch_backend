@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import ServiceBooking from "../Schemas/ServiceBooking.js";
-import Technician from "../Schemas/Technician.js";
+import JobBroadcast from "../schemas/TechnicianBroadcast.js";
+import ServiceBooking from "../schemas/ServiceBooking.js";
+import Technician from "../schemas/Technician.js";
 
 /* ================= GET MY JOBS ================= */
 export const getMyJobs = async (req, res) => {
