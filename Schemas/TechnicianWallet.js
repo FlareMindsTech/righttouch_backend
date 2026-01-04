@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const walletTransactionSchema = new mongoose.Schema(
   {
     technicianId: {

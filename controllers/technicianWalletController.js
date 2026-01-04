@@ -1,4 +1,4 @@
-import WalletTransaction from "../Schemas/WalletTransaction.js";
+import WalletTransaction from "../Schemas/TechnicianWallet.js";
 
 // Add Wallet Transaction
 export const createWalletTransaction = async (req, res) => {
@@ -54,7 +54,7 @@ export const createWalletTransaction = async (req, res) => {
 // Get Technician Wallet History
 export const getWalletHistory = async (req, res) => {
   try {
-    const { technicianId } = req.params;
+    const technicianId = req.user.userId; // Use authenticated user's ID
 
     const history = await WalletTransaction.find({ technicianId }).sort({
       createdAt: -1,

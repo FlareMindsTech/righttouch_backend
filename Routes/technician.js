@@ -31,6 +31,11 @@ import {
   getTechnicianCurrentJobs
 } from "../controllers/serviceBookController.js";
 
+import {
+  createWalletTransaction,
+  getWalletHistory,
+} from "../controllers/technicianWalletController.js";
+
 const router = express.Router();
 
 /* ================= TECHNICIAN DATA ================= */
@@ -74,5 +79,10 @@ router.put("/job-broadcast/respond/:id", Auth, respondToJob);
 router.put("/status/:id", Auth, updateBookingStatus);
 router.get("/jobs/current", Auth, getTechnicianCurrentJobs);
 router.get("/jobs/history", Auth, getTechnicianJobHistory);
+
+/* ================= TECHNICIAN WALLET ================= */
+
+router.post("/wallet/transaction", Auth, createWalletTransaction);
+router.get("/wallet/history", Auth, getWalletHistory);
 
 export default router;

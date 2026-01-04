@@ -77,6 +77,15 @@ import {
   updatePaymentStatus,
 } from "../controllers/paymentController.js";
 
+import {
+  addToCart,
+  getMyCart,
+  updateCartItem,
+  removeFromCart,
+  getCartById,
+  updateCartById,
+} from "../controllers/cartController.js";
+
 import { Auth, authorizeRoles } from "../middleware/Auth.js";
 
 const router = express.Router();
@@ -184,5 +193,12 @@ router.post("/payment", Auth, createPayment);
 // Update payment status (System/Admin/Webhook)
 router.put("/payment/:id/status", Auth, updatePaymentStatus);
 
+/* ================= CART ================= */
+router.post("/cart/add", Auth, addToCart);
+router.get("/cart/my-cart", Auth, getMyCart);
+router.get("/cart/:id", Auth, getCartById);
+router.put("/cart/update", Auth, updateCartItem);
+router.put("/cart/:id", Auth, updateCartById);
+router.delete("/cart/remove/:id", Auth, removeFromCart);
 
 export default router;
