@@ -1,26 +1,35 @@
 import Payment from "../Schemas/Payment.js";
-import ExtraWork from "../Schemas/ExtraWork.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 
-// Create Payment
 export const createPayment = async (req, res) => {
   try {
-    const { bookingId, baseAmount, paymentMode } = req.body;
+    const { bookingId, baseAmount } = req.body;
 
-    if (!bookingId || !baseAmount || !paymentMode) {
+    if (!bookingId || !baseAmount) {
       return res.status(400).json({
         success: false,
-        message: "bookingId, baseAmount, paymentMode required",
+        message: "bookingId and baseAmount are required",
       });
     }
 
-    if (!["online", "cash"].includes(paymentMode)) {
-      return res.status(400).json({
+    // 🔒 Check booking
+    const booking = await ServiceBooking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
         success: false,
-        message: "Invalid payment mode",
+        message: "Booking not found",
       });
     }
 
+    // 🔒 Only after completion
+    if (booking.status !== "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment allowed only after job completion",
+      });
+    }
+
+    // 🔒 Prevent duplicate payment
     const exists = await Payment.findOne({ bookingId });
     if (exists) {
       return res.status(409).json({
@@ -29,42 +38,32 @@ export const createPayment = async (req, res) => {
       });
     }
 
-    const approvedExtras = await ExtraWork.find({
-      bookingId,
-      approvedByCustomer: true,
-    });
-
-    const extraAmount = approvedExtras.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-
-    const totalAmount = baseAmount + extraAmount;
-
-    const commissionAmount = totalAmount * 0.1;
+    const totalAmount = baseAmount;
+    const commissionAmount = totalAmount * 0.1; // 10%
     const technicianAmount = totalAmount - commissionAmount;
 
     const payment = await Payment.create({
       bookingId,
       baseAmount,
-      extraAmount,
       totalAmount,
       commissionAmount,
       technicianAmount,
-      paymentMode,
+      paymentMode: "online",
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Payment created",
+      message: "Online payment created",
       result: payment,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// Update Payment Status
 export const updatePaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -90,12 +89,15 @@ export const updatePaymentStatus = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Payment status updated",
       result: payment,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

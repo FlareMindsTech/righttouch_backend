@@ -55,4 +55,4 @@ const technicianKycSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("TechnicianKyc", technicianKycSchema);
+export default mongoose.models.TechnicianKyc || mongoose.model("TechnicianKyc", technicianKycSchema);

@@ -69,4 +69,4 @@ const serviceBookingSchema = new mongoose.Schema(
 // Helpful index for technician dashboard
 serviceBookingSchema.index({ technicianId: 1, status: 1 });
 
-export default mongoose.model("ServiceBooking", serviceBookingSchema);
+export default mongoose.models.ServiceBooking || mongoose.model("ServiceBooking", serviceBookingSchema);

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import UserSchema from "../schemas/User.js";// ✅ Import User Schema properly
+import UserSchema from "../Schemas/User.js";// ✅ Import User Schema properly
 
 export const Auth = async (req, res, next) => {      // 🔹 Token validation middleware
   const token = req.headers.token; // frontend should send header: { token: "<jwt_token>" }

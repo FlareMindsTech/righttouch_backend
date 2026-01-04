@@ -53,4 +53,4 @@ const technicianSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Technician", technicianSchema);
+export default mongoose.models.Technician || mongoose.model("Technician", technicianSchema);

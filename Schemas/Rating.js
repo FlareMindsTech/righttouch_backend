@@ -61,4 +61,4 @@ ratingSchema.pre("save", function (next) {
   next();
 });
 
-export default mongoose.model("Rating", ratingSchema);
+export default mongoose.models.Rating || mongoose.model("Rating", ratingSchema);

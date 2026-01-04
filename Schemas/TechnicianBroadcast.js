@@ -33,4 +33,4 @@ jobBroadcastSchema.index(
   { unique: true }
 );
 
-export default mongoose.model("JobBroadcast", jobBroadcastSchema);
+export default mongoose.models.JobBroadcast || mongoose.model("JobBroadcast", jobBroadcastSchema);

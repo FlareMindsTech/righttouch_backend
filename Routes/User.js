@@ -72,6 +72,11 @@ import {
   productBookingCancel,
 } from "../controllers/productBooking.js";
 
+import {
+  createPayment,
+  updatePaymentStatus,
+} from "../controllers/paymentController.js";
+
 import { Auth, authorizeRoles } from "../middleware/Auth.js";
 
 const router = express.Router();
@@ -171,5 +176,13 @@ router.post("/productBooking", productBooking);
 router.get("/getAllProductBooking", getAllProductBooking);
 router.put("/productBookingUpdate/:id", productBookingUpdate);
 router.put("/productBookingCancel/:id", productBookingCancel);
+
+/* ================= PAYMENT ================= */
+
+// Create online payment (Customer)
+router.post("/payment", Auth, createPayment);
+// Update payment status (System/Admin/Webhook)
+router.put("/payment/:id/status", Auth, updatePaymentStatus);
+
 
 export default router;

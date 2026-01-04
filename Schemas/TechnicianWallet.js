@@ -31,5 +31,5 @@ const walletTransactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("WalletTransaction", walletTransactionSchema);
+export default mongoose.models.WalletTransaction || mongoose.model("WalletTransaction", walletTransactionSchema);
                 

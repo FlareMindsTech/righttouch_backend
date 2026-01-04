@@ -35,4 +35,4 @@ const ProductBookingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("ProductBooking", ProductBookingSchema);
+export default mongoose.models.ProductBooking || mongoose.model("ProductBooking", ProductBookingSchema);

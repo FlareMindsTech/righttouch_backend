@@ -1,4 +1,4 @@
-import Product from "../schemas/Product.js";
+import Product from "../Schemas/Product.js";
 
 /* ================= CREATE PRODUCT (JSON ONLY) ================= */
 export const createProduct = async (req, res) => {

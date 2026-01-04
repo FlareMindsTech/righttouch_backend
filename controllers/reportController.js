@@ -1,4 +1,4 @@
-import Report from "../schemas/Report.js";
+import Report from "../Schemas/Report.js";
 
 // Create Report
 export const userReport = async (req, res) => {

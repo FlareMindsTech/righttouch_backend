@@ -1,6 +1,6 @@
-import Otp from "../schemas/Otp.js";
-import TempUser from "../schemas/TempUser.js";
-import User from "../schemas/User.js";
+import Otp from "../Schemas/Otp.js";
+import TempUser from "../Schemas/TempUser.js";
+import User from "../Schemas/User.js";
 import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
