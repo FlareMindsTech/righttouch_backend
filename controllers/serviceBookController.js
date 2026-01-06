@@ -35,11 +35,12 @@ export const createBooking = async (req, res) => {
     // 3️⃣ Create broadcast records
     if (technicians.length > 0) {
       
-      console.log(technicians)
+      // console.log(technicians)
       let hel = await JobBroadcast.insertMany(
         technicians.map((t) => ({
           bookingId: booking._id,
           technicianId: t._id,
+          status: "sent",
         }))
       );
       console.log(hel);

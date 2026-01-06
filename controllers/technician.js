@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import Technician from "../schemas/Technician.js";
-import User from "../schemas/User.js";
+import Technician from "../Schemas/Technician.js";
+import User from "../Schemas/User.js";
 
 /* ================= CREATE TECHNICIAN ================= */
 export const createTechnician = async (req, res) => {

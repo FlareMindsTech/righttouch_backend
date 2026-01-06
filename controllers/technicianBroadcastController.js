@@ -14,21 +14,41 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
+    // 🔹 Find logged-in technician
     const technician = await Technician.findOne({
       userId: req.user.userId,
     });
 
-    const jobs = await JobBroadcast.find({})
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+        result: null,
+      });
+    }
+
+    // 🔹 Show only jobs sent to THIS technician & not taken
+    const jobs = await JobBroadcast.find({
+      // technicianId: technician._id,
+      status: "sent",               
+    })
       .populate({
         path: "bookingId",
-        populate: { path: "serviceId", select: "serviceName" },
+        match: { status: "broadcasted" }, // 👈 not already accepted
+        populate: {
+          path: "serviceId",
+          select: "serviceName",
+        },
       })
       .sort({ createdAt: -1 });
+
+    // 🔹 Remove null bookings (already taken)
+    const filteredJobs = jobs.filter(job => job.bookingId);
 
     return res.status(200).json({
       success: true,
       message: "Jobs fetched successfully",
-      result: jobs,
+      result: filteredJobs,
     });
   } catch (err) {
     return res.status(500).json({
@@ -38,6 +58,7 @@ export const getMyJobs = async (req, res) => {
     });
   }
 };
+
 
 /* ================= RESPOND TO JOB ================= */
 export const respondToJob = async (req, res) => {

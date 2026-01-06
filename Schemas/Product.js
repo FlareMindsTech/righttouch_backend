@@ -63,6 +63,7 @@ const productSchema = new mongoose.Schema({
 
   warrantyPeriod: String,
 
+
   amcAvailable: {
     type: Boolean,
     default: false,

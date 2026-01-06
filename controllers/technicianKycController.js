@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import TechnicianKyc from "../schemas/TechnicianKYC.js";
-import Technician from "../schemas/Technician.js";
+import TechnicianKyc from "../Schemas/TechnicianKYC.js";
+import Technician from "../Schemas/Technician.js";
 
 /* ================= SUBMIT / UPDATE TECHNICIAN KYC (NO IMAGE) ================= */
 export const submitTechnicianKyc = async (req, res) => {

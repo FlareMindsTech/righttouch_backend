@@ -24,6 +24,7 @@ export const addToCart = async (req, res) => {
 
     // Check if item exists
     let item;
+    item = await Product.findById(itemId);
     if (itemType === "product") {
       item = await Product.findById(itemId);
     } else {
