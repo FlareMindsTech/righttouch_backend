@@ -1,17 +1,23 @@
-
-import twilio from 'twilio';
+import axios from "axios";
 
 export default async function sendSms(phoneNumber, otpCode) {
-  const client = twilio(process.env.TWILIO_SID_SMS, process.env.TWILIO_TOKEN_SMS);
   try {
-    const fullPhone = `+91${phoneNumber}`;
-    await client.messages.create({
-      from: process.env.SMS_SENDER,
-      to: fullPhone,
-      body: `Service App ${otpCode}`,
-    });
+    await axios.post(
+      "https://www.fast2sms.com/dev/bulkV2",
+      {
+        route: "otp",                 // OTP route
+        variables_values: otpCode,    // OTP value
+        numbers: phoneNumber,         // Indian number (without +91)
+      },
+      {
+        headers: {
+          authorization: process.env.FAST2SMS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
   } catch (error) {
-    console.error("Error sending SMS:", error);
+    console.error("Error sending SMS:", error.response?.data || error.message);
     throw new Error("SMS could not be sent");
   }
 }

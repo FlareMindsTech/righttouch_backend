@@ -2,52 +2,63 @@ import mongoose from "mongoose";
 
 const ratingSchema = new mongoose.Schema(
   {
-    technicianId: {
+    bookingId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Technician",
-      // required: true,
+      required: true,
+      unique: true, // one rating per order
     },
+
+    bookingType: {
+      type: String,
+      enum: ["product", "service"],
+      required: true,
+    },
+
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+    },
+
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Service",
-      required: true,
     },
+
+    technicianId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Technician",
+    },
+
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
     rates: {
       type: Number,
-      required: true,
-      min: 0,
+      min: 1,
       max: 5,
+      required: true,
     },
-    comment: {
-      type: String,
-    },
+
+    comment: String,
+
     content: {
       type: String,
       enum: ["Excellent", "Good", "Average", "Below Average"],
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// auto set content
+// auto label
 ratingSchema.pre("save", function (next) {
-  if (this.rates >= 4) {
-    this.content = "Excellent";
-  } else if (this.rates >= 3) {
-    this.content = "Good";
-  } else if (this.rates >= 2) {
-    this.content = "Average";
-  } else {
-    this.content = "Below Average";
-  }
+  if (this.rates >= 4) this.content = "Excellent";
+  else if (this.rates >= 3) this.content = "Good";
+  else if (this.rates >= 2) this.content = "Average";
+  else this.content = "Below Average";
   next();
 });
 
-export default mongoose.model("Rating", ratingSchema);
+export default mongoose.models.Rating || mongoose.model("Rating", ratingSchema);

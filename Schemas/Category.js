@@ -27,6 +27,13 @@ const categorySchema = new mongoose.Schema({
     required: true,
   },
 
+  categoryType: {
+    type: String,
+    enum: ["service", "product"],
+    default: "service",
+    required: true,
+  },
+
   image: {
     type: String,
     default: null, // 👈 image uploaded later
@@ -59,4 +66,4 @@ categorySchema.pre("save", function (next) {
   next();
 });
 
-export default mongoose.model("Category", categorySchema);
+export default mongoose.models.Category || mongoose.model("Category", categorySchema);

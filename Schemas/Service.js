@@ -173,4 +173,4 @@ serviceSchema.pre("save", function (next) {
   next();
 });
 
-export default mongoose.model("Service", serviceSchema);
+export default mongoose.models.Service || mongoose.model("Service", serviceSchema);
