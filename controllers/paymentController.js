@@ -9,6 +9,7 @@ export const createPayment = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "bookingId and baseAmount are required",
+        result: {},
       });
     }
 
@@ -18,6 +19,7 @@ export const createPayment = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Booking not found",
+        result: {},
       });
     }
 
@@ -26,6 +28,7 @@ export const createPayment = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Payment allowed only after job completion",
+        result: {},
       });
     }
 
@@ -35,6 +38,7 @@ export const createPayment = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "Payment already exists for this booking",
+        result: {},
       });
     }
 
@@ -60,6 +64,7 @@ export const createPayment = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      result: {},
     });
   }
 };
@@ -73,6 +78,7 @@ export const updatePaymentStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid payment status",
+        result: {},
       });
     }
 
@@ -86,6 +92,7 @@ export const updatePaymentStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Payment not found",
+        result: {},
       });
     }
 
@@ -98,6 +105,7 @@ export const updatePaymentStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      result: {},
     });
   }
 };

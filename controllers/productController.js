@@ -4,6 +4,7 @@ import Product from "../Schemas/Product.js";
 export const createProduct = async (req, res) => {
   try {
     const {
+      categoryId,
       productName,
       productType,
       description,
@@ -22,14 +23,16 @@ export const createProduct = async (req, res) => {
       complianceCertificates,
     } = req.body;
 
-    if (!productName || !productType || !description) {
+    if (!categoryId || !productName || !productType || !description) {
       return res.status(400).json({
         success: false,
         message: "Required fields missing",
+        result: {},
       });
     }
 
     const product = await Product.create({
+      categoryId,
       productName,
       productType,
       description,
@@ -61,7 +64,7 @@ export const createProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -75,6 +78,7 @@ export const uploadProductImages = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Product ID is required",
+        result: {},
       });
     }
 
@@ -82,6 +86,7 @@ export const uploadProductImages = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Product images are required",
+        result: {},
       });
     }
 
@@ -90,6 +95,7 @@ export const uploadProductImages = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Product not found",
+        result: {},
       });
     }
 
@@ -106,7 +112,7 @@ export const uploadProductImages = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -140,7 +146,7 @@ export const getProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -154,6 +160,7 @@ export const getOneProduct = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Product not found",
+        result: {},
       });
     }
 
@@ -166,7 +173,7 @@ export const getOneProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -179,6 +186,7 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Product not found",
+        result: {},
       });
     }
 
@@ -202,7 +210,7 @@ export const updateProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -215,18 +223,20 @@ export const deleteProduct = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Product not found",
+        result: {},
       });
     }
 
     res.status(200).json({
       success: true,
       message: "Product deleted successfully",
+      result: {},
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };

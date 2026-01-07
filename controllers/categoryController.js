@@ -3,30 +3,42 @@ import Category from "../Schemas/Category.js";
 /* ================= CREATE CATEGORY (NO IMAGE) ================= */
 export const serviceCategory = async (req, res) => {
   try {
-    const { category, description } = req.body;
+    const { category, description, categoryType } = req.body;
 
-    if (!category || !description) {
+    if (!category || !description || !categoryType) {
       return res.status(400).json({
         success: false,
-        message: "Category & description are required",
+        message: "Category, description & categoryType are required",
+        result: {},
+      });
+    }
+
+    if (!["service", "product"].includes(categoryType)) {
+      return res.status(400).json({
+        success: false,
+        message: "categoryType must be 'service' or 'product'",
+        result: {},
       });
     }
 
     // Duplicate check (case-insensitive)
     const existing = await Category.findOne({
       category: { $regex: `^${category}$`, $options: "i" },
+      categoryType,
     });
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Category already exists",
+        message: "Category already exists for this type",
+        result: {},
       });
     }
 
     const categoryData = await Category.create({
       category,
       description,
+      categoryType,
     });
 
     return res.status(201).json({
@@ -38,7 +50,7 @@ export const serviceCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -52,6 +64,7 @@ export const uploadCategoryImage = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Category ID is required",
+        result: {},
       });
     }
 
@@ -59,6 +72,7 @@ export const uploadCategoryImage = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Category image is required",
+        result: {},
       });
     }
 
@@ -67,6 +81,7 @@ export const uploadCategoryImage = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Category not found",
+        result: {},
       });
     }
 
@@ -82,7 +97,7 @@ export const uploadCategoryImage = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -90,8 +105,19 @@ export const uploadCategoryImage = async (req, res) => {
 /* ================= GET ALL CATEGORIES ================= */
 export const getAllCategory = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, categoryType } = req.query;
     let query = {};
+
+    if (categoryType) {
+      if (!["service", "product"].includes(categoryType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid categoryType. Must be 'service' or 'product'",
+          result: {},
+        });
+      }
+      query.categoryType = categoryType;
+    }
 
     if (search) {
       query.$or = [
@@ -111,7 +137,7 @@ export const getAllCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -125,6 +151,7 @@ export const getByIdCategory = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Category not found",
+        result: {},
       });
     }
 
@@ -137,7 +164,7 @@ export const getByIdCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -146,7 +173,7 @@ export const getByIdCategory = async (req, res) => {
 export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, description } = req.body;
+    const { category, description, categoryType } = req.body;
 
     if (category) {
       const existing = await Category.findOne({
@@ -158,13 +185,22 @@ export const updateCategory = async (req, res) => {
         return res.status(409).json({
           success: false,
           message: "Category name already exists",
+          result: {},
         });
       }
     }
 
+    if (categoryType && !["service", "product"].includes(categoryType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid categoryType. Must be 'service' or 'product'",
+        result: {},
+      });
+    }
+
     const updatedCategory = await Category.findByIdAndUpdate(
       id,
-      { category, description },
+      { category, description, categoryType },
       { new: true, runValidators: true }
     );
 
@@ -172,6 +208,7 @@ export const updateCategory = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Category not found",
+        result: {},
       });
     }
 
@@ -184,7 +221,7 @@ export const updateCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -198,18 +235,20 @@ export const deleteCategory = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Category not found",
+        result: {},
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Category deleted successfully",
+      result: {},
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };

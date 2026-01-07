@@ -10,7 +10,7 @@ export const productBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
-        result: "Missing required fields",
+        result: {},
       });
     }
 
@@ -30,7 +30,7 @@ export const productBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -45,7 +45,7 @@ export const getAllProductBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "No product booking data found",
-        result: "No product bookings exist",
+        result: {},
       });
     }
 
@@ -58,7 +58,7 @@ export const getAllProductBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching product bookings",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -72,7 +72,7 @@ export const productBookingUpdate = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
-        result: "Missing required fields",
+        result: {},
       });
     }
 
@@ -91,7 +91,7 @@ export const productBookingUpdate = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Booking not found",
-        result: "No booking exists with this ID",
+        result: {},
       });
     }
 
@@ -104,7 +104,7 @@ export const productBookingUpdate = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -117,7 +117,7 @@ export const productBookingCancel = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Booking ID is required",
-        result: "Missing booking ID"
+        result: {}
       });
     }
 
@@ -131,7 +131,7 @@ export const productBookingCancel = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Your booking was not found",
-        result: "No booking exists with this ID"
+        result: {}
       });
     }
 
@@ -144,7 +144,7 @@ export const productBookingCancel = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message
+      result: {}
     });
   }
 };

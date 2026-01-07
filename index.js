@@ -7,6 +7,7 @@ import multer from "multer";
 
 import UserRoutes from "./routes/User.js";
 import TechnicianRoutes from "./routes/technician.js";
+import AddressRoutes from "./routes/address.js";
 
 dotenv.config();
 const App = express();
@@ -44,6 +45,7 @@ App.get("/", (req, res) => {
 // Routes
 App.use("/api/user", UserRoutes);
 App.use("/api/technician", TechnicianRoutes);
+App.use("/api/addresses", AddressRoutes);
 
 // ❗ GLOBAL ERROR HANDLER (MUST BE LAST)
 App.use((err, req, res, next) => {

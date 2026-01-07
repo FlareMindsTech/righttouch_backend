@@ -16,6 +16,7 @@ export const submitTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Technician ID is required",
+        result: {},
       });
     }
 
@@ -23,6 +24,7 @@ export const submitTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -31,6 +33,7 @@ export const submitTechnicianKyc = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
+        result: {},
       });
     }
 
@@ -60,7 +63,7 @@ export const submitTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -74,6 +77,7 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Technician ID is required",
+        result: {},
       });
     }
 
@@ -81,6 +85,7 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -88,6 +93,7 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "KYC documents are required",
+        result: {},
       });
     }
 
@@ -96,6 +102,7 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
+        result: {},
       });
     }
 
@@ -122,7 +129,7 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -138,6 +145,7 @@ export const getAllTechnicianKyc = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
+          result: {},
       });
     }
 
@@ -150,7 +158,7 @@ export const getAllTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -163,6 +171,7 @@ export const getTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -172,6 +181,7 @@ export const getTechnicianKyc = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
+        result: {},
       });
     }
 
@@ -184,7 +194,7 @@ export const getTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -198,6 +208,7 @@ export const verifyTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Technician ID and status are required",
+        result: {},
       });
     }
 
@@ -205,6 +216,7 @@ export const verifyTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid verification status",
+        result: {},
       });
     }
 
@@ -213,6 +225,7 @@ export const verifyTechnicianKyc = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
+        result: {},
       });
     }
 
@@ -238,12 +251,13 @@ export const verifyTechnicianKyc = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `KYC ${status} successfully`,
+      result: kyc,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -257,6 +271,7 @@ export const deleteTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Technician ID is required",
+        result: {},
       });
     }
 
@@ -264,6 +279,7 @@ export const deleteTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -273,6 +289,7 @@ export const deleteTechnicianKyc = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
+        result: {},
       });
     }
 
@@ -285,12 +302,13 @@ export const deleteTechnicianKyc = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Technician KYC deleted successfully",
+      result: {},
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };

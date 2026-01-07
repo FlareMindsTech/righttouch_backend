@@ -12,7 +12,7 @@ export const userRating = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
-        result: "Missing required fields",
+        result: {},
       });
     }
 
@@ -33,7 +33,7 @@ export const userRating = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -77,7 +77,7 @@ export const getAllRatings = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "No rating data found",
-        result: "No ratings match the criteria",
+        result: {},
       });
     }
 
@@ -90,7 +90,7 @@ export const getAllRatings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -116,7 +116,7 @@ export const getRatingById = async (req, res) => {
     if (!rating)
       return res
         .status(404)
-        .json({ success: false, message: "Rating not found", result: "No rating exists with this ID" });
+        .json({ success: false, message: "Rating not found", result: {} });
 
     res.status(200).json({
       success: true,
@@ -127,7 +127,7 @@ export const getRatingById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -148,7 +148,7 @@ export const updateRating = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Rating not found",
-        result: "No rating exists with this ID",
+        result: {},
       });
     }
 
@@ -161,7 +161,7 @@ export const updateRating = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -179,20 +179,20 @@ export const deleteRating = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Rating not found",
-        result: "No rating exists with this ID",
+        result: {},
       });
     }
 
     res.status(200).json({
       success: true,
       message: "Rating deleted successfully",
-      result: "Rating has been deleted",
+      result: {},
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: error.message,
+      result: {},
     });
   }
 };

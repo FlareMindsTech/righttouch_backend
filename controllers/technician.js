@@ -11,6 +11,7 @@ export const createTechnician = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "User ID is required",
+        result: {},
       });
     }
 
@@ -18,6 +19,7 @@ export const createTechnician = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid User ID",
+        result: {},
       });
     }
 
@@ -26,6 +28,7 @@ export const createTechnician = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "User not found",
+        result: {},
       });
     }
 
@@ -34,6 +37,7 @@ export const createTechnician = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "Technician already exists for this user",
+        result: {},
       });
     }
 
@@ -51,7 +55,7 @@ export const createTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -83,7 +87,7 @@ export const getAllTechnicians = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -97,6 +101,7 @@ export const getTechnicianById = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -108,6 +113,7 @@ export const getTechnicianById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
+        result: {},
       });
     }
 
@@ -120,7 +126,7 @@ export const getTechnicianById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -135,6 +141,7 @@ export const updateTechnician = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -143,6 +150,7 @@ export const updateTechnician = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
+        result: {},
       });
     }
 
@@ -168,6 +176,7 @@ export const updateTechnician = async (req, res) => {
         return res.status(403).json({
           success: false,
           message: "Only approved technicians can go online",
+          result: {},
         });
       }
       technician.availability.isOnline = availability.isOnline;
@@ -184,7 +193,7 @@ export const updateTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -198,6 +207,7 @@ export const updateTechnicianStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Technician ID is required",
+        result: {},
       });
     }
 
@@ -214,6 +224,7 @@ export const updateTechnicianStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
+        result: {},
       });
     }
 
@@ -232,6 +243,7 @@ export const updateTechnicianStatus = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "Invalid status value",
+          result: {},
         });
       }
 
@@ -253,7 +265,7 @@ export const updateTechnicianStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -267,6 +279,7 @@ export const deleteTechnician = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
       });
     }
 
@@ -276,18 +289,20 @@ export const deleteTechnician = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
+        result: {},
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Technician deleted successfully",
+      result: {},
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };

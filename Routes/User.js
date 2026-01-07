@@ -84,6 +84,7 @@ import {
   removeFromCart,
   getCartById,
   updateCartById,
+  checkout,
 } from "../controllers/cartController.js";
 
 import { Auth, authorizeRoles } from "../middleware/Auth.js";
@@ -122,7 +123,7 @@ router.delete("/deletecategory/:id", Auth, deleteCategory);
 
 router.post("/report", Auth, userReport);
 router.get("/getAllReports", getAllReports);
-router.get("/getReportById/:id", getReportById);
+router.get("/getReportById/:id", Auth, getReportById);
 
 /* ================= SERVICE ================= */
 
@@ -200,5 +201,8 @@ router.get("/cart/:id", Auth, getCartById);
 router.put("/cart/update", Auth, updateCartItem);
 router.put("/cart/:id", Auth, updateCartById);
 router.delete("/cart/remove/:id", Auth, removeFromCart);
+
+/* ================= CHECKOUT ================= */
+router.post("/checkout", Auth, checkout);
 
 export default router;

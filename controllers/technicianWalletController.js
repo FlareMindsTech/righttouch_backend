@@ -9,6 +9,7 @@ export const createWalletTransaction = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
+        result: {},
       });
     }
 
@@ -16,6 +17,7 @@ export const createWalletTransaction = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid transaction type",
+        result: {},
       });
     }
 
@@ -23,13 +25,16 @@ export const createWalletTransaction = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid transaction source",
+        result: {},
       });
     }
 
     if (amount <= 0) {
+      
       return res.status(400).json({
         success: false,
         message: "Amount must be positive",
+        result: {},
       });
     }
 
@@ -47,7 +52,7 @@ export const createWalletTransaction = async (req, res) => {
       result: transaction,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message, result: {} });
   }
 };
 
@@ -60,11 +65,12 @@ export const getWalletHistory = async (req, res) => {
       createdAt: -1,
     });
 
-    res.json({
+    res.status(200).json({
       success: true,
+      message: "Wallet history fetched successfully",
       result: history,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message, result: {} });
   }
 };

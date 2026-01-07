@@ -10,7 +10,7 @@ export const getMyJobs = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Access denied",
-        result: null,
+        result: {},
       });
     }
 
@@ -23,7 +23,7 @@ export const getMyJobs = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Technician not found",
-        result: null,
+        result: {},
       });
     }
 
@@ -54,7 +54,7 @@ export const getMyJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: null,
+      result: {},
     });
   }
 };
@@ -74,7 +74,7 @@ export const respondToJob = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid status",
-        result: null,
+        result: {},
       });
     }
 
@@ -89,7 +89,7 @@ export const respondToJob = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "Job already processed",
-        result: null,
+        result: {},
       });
     }
     // if (job.technicianId.toString() !== technician._id.toString()) {
@@ -98,7 +98,7 @@ export const respondToJob = async (req, res) => {
     //   return res.status(403).json({
     //     success: false,
     //     message: "Access denied",
-    //     result: null,
+    //     result: {},
     //   });
     // }
     
@@ -112,7 +112,7 @@ export const respondToJob = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "Job rejected successfully",
-        result: null,
+        result: {},
       });
     }
 
@@ -128,7 +128,7 @@ export const respondToJob = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "Booking already taken",
-        result: null,
+        result: {},
       });
     }
 
@@ -153,7 +153,7 @@ export const respondToJob = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: null,
+      result: {},
     });
   } finally {
     session.endSession();

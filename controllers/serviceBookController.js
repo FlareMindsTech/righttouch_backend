@@ -12,6 +12,7 @@ export const createBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "All fields required",
+        result: {},
       });
     }
 
@@ -56,6 +57,7 @@ export const createBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      result: {},
     });
   }
 };
@@ -83,6 +85,7 @@ export const getBookings = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Bookings fetched successfully",
       result: bookings,
     });
   } catch (error) {
@@ -90,6 +93,7 @@ export const getBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      result: {},
     });
   }
 };
@@ -115,7 +119,7 @@ export const getCustomerBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: null,
+      result: {},
     });
   }
 };
@@ -146,7 +150,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: null,
+      result: {},
     });
   }
 };
@@ -161,7 +165,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Access denied",
-        result: null,
+        result: {},
       });
     }
 
@@ -189,7 +193,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: null,
+      result: {},
     });
   }
 };
@@ -214,6 +218,7 @@ export const updateBookingStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid status",
+        result: {},
       });
     }
 
@@ -223,6 +228,7 @@ export const updateBookingStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Booking not found",
+        result: {},
       });
     }
 
@@ -249,6 +255,7 @@ export const updateBookingStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      result: {},
     });
   }
 };
@@ -268,6 +275,7 @@ export const cancelBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Booking not found",
+        result: {},
       });
     }
 
@@ -276,6 +284,7 @@ export const cancelBooking = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Only customer can cancel booking",
+        result: {},
       });
     }
 
@@ -283,6 +292,7 @@ export const cancelBooking = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Access denied",
+        result: {},
       });
     }
 
@@ -291,6 +301,7 @@ export const cancelBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Booking already cancelled",
+        result: {},
       });
     }
 
@@ -299,6 +310,7 @@ export const cancelBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Completed booking cannot be cancelled",
+        result: {},
       });
     }
 
@@ -308,6 +320,7 @@ export const cancelBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Booking cannot be cancelled once technician started work",
+        result: {},
       });
     }
 
@@ -325,6 +338,7 @@ export const cancelBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
+      result: {},
     });
   }
 };

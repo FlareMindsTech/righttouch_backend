@@ -9,7 +9,7 @@ export const userReport = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
-        result: "Missing required fields"
+        result: {}
       });
     }
 
@@ -27,7 +27,7 @@ export const userReport = async (req, res) => {
       result: reportData
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", result: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: {} });
   }
 };
 
@@ -59,7 +59,7 @@ export const getAllReports = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "No reports found",
-        result: "No reports match the search criteria"
+        result: {}
       });
     }
 
@@ -72,7 +72,7 @@ export const getAllReports = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message
+      result: {}
     });
   }
 };
@@ -92,10 +92,10 @@ export const getReportById = async (req, res) => {
     if (!report)
       return res
         .status(404)
-        .json({ success: false, message: "Report not found", result: "No report exists with this ID" });
+        .json({ success: false, message: "Report not found", result: {} });
 
     return res.status(200).json({ success: true, message: "Report fetched successfully", result: report });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", result: error.message });
+    res.status(500).json({ success: false, message: "Server error", result: {} });
   }
 };

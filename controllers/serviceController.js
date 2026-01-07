@@ -31,6 +31,7 @@ export const createService = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Required fields are missing",
+        result: {},
       });
     }
 
@@ -43,6 +44,7 @@ export const createService = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "Service already exists",
+        result: {},
       });
     }
 
@@ -73,7 +75,7 @@ export const createService = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -88,6 +90,7 @@ export const uploadServiceImages = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Service ID is required",
+        result: {},
       });
     }
 
@@ -95,6 +98,7 @@ export const uploadServiceImages = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Service images are required",
+        result: {},
       });
     }
 
@@ -103,6 +107,7 @@ export const uploadServiceImages = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Service not found",
+        result: {},
       });
     }
 
@@ -119,7 +124,7 @@ export const uploadServiceImages = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -149,7 +154,7 @@ export const getAllServices = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -165,6 +170,7 @@ export const getServiceById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Service not found",
+        result: {},
       });
     }
 
@@ -177,7 +183,7 @@ export const getServiceById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -194,6 +200,7 @@ export const updateService = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Service not found",
+        result: {},
       });
     }
 
@@ -206,7 +213,7 @@ export const updateService = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
@@ -219,18 +226,20 @@ export const deleteService = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Service not found",
+        result: {},
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Service deleted successfully",
+      result: {},
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: error.message,
+      result: {},
     });
   }
 };
