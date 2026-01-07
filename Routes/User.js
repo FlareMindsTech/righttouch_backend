@@ -96,7 +96,7 @@ router.post("/signup", signupAndSendOtp);
 router.post("/login", login);
 router.post("/resendOtp", resendOtp);
 router.post("/verify-otp", verifyOtp);
-router.put("/update-user/:id", updateUser);
+router.put("/update-user/:id", Auth, updateUser);
 router.get("/getallusers", Auth, getAllUsers);
 router.get("/getuserbyid/:id", getUserById);
 router.get("/getMyProfile", Auth, getMyProfile);
@@ -158,8 +158,8 @@ router.get("/booking/getCustomerBookings", Auth, getCustomerBookings);
 router.post("/rating", Auth, userRating);
 router.get("/getAllRatings", getAllRatings);
 router.get("/getRatingById/:id", getRatingById);
-router.put("/updateRating/:id", updateRating);
-router.delete("/deleteRating/:id", deleteRating);
+router.put("/updateRating/:id", Auth, updateRating);
+router.delete("/deleteRating/:id", Auth, deleteRating);
 
 /* ================= PRODUCT ================= */
 
@@ -182,10 +182,10 @@ router.delete("/deleteProduct/:id", Auth, deleteProduct);
 
 /* ================= PRODUCT BOOKING ================= */
 
-router.post("/productBooking", productBooking);
-router.get("/getAllProductBooking", getAllProductBooking);
-router.put("/productBookingUpdate/:id", productBookingUpdate);
-router.put("/productBookingCancel/:id", productBookingCancel);
+router.post("/productBooking", Auth, productBooking);
+router.get("/getAllProductBooking", Auth, getAllProductBooking);
+router.put("/productBookingUpdate/:id", Auth, productBookingUpdate);
+router.put("/productBookingCancel/:id", Auth, productBookingCancel);
 
 /* ================= PAYMENT ================= */
 

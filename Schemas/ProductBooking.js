@@ -20,9 +20,15 @@ const ProductBookingSchema = new mongoose.Schema(
       min: 0,
     },
 
+    quantity: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "refunded"],
+      enum: ["pending", "paid", "refunded", "completed"],
       default: "pending",
     },
 

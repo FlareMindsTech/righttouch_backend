@@ -2,33 +2,23 @@ import mongoose from "mongoose";
 import TechnicianKyc from "../Schemas/TechnicianKYC.js";
 import Technician from "../Schemas/Technician.js";
 
+const isValidObjectId = mongoose.Types.ObjectId.isValid;
+
 /* ================= SUBMIT / UPDATE TECHNICIAN KYC (NO IMAGE) ================= */
 export const submitTechnicianKyc = async (req, res) => {
   try {
-    const {
-      technicianId,
-      aadhaarNumber,
-      panNumber,
-      drivingLicenseNumber,
-    } = req.body;
+    const { aadhaarNumber, panNumber, drivingLicenseNumber } = req.body;
+    const authUserId = req.user?.userId;
 
-    if (!technicianId) {
-      return res.status(400).json({
+    if (!authUserId) {
+      return res.status(401).json({
         success: false,
-        message: "Technician ID is required",
+        message: "Unauthorized",
         result: {},
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Technician ID",
-        result: {},
-      });
-    }
-
-    const technician = await Technician.findById(technicianId);
+    const technician = await Technician.findOne({ userId: authUserId });
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -36,6 +26,8 @@ export const submitTechnicianKyc = async (req, res) => {
         result: {},
       });
     }
+
+    const technicianId = technician._id;
 
     const kyc = await TechnicianKyc.findOneAndUpdate(
       { technicianId },
@@ -71,20 +63,12 @@ export const submitTechnicianKyc = async (req, res) => {
 /* ================= UPLOAD TECHNICIAN KYC DOCUMENTS (IMAGES) ================= */
 export const uploadTechnicianKycDocuments = async (req, res) => {
   try {
-    const { technicianId } = req.body;
+    const authUserId = req.user?.userId;
 
-    if (!technicianId) {
-      return res.status(400).json({
+    if (!authUserId) {
+      return res.status(401).json({
         success: false,
-        message: "Technician ID is required",
-        result: {},
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Technician ID",
+        message: "Unauthorized",
         result: {},
       });
     }
@@ -97,7 +81,16 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
       });
     }
 
-    const kyc = await TechnicianKyc.findOne({ technicianId });
+    const technician = await Technician.findOne({ userId: authUserId });
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+        result: {},
+      });
+    }
+
+    const kyc = await TechnicianKyc.findOne({ technicianId: technician._id });
     if (!kyc) {
       return res.status(404).json({
         success: false,
@@ -137,17 +130,15 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
 /* ================= GET TECHNICIAN KYC (TECHNICIAN / ADMIN) ================= */
 export const getAllTechnicianKyc = async (req, res) => {
   try {
-   
-
-    const kyc = await TechnicianKyc.find();
-
-    if (!kyc) {
-      return res.status(404).json({
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
         success: false,
-        message: "KYC record not found",
-          result: {},
+        message: "Owner access only",
+        result: {},
       });
     }
+
+    const kyc = await TechnicianKyc.find();
 
     return res.status(200).json({
       success: true,
@@ -162,12 +153,13 @@ export const getAllTechnicianKyc = async (req, res) => {
     });
   }
 };
+
 /* ================= GET TECHNICIAN KYC (TECHNICIAN / ADMIN) ================= */
 export const getTechnicianKyc = async (req, res) => {
   try {
     const { technicianId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
+    if (!isValidObjectId(technicianId)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
@@ -183,6 +175,19 @@ export const getTechnicianKyc = async (req, res) => {
         message: "KYC record not found",
         result: {},
       });
+    }
+
+    const authUserId = req.user?.userId;
+    const isOwner = req.user?.role === "Owner";
+    if (!isOwner) {
+      const technician = await Technician.findOne({ userId: authUserId });
+      if (!technician || technician._id.toString() !== technicianId) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied",
+          result: {},
+        });
+      }
     }
 
     return res.status(200).json({
@@ -204,7 +209,15 @@ export const verifyTechnicianKyc = async (req, res) => {
   try {
     const { technicianId, status, rejectionReason } = req.body;
 
-    if (!technicianId || !status) {
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Owner access only",
+        result: {},
+      });
+    }
+
+    if (!technicianId || !isValidObjectId(technicianId) || !status) {
       return res.status(400).json({
         success: false,
         message: "Technician ID and status are required",
@@ -216,6 +229,14 @@ export const verifyTechnicianKyc = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid verification status",
+        result: {},
+      });
+    }
+
+    if (status === "rejected" && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required",
         result: {},
       });
     }
@@ -232,7 +253,7 @@ export const verifyTechnicianKyc = async (req, res) => {
     kyc.verificationStatus = status;
     kyc.rejectionReason = status === "rejected" ? rejectionReason : null;
     kyc.verifiedAt = new Date();
-    kyc.verifiedBy = req.user.id;
+    kyc.verifiedBy = req.user.userId;
 
     await kyc.save();
 
@@ -267,18 +288,18 @@ export const deleteTechnicianKyc = async (req, res) => {
   try {
     const { technicianId } = req.params;
 
-    if (!technicianId) {
+    if (!isValidObjectId(technicianId)) {
       return res.status(400).json({
         success: false,
-        message: "Technician ID is required",
+        message: "Invalid Technician ID",
         result: {},
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(technicianId)) {
-      return res.status(400).json({
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
         success: false,
-        message: "Invalid Technician ID",
+        message: "Owner access only",
         result: {},
       });
     }
@@ -293,7 +314,6 @@ export const deleteTechnicianKyc = async (req, res) => {
       });
     }
 
-    // 🔒 Safety: suspend technician after KYC delete
     await Technician.findByIdAndUpdate(technicianId, {
       status: "suspended",
       "availability.isOnline": false,

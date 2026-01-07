@@ -1,4 +1,14 @@
+import mongoose from "mongoose";
 import Service from "../Schemas/Service.js";
+import Category from "../Schemas/Category.js";
+
+const SERVICE_TYPES = ["Repair", "Installation", "Maintenance", "Inspection"];
+const PRICING_TYPES = ["fixed", "after_inspection", "per_unit"];
+
+const toNumber = value => {
+  const num = Number(value);
+  return Number.isNaN(num) ? NaN : num;
+};
 
 // CREATE SERVICE (NO IMAGE)
 export const createService = async (req, res) => {
@@ -21,18 +31,52 @@ export const createService = async (req, res) => {
       cancellationPolicy,
     } = req.body;
 
-    if (
-      !categoryId ||
-      !serviceName ||
-      !description ||
-      !serviceType ||
-      !serviceCost
-    ) {
+    if (!categoryId || !serviceName || !description || serviceCost === undefined) {
       return res.status(400).json({
         success: false,
         message: "Required fields are missing",
         result: {},
       });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ success: false, message: "Invalid categoryId", result: {} });
+    }
+
+    const category = await Category.findById(categoryId);
+    if (!category || category.categoryType !== "service") {
+      return res.status(400).json({ success: false, message: "Category must exist and be of type service", result: {} });
+    }
+
+    const normalizedServiceType = serviceType || "Repair";
+    if (!SERVICE_TYPES.includes(normalizedServiceType)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceType", result: {} });
+    }
+
+    const normalizedPricingType = pricingType || "fixed";
+    if (!PRICING_TYPES.includes(normalizedPricingType)) {
+      return res.status(400).json({ success: false, message: "Invalid pricingType", result: {} });
+    }
+
+    const serviceCostNum = toNumber(serviceCost);
+    if (Number.isNaN(serviceCostNum) || serviceCostNum < 0) {
+      return res.status(400).json({ success: false, message: "serviceCost must be a non-negative number", result: {} });
+    }
+
+    if (commissionPercentage !== undefined) {
+      const commissionNum = toNumber(commissionPercentage);
+      if (Number.isNaN(commissionNum) || commissionNum < 0 || commissionNum > 50) {
+        return res.status(400).json({ success: false, message: "commissionPercentage must be between 0 and 50", result: {} });
+      }
+      req.body.commissionPercentage = commissionNum;
+    }
+
+    if (serviceDiscountPercentage !== undefined) {
+      const discountNum = toNumber(serviceDiscountPercentage);
+      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+        return res.status(400).json({ success: false, message: "serviceDiscountPercentage must be between 0 and 100", result: {} });
+      }
+      req.body.serviceDiscountPercentage = discountNum;
     }
 
     const existing = await Service.findOne({
@@ -52,9 +96,9 @@ export const createService = async (req, res) => {
       categoryId,
       serviceName,
       description,
-      serviceType,
-      pricingType,
-      serviceCost,
+      serviceType: normalizedServiceType,
+      pricingType: normalizedPricingType,
+      serviceCost: serviceCostNum,
       commissionPercentage,
       serviceDiscountPercentage,
       duration,
@@ -92,6 +136,10 @@ export const uploadServiceImages = async (req, res) => {
         message: "Service ID is required",
         result: {},
       });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceId", result: {} });
     }
 
     if (!req.files || req.files.length === 0) {
@@ -190,10 +238,58 @@ export const getServiceById = async (req, res) => {
 
 export const updateService = async (req, res) => {
   try {
+    const update = { ...req.body };
+
+    if (update.categoryId) {
+      if (!mongoose.Types.ObjectId.isValid(update.categoryId)) {
+        return res.status(400).json({ success: false, message: "Invalid categoryId", result: {} });
+      }
+      const category = await Category.findById(update.categoryId);
+      if (!category || category.categoryType !== "service") {
+        return res.status(400).json({ success: false, message: "Category must exist and be of type service", result: {} });
+      }
+    }
+
+    if (update.serviceType) {
+      if (!SERVICE_TYPES.includes(update.serviceType)) {
+        return res.status(400).json({ success: false, message: "Invalid serviceType", result: {} });
+      }
+    }
+
+    if (update.pricingType) {
+      if (!PRICING_TYPES.includes(update.pricingType)) {
+        return res.status(400).json({ success: false, message: "Invalid pricingType", result: {} });
+      }
+    }
+
+    if (update.serviceCost !== undefined) {
+      const costNum = toNumber(update.serviceCost);
+      if (Number.isNaN(costNum) || costNum < 0) {
+        return res.status(400).json({ success: false, message: "serviceCost must be a non-negative number", result: {} });
+      }
+      update.serviceCost = costNum;
+    }
+
+    if (update.commissionPercentage !== undefined) {
+      const commissionNum = toNumber(update.commissionPercentage);
+      if (Number.isNaN(commissionNum) || commissionNum < 0 || commissionNum > 50) {
+        return res.status(400).json({ success: false, message: "commissionPercentage must be between 0 and 50", result: {} });
+      }
+      update.commissionPercentage = commissionNum;
+    }
+
+    if (update.serviceDiscountPercentage !== undefined) {
+      const discountNum = toNumber(update.serviceDiscountPercentage);
+      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+        return res.status(400).json({ success: false, message: "serviceDiscountPercentage must be between 0 and 100", result: {} });
+      }
+      update.serviceDiscountPercentage = discountNum;
+    }
+
     const updated = await Service.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+      update,
+      { new: true, runValidators: true, context: "query" }
     );
 
     if (!updated) {

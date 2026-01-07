@@ -1,4 +1,20 @@
+import mongoose from "mongoose";
 import Product from "../Schemas/Product.js";
+import Category from "../Schemas/Category.js";
+
+const ALLOWED_PRICING_MODELS = ["fixed", "starting_from", "after_inspection"];
+
+const toNumberOrUndefined = value => {
+  if (value === undefined) return undefined;
+  const num = Number(value);
+  return Number.isNaN(num) ? NaN : num;
+};
+
+const toBooleanOrUndefined = value => {
+  if (value === undefined) return undefined;
+  if (typeof value === "boolean") return value;
+  return String(value).toLowerCase() === "true";
+};
 
 /* ================= CREATE PRODUCT (JSON ONLY) ================= */
 export const createProduct = async (req, res) => {
@@ -31,22 +47,102 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid categoryId",
+        result: {},
+      });
+    }
+
+    const category = await Category.findById(categoryId);
+    if (!category || category.categoryType !== "product") {
+      return res.status(400).json({
+        success: false,
+        message: "Category must exist and be of type product",
+        result: {},
+      });
+    }
+
+    const pricingModelValue = pricingModel || "after_inspection";
+    if (!ALLOWED_PRICING_MODELS.includes(pricingModelValue)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid pricingModel",
+        result: {},
+      });
+    }
+
+    const priceFrom = toNumberOrUndefined(estimatedPriceFrom);
+    const priceTo = toNumberOrUndefined(estimatedPriceTo);
+
+    if (Number.isNaN(priceFrom) || Number.isNaN(priceTo)) {
+      return res.status(400).json({
+        success: false,
+        message: "Price fields must be numbers",
+        result: {},
+      });
+    }
+
+    if (priceFrom !== undefined && priceFrom < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceFrom must be non-negative",
+        result: {},
+      });
+    }
+
+    if (priceTo !== undefined && priceTo < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceTo must be non-negative",
+        result: {},
+      });
+    }
+
+    if (priceFrom !== undefined && priceTo !== undefined && priceFrom > priceTo) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceFrom cannot exceed estimatedPriceTo",
+        result: {},
+      });
+    }
+
+    if (pricingModelValue === "fixed" && (priceFrom === undefined || priceTo === undefined)) {
+      return res.status(400).json({
+        success: false,
+        message: "Both estimatedPriceFrom and estimatedPriceTo are required for fixed pricing",
+        result: {},
+      });
+    }
+
+    if (pricingModelValue === "starting_from" && priceFrom === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceFrom is required for starting_from pricing",
+        result: {},
+      });
+    }
+
+    const siteInspection = toBooleanOrUndefined(siteInspectionRequired);
+    const amcFlag = toBooleanOrUndefined(amcAvailable);
+
     const product = await Product.create({
       categoryId,
       productName,
       productType,
       description,
-      pricingModel,
-      estimatedPriceFrom,
-      estimatedPriceTo,
-      siteInspectionRequired,
+      pricingModel: pricingModelValue,
+      estimatedPriceFrom: priceFrom,
+      estimatedPriceTo: priceTo,
+      siteInspectionRequired: siteInspection,
       installationDuration,
       usageType,
       whatIncluded,
       whatNotIncluded,
       technicalSpecifications,
       warrantyPeriod,
-      amcAvailable,
+      amcAvailable: amcFlag,
       amcPricePerYear,
       complianceCertificates,
       productImages: [], // 👈 images added later
@@ -190,15 +286,117 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    const updateData = { ...req.body };
+
+    if (updateData.categoryId) {
+      if (!mongoose.Types.ObjectId.isValid(updateData.categoryId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid categoryId",
+          result: {},
+        });
+      }
+      const category = await Category.findById(updateData.categoryId);
+      if (!category || category.categoryType !== "product") {
+        return res.status(400).json({
+          success: false,
+          message: "Category must exist and be of type product",
+          result: {},
+        });
+      }
+    }
+
+    if (updateData.pricingModel) {
+      if (!ALLOWED_PRICING_MODELS.includes(updateData.pricingModel)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid pricingModel",
+          result: {},
+        });
+      }
+    }
+
+    const priceFrom = updateData.hasOwnProperty("estimatedPriceFrom")
+      ? toNumberOrUndefined(updateData.estimatedPriceFrom)
+      : product.estimatedPriceFrom;
+    const priceTo = updateData.hasOwnProperty("estimatedPriceTo")
+      ? toNumberOrUndefined(updateData.estimatedPriceTo)
+      : product.estimatedPriceTo;
+    const pricingModelValue = updateData.pricingModel || product.pricingModel || "after_inspection";
+
+    if (Number.isNaN(priceFrom) || Number.isNaN(priceTo)) {
+      return res.status(400).json({
+        success: false,
+        message: "Price fields must be numbers",
+        result: {},
+      });
+    }
+
+    if (priceFrom !== undefined && priceFrom < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceFrom must be non-negative",
+        result: {},
+      });
+    }
+
+    if (priceTo !== undefined && priceTo < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceTo must be non-negative",
+        result: {},
+      });
+    }
+
+    if (priceFrom !== undefined && priceTo !== undefined && priceFrom > priceTo) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceFrom cannot exceed estimatedPriceTo",
+        result: {},
+      });
+    }
+
+    if (pricingModelValue === "fixed" && (priceFrom === undefined || priceTo === undefined)) {
+      return res.status(400).json({
+        success: false,
+        message: "Both estimatedPriceFrom and estimatedPriceTo are required for fixed pricing",
+        result: {},
+      });
+    }
+
+    if (pricingModelValue === "starting_from" && priceFrom === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "estimatedPriceFrom is required for starting_from pricing",
+        result: {},
+      });
+    }
+
+    if (updateData.hasOwnProperty("estimatedPriceFrom")) {
+      updateData.estimatedPriceFrom = priceFrom;
+    }
+    if (updateData.hasOwnProperty("estimatedPriceTo")) {
+      updateData.estimatedPriceTo = priceTo;
+    }
+
+    if (updateData.hasOwnProperty("siteInspectionRequired")) {
+      updateData.siteInspectionRequired = toBooleanOrUndefined(updateData.siteInspectionRequired);
+    }
+
+    if (updateData.hasOwnProperty("amcAvailable")) {
+      updateData.amcAvailable = toBooleanOrUndefined(updateData.amcAvailable);
+    }
+
     let productImages = product.productImages;
     if (req.files && req.files.length > 0) {
       productImages = req.files.map(file => file.path);
     }
+    updateData.productImages = productImages;
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, productImages },
-      { new: true, runValidators: true }
+      updateData,
+      { new: true, runValidators: true, context: "query" }
     );
 
     res.status(200).json({

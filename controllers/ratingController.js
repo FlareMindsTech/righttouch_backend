@@ -1,25 +1,130 @@
+import mongoose from "mongoose";
 import Rating from "../Schemas/Rating.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
+import ProductBooking from "../Schemas/ProductBooking.js";
+
+const isValidObjectId = value => mongoose.Types.ObjectId.isValid(value);
 
 /* ===============================
    CREATE RATING
    =============================== */
 export const userRating = async (req, res) => {
   try {
-    const { technicianId, serviceId, customerId, rates, comment } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
+    }
 
-    // ✅ Correct validation (rates can be 0)
-    if (!serviceId || !customerId || rates === undefined || !comment) {
+    const { bookingId, bookingType, technicianId, serviceId, productId, rates, comment } = req.body;
+
+    // ✅ Validate required fields
+    if (!bookingId || !bookingType || rates === undefined || !comment) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "bookingId, bookingType, rates, and comment are required",
+        result: {},
+      });
+    }
+
+    if (!isValidObjectId(bookingId)) {
+      return res.status(400).json({ success: false, message: "Invalid bookingId", result: {} });
+    }
+
+    // ✅ Validate bookingType
+    if (!["product", "service"].includes(bookingType)) {
+      return res.status(400).json({
+        success: false,
+        message: "bookingType must be 'product' or 'service'",
+        result: {},
+      });
+    }
+
+    // ✅ Validate rates range (1-5)
+    if (rates < 1 || rates > 5 || !Number.isInteger(rates)) {
+      return res.status(400).json({
+        success: false,
+        message: "rates must be an integer between 1 and 5",
+        result: {},
+      });
+    }
+
+    // ✅ Verify booking exists and belongs to user
+    let booking;
+    if (bookingType === "service") {
+      booking = await ServiceBooking.findOne({ _id: bookingId, customerId: userId });
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Service booking not found or does not belong to you",
+          result: {},
+        });
+      }
+      if (booking.status !== "completed") {
+        return res.status(400).json({
+          success: false,
+          message: "You can rate a service only after completion",
+          result: {},
+        });
+      }
+
+      if (serviceId && !booking.serviceId.equals(serviceId)) {
+        return res.status(400).json({
+          success: false,
+          message: "serviceId does not match the booking",
+          result: {},
+        });
+      }
+
+      if (technicianId && booking.technicianId && !booking.technicianId.equals(technicianId)) {
+        return res.status(400).json({
+          success: false,
+          message: "technicianId does not match the booking",
+          result: {},
+        });
+      }
+    } else {
+      booking = await ProductBooking.findOne({ _id: bookingId, userId });
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Product booking not found or does not belong to you",
+          result: {},
+        });
+      }
+      if (booking.status !== "completed") {
+        return res.status(400).json({
+          success: false,
+          message: "You can rate a product only after completion",
+          result: {},
+        });
+      }
+
+      if (productId && !booking.productId.equals(productId)) {
+        return res.status(400).json({
+          success: false,
+          message: "productId does not match the booking",
+          result: {},
+        });
+      }
+    }
+
+    // ✅ Check if rating already exists for this booking
+    const existingRating = await Rating.findOne({ bookingId });
+    if (existingRating) {
+      return res.status(409).json({
+        success: false,
+        message: "Rating already exists for this booking",
         result: {},
       });
     }
 
     const ratingData = await Rating.create({
-      technicianId, // optional
-      serviceId,
-      customerId,
+      bookingId,
+      bookingType,
+      technicianId: bookingType === "service" ? booking.technicianId || null : null,
+      serviceId: bookingType === "service" ? booking.serviceId : null,
+      productId: bookingType === "product" ? booking.productId : null,
+      customerId: userId,
       rates,
       comment,
     });
@@ -30,9 +135,10 @@ export const userRating = async (req, res) => {
       result: ratingData,
     });
   } catch (error) {
+    console.error("Create rating error:", error);
     res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: "Server Error: " + error.message,
       result: {},
     });
   }
@@ -139,15 +245,37 @@ export const updateRating = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const rating = await Rating.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
+    }
+
+    const allowed = {};
+    if (req.body.hasOwnProperty("rates")) {
+      const newRate = req.body.rates;
+      if (!Number.isInteger(newRate) || newRate < 1 || newRate > 5) {
+        return res.status(400).json({ success: false, message: "rates must be an integer between 1 and 5", result: {} });
+      }
+      allowed.rates = newRate;
+    }
+    if (req.body.hasOwnProperty("comment")) {
+      allowed.comment = req.body.comment;
+    }
+
+    if (Object.keys(allowed).length === 0) {
+      return res.status(400).json({ success: false, message: "Nothing to update", result: {} });
+    }
+
+    const rating = await Rating.findOneAndUpdate(
+      { _id: id, customerId: userId },
+      allowed,
+      { new: true, runValidators: true }
+    );
 
     if (!rating) {
       return res.status(404).json({
         success: false,
-        message: "Rating not found",
+        message: "Rating not found or not yours",
         result: {},
       });
     }
@@ -173,7 +301,12 @@ export const deleteRating = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const rating = await Rating.findByIdAndDelete(id);
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
+    }
+
+    const rating = await Rating.findOneAndDelete({ _id: id, customerId: userId });
 
     if (!rating) {
       return res.status(404).json({

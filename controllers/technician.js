@@ -2,28 +2,40 @@ import mongoose from "mongoose";
 import Technician from "../Schemas/Technician.js";
 import User from "../Schemas/User.js";
 
+const isValidObjectId = mongoose.Types.ObjectId.isValid;
+const TECHNICIAN_STATUSES = ["pending", "trained", "approved", "suspended"];
+
+const validateSkills = (skills) => {
+  if (skills === undefined) return true;
+  if (!Array.isArray(skills)) return false;
+  return skills.every((item) =>
+    item && item.serviceId && isValidObjectId(item.serviceId)
+  );
+};
+
 /* ================= CREATE TECHNICIAN ================= */
 export const createTechnician = async (req, res) => {
   try {
-    const { userId, skills } = req.body;
+    const authUserId = req.user?.userId;
+    const { skills } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
+    if (!authUserId || !isValidObjectId(authUserId)) {
+      return res.status(401).json({
         success: false,
-        message: "User ID is required",
+        message: "Unauthorized",
         result: {},
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!validateSkills(skills)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid User ID",
+        message: "Invalid skills format",
         result: {},
       });
     }
 
-    const userExists = await User.findById(userId);
+    const userExists = await User.findById(authUserId);
     if (!userExists) {
       return res.status(404).json({
         success: false,
@@ -32,7 +44,7 @@ export const createTechnician = async (req, res) => {
       });
     }
 
-    const existing = await Technician.findOne({ userId });
+    const existing = await Technician.findOne({ userId: authUserId });
     if (existing) {
       return res.status(409).json({
         success: false,
@@ -42,7 +54,7 @@ export const createTechnician = async (req, res) => {
     }
 
     const technician = await Technician.create({
-      userId,
+      userId: authUserId,
       skills,
     });
 
@@ -64,9 +76,16 @@ export const createTechnician = async (req, res) => {
 export const getAllTechnicians = async (req, res) => {
   try {
     const { status, search } = req.query;
-    let query = {};
+    const query = {};
 
     if (status) {
+      if (!TECHNICIAN_STATUSES.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status filter",
+          result: {},
+        });
+      }
       query.status = status;
     }
 
@@ -97,7 +116,7 @@ export const getTechnicianById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
@@ -137,10 +156,18 @@ export const updateTechnician = async (req, res) => {
     const { id } = req.params;
     const { skills, availability } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
+        result: {},
+      });
+    }
+
+    if (!validateSkills(skills)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid skills format",
         result: {},
       });
     }
@@ -154,23 +181,18 @@ export const updateTechnician = async (req, res) => {
       });
     }
 
-    // 🔐 Only technician himself
-    // if (
-    //   req.user.role !== "Technician" ||
-    //   technician.userId.toString() !== req.user.userId.toString()
-    // ) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Access denied",
-    //   });
-    // }
+    const authUserId = req.user?.userId;
+    if (!authUserId || technician.userId.toString() !== authUserId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
 
-    // ✅ Update skills
-    if (skills) {
+    if (skills !== undefined) {
       technician.skills = skills;
     }
 
-    // ✅ Update availability
     if (availability?.isOnline !== undefined) {
       if (technician.status !== "approved") {
         return res.status(403).json({
@@ -179,7 +201,7 @@ export const updateTechnician = async (req, res) => {
           result: {},
         });
       }
-      technician.availability.isOnline = availability.isOnline;
+      technician.availability.isOnline = Boolean(availability.isOnline);
     }
 
     await technician.save();
@@ -203,21 +225,20 @@ export const updateTechnicianStatus = async (req, res) => {
   try {
     const { technicianId, trainingCompleted, status } = req.body;
 
-    if (!technicianId) {
+    if (!isValidObjectId(technicianId)) {
       return res.status(400).json({
         success: false,
-        message: "Technician ID is required",
+        message: "Invalid Technician ID",
         result: {},
       });
     }
 
-    // 🔐 Admin only
-    // if (req.user.role !== "Owner") {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Owner access only",
-    //   });
-    // }
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Owner access only",
+      });
+    }
 
     const technician = await Technician.findById(technicianId);
     if (!technician) {
@@ -228,18 +249,15 @@ export const updateTechnicianStatus = async (req, res) => {
       });
     }
 
-    // ✅ Training update
     if (trainingCompleted !== undefined) {
-      technician.trainingCompleted = trainingCompleted;
-
+      technician.trainingCompleted = Boolean(trainingCompleted);
       if (trainingCompleted === true) {
         technician.status = "trained";
       }
     }
 
-    // ✅ Status update
-    if (status) {
-      if (!["approved", "suspended"].includes(status)) {
+    if (status !== undefined) {
+      if (!["approved", "suspended", "trained"].includes(status)) {
         return res.status(400).json({
           success: false,
           message: "Invalid status value",
@@ -275,7 +293,7 @@ export const deleteTechnician = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
@@ -283,8 +301,7 @@ export const deleteTechnician = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findByIdAndDelete(id);
-
+    const technician = await Technician.findById(id);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -292,6 +309,17 @@ export const deleteTechnician = async (req, res) => {
         result: {},
       });
     }
+
+    const authUserId = req.user?.userId;
+    const isOwner = req.user?.role === "Owner";
+    if (!isOwner && (!authUserId || technician.userId.toString() !== authUserId.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    await technician.deleteOne();
 
     return res.status(200).json({
       success: true,

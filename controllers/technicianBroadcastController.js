@@ -6,7 +6,7 @@ import Technician from "../Schemas/Technician.js";
 /* ================= GET MY JOBS ================= */
 export const getMyJobs = async (req, res) => {
   try {
-    if (req.user.role !== "Technician") {
+    if (req.user?.role !== "Technician") {
       return res.status(403).json({
         success: false,
         message: "Access denied",
@@ -14,10 +14,15 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
-    // 🔹 Find logged-in technician
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    });
+    if (!req.user?.userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    const technician = await Technician.findOne({ userId: req.user.userId });
 
     if (!technician) {
       return res.status(404).json({
@@ -27,14 +32,13 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
-    // 🔹 Show only jobs sent to THIS technician & not taken
     const jobs = await JobBroadcast.find({
-      // technicianId: technician._id,
-      status: "sent",               
+      technicianId: technician._id,
+      status: "sent",
     })
       .populate({
         path: "bookingId",
-        match: { status: "broadcasted" }, // 👈 not already accepted
+        match: { status: "broadcasted" },
         populate: {
           path: "serviceId",
           select: "serviceName",
@@ -42,8 +46,7 @@ export const getMyJobs = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
-    // 🔹 Remove null bookings (already taken)
-    const filteredJobs = jobs.filter(job => job.bookingId);
+    const filteredJobs = jobs.filter((job) => job.bookingId);
 
     return res.status(200).json({
       success: true,
@@ -69,6 +72,24 @@ export const respondToJob = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    if (req.user?.role !== "Technician") {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid broadcast ID",
+        result: {},
+      });
+    }
+
     if (!["accepted", "rejected"].includes(status)) {
       await session.abortTransaction();
       return res.status(400).json({
@@ -82,6 +103,15 @@ export const respondToJob = async (req, res) => {
       userId: req.user.userId,
     }).session(session);
 
+    if (!technician) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+        result: {},
+      });
+    }
+
     const job = await JobBroadcast.findById(id).session(session);
 
     if (!job || job.status !== "sent") {
@@ -92,18 +122,16 @@ export const respondToJob = async (req, res) => {
         result: {},
       });
     }
-    // if (job.technicianId.toString() !== technician._id.toString()) {
-      
-    //   await session.abortTransaction();
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Access denied",
-    //     result: {},
-    //   });
-    // }
-    
 
-    // ❌ Reject
+    if (job.technicianId.toString() !== technician._id.toString()) {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+        result: {},
+      });
+    }
+
     if (status === "rejected") {
       job.status = "rejected";
       await job.save({ session });
@@ -116,7 +144,6 @@ export const respondToJob = async (req, res) => {
       });
     }
 
-    // ✅ Accept
     const booking = await ServiceBooking.findOneAndUpdate(
       { _id: job.bookingId, status: "broadcasted" },
       { technicianId: technician._id, status: "accepted" },

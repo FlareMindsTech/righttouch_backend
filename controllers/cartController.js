@@ -27,14 +27,19 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    // Check if item exists
-    let item;
-    item = await Product.findById(itemId);
-    if (itemType === "product") {
-      item = await Product.findById(itemId);
-    } else {
-      item = await Service.findById(itemId);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity must be a positive integer",
+        result: {},
+      });
     }
+
+    // Check if item exists
+    const item =
+      itemType === "product"
+        ? await Product.findById(itemId)
+        : await Service.findById(itemId);
 
     if (!item) {
       return res.status(404).json({
@@ -48,7 +53,7 @@ export const addToCart = async (req, res) => {
     const cartItem = await Cart.findOneAndUpdate(
       { userId, itemType, itemId },
       { quantity },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
 
     res.status(200).json({
@@ -126,6 +131,14 @@ export const updateCartItem = async (req, res) => {
       });
     }
 
+    if (!Number.isInteger(quantity)) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity must be an integer",
+        result: {},
+      });
+    }
+
     if (quantity <= 0) {
       // If quantity is 0 or negative, remove the item
       await Cart.findOneAndDelete({ userId, itemType, itemId });
@@ -139,7 +152,7 @@ export const updateCartItem = async (req, res) => {
     const cartItem = await Cart.findOneAndUpdate(
       { userId, itemType, itemId },
       { quantity },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!cartItem) {
@@ -222,6 +235,14 @@ export const updateCartById = async (req, res) => {
       });
     }
 
+    if (!Number.isInteger(quantity)) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity must be an integer",
+        result: {},
+      });
+    }
+
     if (quantity <= 0) {
       // Remove the item
       const deletedItem = await Cart.findOneAndDelete({ _id: id, userId });
@@ -242,7 +263,7 @@ export const updateCartById = async (req, res) => {
     const cartItem = await Cart.findOneAndUpdate(
       { _id: id, userId },
       { quantity },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!cartItem) {

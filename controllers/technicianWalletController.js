@@ -1,14 +1,51 @@
+import mongoose from "mongoose";
+import Technician from "../Schemas/Technician.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
 import WalletTransaction from "../Schemas/TechnicianWallet.js";
 
-// Add Wallet Transaction
+const isValidObjectId = mongoose.Types.ObjectId.isValid;
+
+// Add Wallet Transaction (Owner only)
 export const createWalletTransaction = async (req, res) => {
   try {
     const { technicianId, bookingId, amount, type, source } = req.body;
 
-    if (!technicianId || !amount || !type || !source) {
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Owner access only",
+        result: {},
+      });
+    }
+
+    if (!technicianId || !isValidObjectId(technicianId)) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields",
+        message: "Valid technicianId is required",
+        result: {},
+      });
+    }
+
+    if (bookingId && !isValidObjectId(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid bookingId",
+        result: {},
+      });
+    }
+
+    if (amount === undefined || Number.isNaN(Number(amount))) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be numeric",
+        result: {},
+      });
+    }
+
+    if (Number(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be positive",
         result: {},
       });
     }
@@ -29,19 +66,30 @@ export const createWalletTransaction = async (req, res) => {
       });
     }
 
-    if (amount <= 0) {
-      
-      return res.status(400).json({
+    const technician = await Technician.findById(technicianId);
+    if (!technician) {
+      return res.status(404).json({
         success: false,
-        message: "Amount must be positive",
+        message: "Technician not found",
         result: {},
       });
+    }
+
+    if (bookingId) {
+      const booking = await ServiceBooking.findOne({ _id: bookingId, technicianId });
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found for technician",
+          result: {},
+        });
+      }
     }
 
     const transaction = await WalletTransaction.create({
       technicianId,
       bookingId,
-      amount,
+      amount: Number(amount),
       type,
       source,
     });
@@ -59,7 +107,39 @@ export const createWalletTransaction = async (req, res) => {
 // Get Technician Wallet History
 export const getWalletHistory = async (req, res) => {
   try {
-    const technicianId = req.user.userId; // Use authenticated user's ID
+    const isOwner = req.user?.role === "Owner";
+    const requestedTechnicianId = req.query?.technicianId;
+
+    if (!req.user?.userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    let technicianId;
+
+    if (isOwner && requestedTechnicianId) {
+      if (!isValidObjectId(requestedTechnicianId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid technicianId",
+          result: {},
+        });
+      }
+      technicianId = requestedTechnicianId;
+    } else {
+      const technician = await Technician.findOne({ userId: req.user.userId });
+      if (!technician) {
+        return res.status(404).json({
+          success: false,
+          message: "Technician not found",
+          result: {},
+        });
+      }
+      technicianId = technician._id;
+    }
 
     const history = await WalletTransaction.find({ technicianId }).sort({
       createdAt: -1,

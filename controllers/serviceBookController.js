@@ -1,11 +1,22 @@
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import Technician from "../Schemas/Technician.js";
+import Service from "../Schemas/Service.js";
 import mongoose from "mongoose";
+
+const toNumber = value => {
+  const num = Number(value);
+  return Number.isNaN(num) ? NaN : num;
+};
 
 
 export const createBooking = async (req, res) => {
   try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
+    }
+
     const { serviceId, baseAmount, address, scheduledAt } = req.body;
 
     if (!serviceId || baseAmount == null || !address) {
@@ -16,11 +27,25 @@ export const createBooking = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceId", result: {} });
+    }
+
+    const baseAmountNum = toNumber(baseAmount);
+    if (Number.isNaN(baseAmountNum) || baseAmountNum < 0) {
+      return res.status(400).json({ success: false, message: "baseAmount must be a non-negative number", result: {} });
+    }
+
+    const service = await Service.findById(serviceId);
+    if (!service || !service.isActive) {
+      return res.status(404).json({ success: false, message: "Service not found or inactive", result: {} });
+    }
+
     // 1️⃣ Create booking
     const booking = await ServiceBooking.create({
-      customerId: req.user.userId,
+      customerId: userId,
       serviceId,
-      baseAmount,
+      baseAmount: baseAmountNum,
       address,
       scheduledAt,
       status: "broadcasted",
@@ -204,6 +229,8 @@ export const getTechnicianCurrentJobs = async (req, res) => {
 ===================================================== */
 export const updateBookingStatus = async (req, res) => {
   try {
+    const userRole = req.user?.role;
+
     const bookingId = req.params.id;
     const { status } = req.body;
 
@@ -232,15 +259,14 @@ export const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // if (
-    //   req.user.role !== "Technician" ||
-    //   booking.technicianId?.toString() !== req.user.technicianId
-    // ) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Access denied",
-    //   });
-    // }
+    if (userRole !== "Technician") {
+      return res.status(403).json({ success: false, message: "Only technician can update status", result: {} });
+    }
+
+    const technician = await Technician.findOne({ userId: req.user.userId });
+    if (!technician || !booking.technicianId || booking.technicianId.toString() !== technician._id.toString()) {
+      return res.status(403).json({ success: false, message: "Access denied for this booking", result: {} });
+    }
 
     booking.status = status;
     await booking.save();
