@@ -66,7 +66,7 @@ export const addToCart = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -104,7 +104,7 @@ export const getMyCart = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -173,7 +173,7 @@ export const updateCartItem = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -215,7 +215,7 @@ export const getCartById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -284,7 +284,7 @@ export const updateCartById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -315,7 +315,7 @@ export const removeFromCart = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -478,7 +478,7 @@ export const checkout = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Checkout failed: " + error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };

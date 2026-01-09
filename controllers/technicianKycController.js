@@ -55,7 +55,7 @@ export const submitTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -122,7 +122,7 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -149,7 +149,7 @@ export const getAllTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -199,7 +199,7 @@ export const getTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -278,7 +278,7 @@ export const verifyTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -328,7 +328,7 @@ export const deleteTechnicianKyc = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

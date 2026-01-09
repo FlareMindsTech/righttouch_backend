@@ -57,7 +57,7 @@ export const getMyJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -180,7 +180,7 @@ export const respondToJob = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   } finally {
     session.endSession();

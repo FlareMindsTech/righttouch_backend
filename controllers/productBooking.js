@@ -71,7 +71,7 @@ export const productBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -96,7 +96,7 @@ export const getAllProductBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching product bookings",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -166,7 +166,7 @@ export const productBookingUpdate = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -211,7 +211,7 @@ export const productBookingCancel = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {}
+      result: {error: error.message}
     });
   }
 };

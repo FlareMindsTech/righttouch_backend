@@ -169,7 +169,7 @@ export const signupAndSendOtp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -263,7 +263,7 @@ export const resendOtp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -360,7 +360,7 @@ export const verifyOtp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -455,7 +455,7 @@ export const login = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -518,7 +518,7 @@ export const updateUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -565,7 +565,7 @@ export const getAllUsers = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -593,7 +593,7 @@ export const getUserById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -620,7 +620,7 @@ export const getMyProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -687,7 +687,7 @@ export const changePassword = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -757,7 +757,7 @@ export const requestPasswordResetOtp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -823,7 +823,7 @@ export const verifyPasswordResetOtp = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -894,7 +894,7 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -922,7 +922,7 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

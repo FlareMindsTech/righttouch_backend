@@ -148,7 +148,8 @@ export const createProduct = async (req, res) => {
       productImages: [], // 👈 images added later
     });
 
-    
+    // Populate category details
+    await product.populate("categoryId", "category categoryType description");
 
     res.status(201).json({
       success: true,
@@ -160,7 +161,7 @@ export const createProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -199,6 +200,9 @@ export const uploadProductImages = async (req, res) => {
     product.productImages.push(...imageUrls);
     await product.save();
 
+    // Populate category details
+    await product.populate("categoryId", "category categoryType description");
+
     res.status(200).json({
       success: true,
       message: "Product images uploaded successfully",
@@ -208,7 +212,7 @@ export const uploadProductImages = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -231,7 +235,9 @@ export const getProduct = async (req, res) => {
       ];
     }
 
-    const products = await Product.find(query).sort({ createdAt: -1 });
+    const products = await Product.find(query)
+      .populate("categoryId", "category categoryType description")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -242,7 +248,7 @@ export const getProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -250,7 +256,8 @@ export const getProduct = async (req, res) => {
 /* ================= GET ONE PRODUCT ================= */
 export const getOneProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id)
+      .populate("categoryId", "category categoryType description");
 
     if (!product) {
       return res.status(404).json({
@@ -269,7 +276,7 @@ export const getOneProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -397,7 +404,7 @@ export const updateProduct = async (req, res) => {
       req.params.id,
       updateData,
       { new: true, runValidators: true, context: "query" }
-    );
+    ).populate("categoryId", "category categoryType description");
 
     res.status(200).json({
       success: true,
@@ -408,7 +415,7 @@ export const updateProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -434,7 +441,7 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

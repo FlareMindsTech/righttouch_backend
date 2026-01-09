@@ -30,7 +30,7 @@ const categorySchema = new mongoose.Schema({
   categoryType: {
     type: String,
     enum: ["service", "product"],
-    // default: "service",
+    default: "service",
     required: true,
   },
 
@@ -44,10 +44,6 @@ const categorySchema = new mongoose.Schema({
     default: true,
   },
 
-  displayOrder: {
-    type: Number,
-    default: 0,
-  },
 
   createdAt: {
     type: Date,

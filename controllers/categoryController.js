@@ -26,17 +26,25 @@ export const serviceCategory = async (req, res) => {
       });
     }
 
-    // Duplicate check (case-insensitive)
+    // Duplicate check (case-insensitive) - same name allowed for different types
     const existing = await Category.findOne({
-      category: { $regex: `^${category}$`, $options: "i" },
-      categoryType: { $regex: `^\s*${escapeRegex(normalizedType)}\s*$`, $options: "i" },
+      category: { $regex: `^${escapeRegex(category)}$`, $options: "i" },
+      categoryType: normalizedType,
     });
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Category already exists for this type",
-        result: {},
+        message: `Category '${existing.category}' already exists for type '${existing.categoryType}'. Note: Same category name is allowed for different types.`,
+        error: "DUPLICATE_CATEGORY",
+        result: {
+          existingCategory: {
+            id: existing._id,
+            name: existing.category,
+            type: existing.categoryType,
+            description: existing.description
+          }
+        },
       });
     }
 
@@ -55,7 +63,7 @@ export const serviceCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -102,7 +110,7 @@ export const uploadCategoryImage = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error : error.message},
     });
   }
 };
@@ -131,12 +139,10 @@ export const getAllCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: [],
+      result: {error: error.message},
     });
   }
 };
-
-
 
 /* ================= GET CATEGORY BY ID ================= */
 export const getByIdCategory = async (req, res) => {
@@ -160,7 +166,7 @@ export const getByIdCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -194,10 +200,10 @@ export const updateCategory = async (req, res) => {
       }
     }
 
-    // Duplicate check scoped by name + type
+    // Duplicate check scoped by name + type - same name allowed for different types
     if (category) {
       const existing = await Category.findOne({
-        category: { $regex: `^${category}$`, $options: "i" },
+        category: { $regex: `^${escapeRegex(category)}$`, $options: "i" },
         categoryType: normalizedType,
         _id: { $ne: id },
       });
@@ -205,8 +211,16 @@ export const updateCategory = async (req, res) => {
       if (existing) {
         return res.status(409).json({
           success: false,
-          message: "Category already exists for this type",
-          result: {},
+          message: `Category '${existing.category}' already exists for type '${existing.categoryType}'. Note: Same category name is allowed for different types.`,
+          error: "DUPLICATE_CATEGORY",
+          result: {
+            existingCategory: {
+              id: existing._id,
+              name: existing.category,
+              type: existing.categoryType,
+              description: existing.description
+            }
+          },
         });
       }
     }
@@ -240,7 +254,7 @@ export const updateCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -267,7 +281,7 @@ export const deleteCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

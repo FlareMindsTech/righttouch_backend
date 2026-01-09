@@ -82,7 +82,7 @@ export const createBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -118,7 +118,7 @@ export const getBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -144,7 +144,7 @@ export const getCustomerBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -175,7 +175,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -218,7 +218,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -281,7 +281,7 @@ export const updateBookingStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -364,7 +364,7 @@ export const cancelBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };

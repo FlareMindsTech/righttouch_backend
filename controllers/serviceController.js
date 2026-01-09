@@ -4,6 +4,7 @@ import Category from "../Schemas/Category.js";
 
 const SERVICE_TYPES = ["Repair", "Installation", "Maintenance", "Inspection"];
 const PRICING_TYPES = ["fixed", "after_inspection", "per_unit"];
+const HIDE_FIELDS = "-duration -siteVisitRequired -serviceWarranty";
 
 const toNumber = value => {
   const num = Number(value);
@@ -22,12 +23,9 @@ export const createService = async (req, res) => {
       serviceCost,
       commissionPercentage,
       serviceDiscountPercentage,
-      duration,
-      siteVisitRequired,
       whatIncluded,
       whatNotIncluded,
       serviceHighlights,
-      serviceWarranty,
       cancellationPolicy,
     } = req.body;
 
@@ -101,29 +99,30 @@ export const createService = async (req, res) => {
       serviceCost: serviceCostNum,
       commissionPercentage,
       serviceDiscountPercentage,
-      duration,
-      siteVisitRequired,
       whatIncluded,
       whatNotIncluded,
       serviceHighlights,
-      serviceWarranty,
       cancellationPolicy,
     });
+
+    // Re-fetch with hidden fields and populated category for response
+    const responseDoc = await Service.findById(service._id)
+      .select(HIDE_FIELDS)
+      .populate("categoryId", "category categoryType description");
 
     return res.status(201).json({
       success: true,
       message: "Service created successfully",
-      result: service,
+      result: responseDoc,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
-
 
 // UPLOAD SERVICE IMAGES
 export const uploadServiceImages = async (req, res) => {
@@ -163,16 +162,21 @@ export const uploadServiceImages = async (req, res) => {
     service.serviceImages.push(...images);
     await service.save();
 
+    // Re-fetch with hidden fields and populated category for response
+    const responseDoc = await Service.findById(service._id)
+      .select(HIDE_FIELDS)
+      .populate("categoryId", "category categoryType description");
+
     return res.status(200).json({
       success: true,
       message: "Service images uploaded successfully",
-      result: service,
+      result: responseDoc,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -188,10 +192,12 @@ export const getAllServices = async (req, res) => {
       ];
     }
 
-    const services = await Service.find(query).populate(
-      "categoryId",
-      "category description"
-    );
+    const services = await Service.find(query)
+      .select(HIDE_FIELDS)
+      .populate(
+        "categoryId",
+        "category categoryType description"
+      );
 
     return res.status(200).json({
       success: true,
@@ -202,17 +208,19 @@ export const getAllServices = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
 
 export const getServiceById = async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id).populate(
-      "categoryId",
-      "category description"
-    );
+    const service = await Service.findById(req.params.id)
+      .select(HIDE_FIELDS)
+      .populate(
+        "categoryId",
+        "category categoryType description"
+      );
 
     if (!service) {
       return res.status(404).json({
@@ -231,7 +239,7 @@ export const getServiceById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -290,7 +298,9 @@ export const updateService = async (req, res) => {
       req.params.id,
       update,
       { new: true, runValidators: true, context: "query" }
-    );
+    )
+      .select(HIDE_FIELDS)
+      .populate("categoryId", "category categoryType description");
 
     if (!updated) {
       return res.status(404).json({
@@ -309,7 +319,7 @@ export const updateService = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -335,7 +345,7 @@ export const deleteService = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

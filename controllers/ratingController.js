@@ -139,7 +139,7 @@ export const userRating = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error: " + error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -196,7 +196,7 @@ export const getAllRatings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -233,7 +233,7 @@ export const getRatingById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -289,7 +289,7 @@ export const updateRating = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -325,7 +325,7 @@ export const deleteRating = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

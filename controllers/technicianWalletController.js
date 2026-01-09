@@ -100,7 +100,7 @@ export const createWalletTransaction = async (req, res) => {
       result: transaction,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, result: {} });
+    res.status(500).json({ success: false, message: error.message, result: {error: error.message} });
   }
 };
 
@@ -151,6 +151,6 @@ export const getWalletHistory = async (req, res) => {
       result: history,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, result: {} });
+    res.status(500).json({ success: false, message: error.message, result: {error: error.message} });
   }
 };

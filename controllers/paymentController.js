@@ -64,7 +64,7 @@ export const createPayment = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -105,7 +105,7 @@ export const updatePaymentStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };

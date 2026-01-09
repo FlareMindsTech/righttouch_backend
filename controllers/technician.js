@@ -67,7 +67,7 @@ export const createTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -106,7 +106,7 @@ export const getAllTechnicians = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -145,7 +145,7 @@ export const getTechnicianById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -215,7 +215,7 @@ export const updateTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -283,7 +283,7 @@ export const updateTechnicianStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -330,7 +330,7 @@ export const deleteTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
