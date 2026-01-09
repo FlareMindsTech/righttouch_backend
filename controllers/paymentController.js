@@ -1,5 +1,6 @@
 import Payment from "../Schemas/Payment.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
+import mongoose from "mongoose";
 
 export const createPayment = async (req, res) => {
   try {
@@ -9,6 +10,15 @@ export const createPayment = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "bookingId and baseAmount are required",
+        result: {},
+      });
+    }
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
         result: {},
       });
     }
@@ -74,6 +84,15 @@ export const updatePaymentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment ID format",
+        result: {},
+      });
+    }
+
     if (!["pending", "success", "failed"].includes(status)) {
       return res.status(400).json({
         success: false,
@@ -82,8 +101,9 @@ export const updatePaymentStatus = async (req, res) => {
       });
     }
 
-    const payment = await Payment.findByIdAndUpdate(
-      id,
+    // 🔒 Only update if current status is "pending" (prevent race conditions)
+    const payment = await Payment.findOneAndUpdate(
+      { _id: id, status: "pending" },
       { status },
       { new: true }
     );
@@ -91,7 +111,7 @@ export const updatePaymentStatus = async (req, res) => {
     if (!payment) {
       return res.status(404).json({
         success: false,
-        message: "Payment not found",
+        message: "Payment not found or already processed",
         result: {},
       });
     }

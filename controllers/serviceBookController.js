@@ -27,8 +27,9 @@ export const createBooking = async (req, res) => {
       });
     }
 
+    // 🔒 Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      return res.status(400).json({ success: false, message: "Invalid serviceId", result: {} });
+      return res.status(400).json({ success: false, message: "Invalid serviceId format", result: {} });
     }
 
     const baseAmountNum = toNumber(baseAmount);
@@ -51,26 +52,25 @@ export const createBooking = async (req, res) => {
       status: "broadcasted",
     });
 
-    // 2️⃣ Find technicians (FIXED)
+    // 2️⃣ 🔒 FIXED: Find technicians with skill matching and online availability
     const technicians = await Technician.find({
       status: "approved",
-      // "availability.isOnline": true,
-      // "skills.serviceId": new mongoose.Types.ObjectId(serviceId),
+      "availability.isOnline": true,
+      "skills.serviceId": new mongoose.Types.ObjectId(serviceId),
     }).select("_id");
 
     // 3️⃣ Create broadcast records
     if (technicians.length > 0) {
-      
-      // console.log(technicians)
-      let hel = await JobBroadcast.insertMany(
+      await JobBroadcast.insertMany(
         technicians.map((t) => ({
           bookingId: booking._id,
           technicianId: t._id,
           status: "sent",
         }))
       );
-      console.log(hel);
-
+      console.log(`✅ Broadcasted to ${technicians.length} matching, online technicians`);
+    } else {
+      console.log("⚠️ No matching, online technicians found for this service");
     }
 
     return res.status(201).json({
@@ -234,6 +234,15 @@ export const updateBookingStatus = async (req, res) => {
     const bookingId = req.params.id;
     const { status } = req.body;
 
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
+      });
+    }
+
     const allowedStatus = [
       "on_the_way",
       "reached",
@@ -293,6 +302,15 @@ export const updateBookingStatus = async (req, res) => {
 export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
+      });
+    }
 
     // 1️⃣ Find booking
     const booking = await ServiceBooking.findById(id);

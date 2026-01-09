@@ -94,7 +94,7 @@ export const getAllTechnicians = async (req, res) => {
     }
 
     const technicians = await Technician.find(query)
-      .populate("userId", "name email phone")
+      .populate("userId", "fname lname email phone")
       .populate("skills.serviceId", "serviceName");
 
     return res.status(200).json({

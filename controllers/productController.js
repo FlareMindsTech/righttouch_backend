@@ -220,7 +220,7 @@ export const uploadProductImages = async (req, res) => {
 /* ================= GET ALL PRODUCTS ================= */
 export const getProduct = async (req, res) => {
   try {
-    const { search, type, usageType, active } = req.query;
+    const { search, type, usageType, active, page = 1, limit = 20 } = req.query;
     let query = {};
 
     if (active !== undefined) query.isActive = active === "true";
@@ -235,14 +235,31 @@ export const getProduct = async (req, res) => {
       ];
     }
 
+    // 🔒 Pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
     const products = await Product.find(query)
       .populate("categoryId", "category categoryType description")
+      .skip(skip)
+      .limit(limitNum)
       .sort({ createdAt: -1 });
+
+    const total = await Product.countDocuments(query);
 
     res.status(200).json({
       success: true,
       message: "Products fetched successfully",
-      result: products,
+      result: {
+        products,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -256,7 +273,18 @@ export const getProduct = async (req, res) => {
 /* ================= GET ONE PRODUCT ================= */
 export const getOneProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+        result: {},
+      });
+    }
+
+    const product = await Product.findById(id)
       .populate("categoryId", "category categoryType description");
 
     if (!product) {
@@ -284,7 +312,18 @@ export const getOneProduct = async (req, res) => {
 /* ================= UPDATE PRODUCT ================= */
 export const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+        result: {},
+      });
+    }
+
+    const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -401,7 +440,7 @@ export const updateProduct = async (req, res) => {
     updateData.productImages = productImages;
 
     const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
+      id,
       updateData,
       { new: true, runValidators: true, context: "query" }
     ).populate("categoryId", "category categoryType description");
@@ -423,7 +462,18 @@ export const updateProduct = async (req, res) => {
 /* ================= DELETE PRODUCT ================= */
 export const deleteProduct = async (req, res) => {
   try {
-    const deleted = await Product.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+        result: {},
+      });
+    }
+
+    const deleted = await Product.findByIdAndDelete(id);
     if (!deleted) {
       return res.status(404).json({
         success: false,

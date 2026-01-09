@@ -4,6 +4,7 @@ import Service from "../Schemas/Service.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import ProductBooking from "../Schemas/ProductBooking.js";
 import Address from "../Schemas/Address.js";
+import mongoose from "mongoose";
 
 /* ================= ADD TO CART ================= */
 export const addToCart = async (req, res) => {
@@ -320,14 +321,18 @@ export const removeFromCart = async (req, res) => {
   }
 };
 
-/* ================= CHECKOUT ================= */
+/* ================= CHECKOUT (WITH TRANSACTION & VALIDATION) ================= */
 export const checkout = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user.userId;
     const { addressId, paymentMode, scheduledAt } = req.body;
 
     // Validate required fields
     if (!addressId || !paymentMode) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Address ID and payment mode are required",
@@ -335,8 +340,19 @@ export const checkout = async (req, res) => {
       });
     }
 
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(addressId)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address ID format",
+        result: {},
+      });
+    }
+
     // Validate payment mode
     if (!["online", "cod"].includes(paymentMode)) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Payment mode must be 'online' or 'cod'",
@@ -345,9 +361,10 @@ export const checkout = async (req, res) => {
     }
 
     // Get address - verify it belongs to this user
-    const address = await Address.findOne({ _id: addressId, userId });
+    const address = await Address.findOne({ _id: addressId, userId }).session(session);
 
     if (!address) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: "Address not found or does not belong to you",
@@ -356,9 +373,10 @@ export const checkout = async (req, res) => {
     }
 
     // Get all cart items for the user
-    const cartItems = await Cart.find({ userId });
+    const cartItems = await Cart.find({ userId }).session(session);
 
     if (cartItems.length === 0) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Cart is empty",
@@ -366,9 +384,49 @@ export const checkout = async (req, res) => {
       });
     }
 
-    // Separate services and products
-    const serviceItems = cartItems.filter((item) => item.itemType === "service");
-    const productItems = cartItems.filter((item) => item.itemType === "product");
+    // 🔒 VALIDATE: Remove deleted/inactive items and check for price changes
+    const validServiceItems = [];
+    const validProductItems = [];
+    const removedItems = [];
+
+    for (const cartItem of cartItems) {
+      if (cartItem.itemType === "service") {
+        const service = await Service.findById(cartItem.itemId).session(session);
+        if (!service || !service.isActive) {
+          await Cart.findByIdAndDelete(cartItem._id).session(session);
+          removedItems.push({ id: cartItem.itemId, type: "service", reason: "not found or inactive" });
+        } else {
+          validServiceItems.push(cartItem);
+        }
+      } else if (cartItem.itemType === "product") {
+        const product = await Product.findById(cartItem.itemId).session(session);
+        if (!product || !product.isActive) {
+          await Cart.findByIdAndDelete(cartItem._id).session(session);
+          removedItems.push({ id: cartItem.itemId, type: "product", reason: "not found or inactive" });
+        } else {
+          validProductItems.push(cartItem);
+        }
+      }
+    }
+
+    // 🔒 Block checkout if items were removed
+    if (removedItems.length > 0) {
+      await session.commitTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Some items in your cart are no longer available",
+        result: { removedItems },
+      });
+    }
+
+    if (validServiceItems.length === 0 && validProductItems.length === 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "No valid items in cart",
+        result: {},
+      });
+    }
 
     const bookingResults = {
       address: {
@@ -387,31 +445,23 @@ export const checkout = async (req, res) => {
     };
 
     // Create Service Bookings
-    for (const cartItem of serviceItems) {
-      const service = await Service.findById(cartItem.itemId);
-
-      if (!service) {
-        return res.status(404).json({
-          success: false,
-          message: `Service not found: ${cartItem.itemId}`,
-          result: {},
-        });
-      }
+    for (const cartItem of validServiceItems) {
+      const service = await Service.findById(cartItem.itemId).session(session);
 
       // Calculate amount
       const baseAmount = service.serviceCost * cartItem.quantity;
 
-      const serviceBooking = await ServiceBooking.create({
+      const serviceBooking = await ServiceBooking.create([{
         customerId: userId,
         serviceId: cartItem.itemId,
         baseAmount,
         address: address.addressLine,
         scheduledAt: scheduledAt || new Date(),
         status: "broadcasted",
-      });
+      }], { session });
 
       bookingResults.serviceBookings.push({
-        bookingId: serviceBooking._id,
+        bookingId: serviceBooking[0]._id,
         serviceId: cartItem.itemId,
         serviceName: service.serviceName,
         quantity: cartItem.quantity,
@@ -423,16 +473,8 @@ export const checkout = async (req, res) => {
     }
 
     // Create Product Bookings
-    for (const cartItem of productItems) {
-      const product = await Product.findById(cartItem.itemId);
-
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: `Product not found: ${cartItem.itemId}`,
-          result: {},
-        });
-      }
+    for (const cartItem of validProductItems) {
+      const product = await Product.findById(cartItem.itemId).session(session);
 
       // Calculate amount with discount and GST
       const basePrice = product.productPrice * cartItem.quantity;
@@ -442,16 +484,16 @@ export const checkout = async (req, res) => {
       const gstAmount = (discountedPrice * (product.productGst || 0)) / 100;
       const finalAmount = discountedPrice + gstAmount;
 
-      const productBooking = await ProductBooking.create({
+      const productBooking = await ProductBooking.create([{
         productId: cartItem.itemId,
         userId,
         amount: finalAmount,
         paymentStatus: paymentMode === "online" ? "pending" : "pending",
         status: "active",
-      });
+      }], { session });
 
       bookingResults.productBookings.push({
-        bookingId: productBooking._id,
+        bookingId: productBooking[0]._id,
         productId: cartItem.itemId,
         productName: product.productName,
         quantity: cartItem.quantity,
@@ -466,7 +508,9 @@ export const checkout = async (req, res) => {
     }
 
     // Clear the cart only after all bookings are created successfully
-    await Cart.deleteMany({ userId });
+    await Cart.deleteMany({ userId }).session(session);
+
+    await session.commitTransaction();
 
     res.status(201).json({
       success: true,
@@ -474,11 +518,14 @@ export const checkout = async (req, res) => {
       result: bookingResults,
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Checkout error:", error);
     res.status(500).json({
       success: false,
       message: "Checkout failed: " + error.message,
       result: {error: error.message},
     });
+  } finally {
+    session.endSession();
   }
 };

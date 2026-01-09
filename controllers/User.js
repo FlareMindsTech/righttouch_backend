@@ -4,6 +4,7 @@ import User from "../Schemas/User.js";
 import { sendEmail } from "../utils/sendMail.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 // ---------- Helpers ----------
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -152,7 +153,7 @@ export const signupAndSendOtp = async (req, res) => {
     await Otp.create({
       userId: tempUser._id,
       otp: hashedOtp,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      expiresAt: Date.now() + 10 * 60 * 1000, // 🔒 10 minutes
       attempts: 0,
       isVerified: false,
     });
@@ -243,7 +244,7 @@ export const resendOtp = async (req, res) => {
     await Otp.create({
       userId: tempUser._id,
       otp: hashedOtp,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      expiresAt: Date.now() + 10 * 60 * 1000, // 🔒 10 minutes
       attempts: 0,
       isVerified: false,
     });
@@ -269,44 +270,69 @@ export const resendOtp = async (req, res) => {
 };
 
 /* ======================================================
-   VERIFY OTP → CREATE USER
+   VERIFY OTP → CREATE USER (WITH TRANSACTION)
 ====================================================== */
 export const verifyOtp = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { tempUserId, otp } = req.body;
 
-    if (!tempUserId || !otp)
+    if (!tempUserId || !otp) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "TempUser ID and OTP are required",
         result: {},
       });
+    }
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(tempUserId)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid tempUser ID format",
+        result: {},
+      });
+    }
 
     const otpRecord = await Otp.findOne({ userId: tempUserId }).sort({
       createdAt: -1,
-    });
+    }).session(session);
 
-    if (!otpRecord)
+    if (!otpRecord) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: "OTP not found",
         result: {},
       });
+    }
 
-    if (otpRecord.expiresAt < Date.now())
+    if (otpRecord.expiresAt < Date.now()) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "OTP expired",
         result: {},
       });
+    }
 
-    if (otpRecord.attempts >= 5)
+    // 🔒 Lockout after max attempts
+    if (otpRecord.attempts >= 5) {
+      await session.abortTransaction();
       return res.status(429).json({
         success: false,
-        message: "Too many invalid attempts",
+        message: "Too many invalid attempts. Request a new OTP",
         result: {},
       });
+    }
+
+    // 🔒 Prevent OTP reuse
     if (otpRecord.isVerified) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "OTP already used",
@@ -318,23 +344,30 @@ export const verifyOtp = async (req, res) => {
 
     if (!isValidOtp) {
       otpRecord.attempts += 1;
-      await otpRecord.save();
+      await otpRecord.save({ session });
+      await session.commitTransaction();
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP",
+        message: `Invalid OTP. ${5 - otpRecord.attempts} attempts remaining`,
         result: {},
       });
     }
 
-    const tempUser = await TempUser.findById(tempUserId);
-    if (!tempUser)
+    const tempUser = await TempUser.findById(tempUserId).session(session);
+    if (!tempUser) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: "Temp user not found",
         result: {},
       });
+    }
 
-    const newUser = await User.create({
+    // 🔒 Mark OTP as verified to prevent reuse
+    otpRecord.isVerified = true;
+    await otpRecord.save({ session });
+
+    const newUser = await User.create([{
       firstName: tempUser.firstName,
       lastName: tempUser.lastName,
       username: tempUser.username,
@@ -345,23 +378,32 @@ export const verifyOtp = async (req, res) => {
       role: tempUser.role,
       locality: tempUser.locality,
       status: "Active",
-    });
+    }], { session });
 
-    await TempUser.findByIdAndDelete(tempUserId);
-    await Otp.deleteMany({ userId: tempUserId });
+    await TempUser.findByIdAndDelete(tempUserId).session(session);
+    await Otp.deleteMany({ userId: tempUserId }).session(session);
+
+    await session.commitTransaction();
+
+    // 🔒 Remove password from response
+    const userResponse = newUser[0].toObject();
+    delete userResponse.password;
 
     return res.status(200).json({
       success: true,
       message: "OTP verified and user created",
-      result: newUser,
+      result: userResponse,
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("verifyOtp error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",
       result: {error: error.message},
     });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -466,6 +508,24 @@ export const updateUser = async (req, res) => {
     const { id } = req.params; // userId from URL
     const { firstName, lastName } = req.body;
 
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format",
+        result: {},
+      });
+    }
+
+    // 🔒 Ownership check: Users can only update their own profile
+    if (req.user.userId !== id && req.user.role !== "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You can only update your own profile",
+        result: {},
+      });
+    }
+
     // Find user
     const user = await User.findById(id);
     if (!user) {
@@ -523,10 +583,10 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// Get all users (with search / filters)
+// Get all users (with search / filters and pagination)
 export const getAllUsers = async (req, res) => {
   try {
-    const { search, role, status } = req.query;
+    const { search, role, status, page = 1, limit = 20 } = req.query;
     let query = {};
 
     if (search) {
@@ -544,8 +604,19 @@ export const getAllUsers = async (req, res) => {
     if (role) query.role = role;
     if (status) query.status = status;
 
+    // 🔒 Pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
     // Fetch users (excluding password)
-    const users = await User.find(query).select("-password");
+    const users = await User.find(query)
+      .select("-password")
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ createdAt: -1 });
+
+    const total = await User.countDocuments(query);
 
     if (!users || !users.length) {
       return res.status(404).json({
@@ -558,7 +629,15 @@ export const getAllUsers = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Users fetched successfully",
-      result: users,
+      result: {
+        users,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
     });
   } catch (error) {
     console.error("getAllUsers error:", error);
@@ -574,6 +653,25 @@ export const getAllUsers = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format",
+        result: {},
+      });
+    }
+
+    // 🔒 Ownership check: Users can only view their own profile, Admins can view all
+    if (req.user.userId !== id && req.user.role !== "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You can only view your own profile",
+        result: {},
+      });
+    }
+
     const user = await User.findById(id).select("-password");
     if (!user)
       return res.status(404).json({
@@ -735,7 +833,7 @@ export const requestPasswordResetOtp = async (req, res) => {
     await Otp.create({
       userId: user._id,
       otp: otpCode,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+      expiresAt: Date.now() + 10 * 60 * 1000, // 🔒 10 minutes
       attempts: 0,
       isVerified: false,
     });

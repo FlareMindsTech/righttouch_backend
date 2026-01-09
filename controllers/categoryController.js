@@ -1,4 +1,5 @@
 import Category from "../Schemas/Category.js";
+import mongoose from "mongoose";
 
 // Escape regex special chars (for safe user-provided search)
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -81,6 +82,15 @@ export const uploadCategoryImage = async (req, res) => {
       });
     }
 
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -147,7 +157,18 @@ export const getAllCategory = async (req, res) => {
 /* ================= GET CATEGORY BY ID ================= */
 export const getByIdCategory = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
+    const category = await Category.findById(id);
 
     if (!category) {
       return res.status(404).json({
@@ -176,6 +197,15 @@ export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { category, description, categoryType } = req.body;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
 
     // Fetch existing category to keep current type/slug context
     const existingCategory = await Category.findById(id);
@@ -262,7 +292,18 @@ export const updateCategory = async (req, res) => {
 /* ================= DELETE CATEGORY ================= */
 export const deleteCategory = async (req, res) => {
   try {
-    const category = await Category.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
+    const category = await Category.findByIdAndDelete(id);
 
     if (!category) {
       return res.status(404).json({

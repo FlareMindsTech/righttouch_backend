@@ -1,5 +1,6 @@
 import express from "express";
 import { upload } from "../utils/cloudinaryUpload.js";
+import rateLimit from "express-rate-limit";
 
 import {
   changePassword,
@@ -91,17 +92,42 @@ import { Auth, authorizeRoles } from "../middleware/Auth.js";
 
 const router = express.Router();
 
+// 🔒 Strict Rate Limiters for Authentication
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per window
+  message: {
+    success: false,
+    message: "Too many attempts, please try again after 15 minutes",
+    result: {},
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 3, // 3 OTP requests per window
+  message: {
+    success: false,
+    message: "Too many OTP requests, please try again after 15 minutes",
+    result: {},
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /* ================= USER ================= */
-router.post("/signup", signupAndSendOtp);
-router.post("/login", login);
-router.post("/resendOtp", resendOtp);
-router.post("/verify-otp", verifyOtp);
+router.post("/signup", authLimiter, signupAndSendOtp);
+router.post("/login", authLimiter, login);
+router.post("/resendOtp", otpLimiter, resendOtp);
+router.post("/verify-otp", authLimiter, verifyOtp);
 router.put("/update-user/:id", Auth, updateUser);
 router.get("/getallusers", Auth, getAllUsers);
-router.get("/getuserbyid/:id", getUserById);
+router.get("/getuserbyid/:id", Auth, getUserById);
 router.get("/getMyProfile", Auth, getMyProfile);
-router.post("/requestPasswordResetOtp", requestPasswordResetOtp);
-router.post("/verifyPasswordResetOtp", verifyPasswordResetOtp);
+router.post("/requestPasswordResetOtp", otpLimiter, requestPasswordResetOtp);
+router.post("/verifyPasswordResetOtp", authLimiter, verifyPasswordResetOtp);
 router.put("/changepassword", Auth, changePassword);
 router.post("/resetPassword", Auth, resetPassword);
 

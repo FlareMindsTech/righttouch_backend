@@ -109,7 +109,17 @@ export const productBookingUpdate = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
     }
 
+    const { id } = req.params;
     const { amount, paymentStatus, status, quantity } = req.body;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
+      });
+    }
 
     const update = {};
 
@@ -144,7 +154,7 @@ export const productBookingUpdate = async (req, res) => {
     }
 
     const updateBooking = await ProductBooking.findOneAndUpdate(
-      { _id: req.params.id, userId: authUserId },
+      { _id: id, userId: authUserId },
       update,
       { new: true, runValidators: true, context: "query" }
     );
@@ -185,6 +195,15 @@ export const productBookingCancel = async (req, res) => {
         success: false,
         message: "Booking ID is required",
         result: {}
+      });
+    }
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
       });
     }
 

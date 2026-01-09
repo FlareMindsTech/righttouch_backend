@@ -182,7 +182,7 @@ export const uploadServiceImages = async (req, res) => {
 };
 export const getAllServices = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, page = 1, limit = 20 } = req.query;
     let query = { isActive: true };
 
     if (search) {
@@ -192,17 +192,32 @@ export const getAllServices = async (req, res) => {
       ];
     }
 
+    // 🔒 Pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
     const services = await Service.find(query)
       .select(HIDE_FIELDS)
-      .populate(
-        "categoryId",
-        "category categoryType description"
-      );
+      .populate("categoryId", "category categoryType description")
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ createdAt: -1 });
+
+    const total = await Service.countDocuments(query);
 
     return res.status(200).json({
       success: true,
       message: "Services fetched successfully",
-      result: services,
+      result: {
+        services,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -215,7 +230,18 @@ export const getAllServices = async (req, res) => {
 
 export const getServiceById = async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id)
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service ID format",
+        result: {},
+      });
+    }
+
+    const service = await Service.findById(id)
       .select(HIDE_FIELDS)
       .populate(
         "categoryId",
@@ -246,7 +272,17 @@ export const getServiceById = async (req, res) => {
 
 export const updateService = async (req, res) => {
   try {
+    const { id } = req.params;
     const update = { ...req.body };
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service ID format",
+        result: {},
+      });
+    }
 
     if (update.categoryId) {
       if (!mongoose.Types.ObjectId.isValid(update.categoryId)) {
@@ -295,7 +331,7 @@ export const updateService = async (req, res) => {
     }
 
     const updated = await Service.findByIdAndUpdate(
-      req.params.id,
+      id,
       update,
       { new: true, runValidators: true, context: "query" }
     )
@@ -326,7 +362,18 @@ export const updateService = async (req, res) => {
 
 export const deleteService = async (req, res) => {
   try {
-    const deleted = await Service.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service ID format",
+        result: {},
+      });
+    }
+
+    const deleted = await Service.findByIdAndDelete(id);
 
     if (!deleted) {
       return res.status(404).json({
