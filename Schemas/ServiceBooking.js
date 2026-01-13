@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 const serviceBookingSchema = new mongoose.Schema(
   {
     // 👤 CUSTOMER
-    customerId: {
+    customerProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "CustomerProfile",
       required: true,
       index: true,
     },
@@ -21,7 +21,7 @@ const serviceBookingSchema = new mongoose.Schema(
     // 👨‍🔧 TECHNICIAN (assigned after accept)
     technicianId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Technician",
+      ref: "TechnicianProfile",
       default: null,
       index: true,
     },

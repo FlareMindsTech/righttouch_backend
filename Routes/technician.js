@@ -1,5 +1,6 @@
 import express from "express";
 import { Auth } from "../middleware/Auth.js";
+import isTechnician from "../middleware/isTechnician.js";
 import { upload } from "../utils/cloudinaryUpload.js";
 
 import {
@@ -11,6 +12,7 @@ import {
   createTechnician,
   getAllTechnicians,
   getTechnicianById,
+  getMyTechnician,
   updateTechnician,
   updateTechnicianStatus,
   deleteTechnician,
@@ -20,6 +22,7 @@ import {
   submitTechnicianKyc,
   uploadTechnicianKycDocuments,
   getTechnicianKyc,
+  getMyTechnicianKyc,
   getAllTechnicianKyc,
   verifyTechnicianKyc,
   deleteTechnicianKyc,
@@ -43,17 +46,19 @@ const router = express.Router();
 router.post("/technicianData", Auth, createTechnician);
 router.get("/technicianAll", Auth, getAllTechnicians);
 router.get("/technicianById/:id", Auth, getTechnicianById);
+router.get("/technician/me", Auth, getMyTechnician);
 router.put("/updateTechnician/:id", Auth, updateTechnician);
 router.put("/technician/status", Auth, updateTechnicianStatus);
 router.delete("/technicianDelete/:id", Auth, deleteTechnician);
 
 /* ================= TECHNICIAN KYC ================= */
 
-router.post("/technician/kyc", Auth, submitTechnicianKyc);
+router.post("/technician/kyc", Auth, isTechnician, submitTechnicianKyc);
 
 router.post(
   "/technician/kyc/upload",
   Auth,
+  isTechnician,
   upload.fields([
     { name: "aadhaarImage", maxCount: 1 },
     { name: "panImage", maxCount: 1 },
@@ -64,25 +69,26 @@ router.post(
 
 router.get("/technician/kyc/:technicianId", Auth, getTechnicianKyc);
 router.get("/technician/kyc", Auth, getAllTechnicianKyc);
+router.get("/technician/kyc/me", Auth, isTechnician, getMyTechnicianKyc);
 router.put("/technician/kyc/verify", Auth, verifyTechnicianKyc);
 router.delete("/technician/deletekyc/:technicianId", Auth, deleteTechnicianKyc);
 
 /* ================= JOB BROADCAST ================= */
 
-router.get("/job-broadcast/my-jobs", Auth, getMyJobs);
-router.put("/job-broadcast/respond/:id", Auth, respondToJob);
+router.get("/job-broadcast/my-jobs", Auth, isTechnician, getMyJobs);
+router.put("/job-broadcast/respond/:id", Auth, isTechnician, respondToJob);
 
 /* ================= JOB UPDATE ================= */
 
 // Technician updates job status
 
-router.put("/status/:id", Auth, updateBookingStatus);
-router.get("/jobs/current", Auth, getTechnicianCurrentJobs);
-router.get("/jobs/history", Auth, getTechnicianJobHistory);
+router.put("/status/:id", Auth, isTechnician, updateBookingStatus);
+router.get("/jobs/current", Auth, isTechnician, getTechnicianCurrentJobs);
+router.get("/jobs/history", Auth, isTechnician, getTechnicianJobHistory);
 
 /* ================= TECHNICIAN WALLET ================= */
 
 router.post("/wallet/transaction", Auth, createWalletTransaction);
-router.get("/wallet/history", Auth, getWalletHistory);
+router.get("/wallet/history", Auth, isTechnician, getWalletHistory);
 
 export default router;

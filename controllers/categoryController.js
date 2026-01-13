@@ -125,6 +125,54 @@ export const uploadCategoryImage = async (req, res) => {
   }
 };
 
+/* ================= REMOVE CATEGORY IMAGE ================= */
+export const removeCategoryImage = async (req, res) => {
+  try {
+    const { categoryId } = req.body;
+
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Category ID is required",
+        result: {},
+      });
+    }
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+        result: {},
+      });
+    }
+
+    category.image = null;
+    await category.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Category image removed successfully",
+      result: category,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error : error.message},
+    });
+  }
+};
+
 /* ================= GET ALL CATEGORIES ================= */
 export const getAllCategory = async (req, res) => {
   try {

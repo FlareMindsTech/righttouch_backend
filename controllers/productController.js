@@ -166,7 +166,7 @@ export const createProduct = async (req, res) => {
   }
 };
 
-/* ================= UPLOAD PRODUCT IMAGES ================= */
+/* ================= UPLOAD PRODUCT IMAGES (ADD) ================= */
 export const uploadProductImages = async (req, res) => {
   try {
     const { productId } = req.body;
@@ -175,6 +175,14 @@ export const uploadProductImages = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Product ID is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
         result: {},
       });
     }
@@ -217,11 +225,138 @@ export const uploadProductImages = async (req, res) => {
   }
 };
 
+/* ================= REMOVE PRODUCT IMAGE ================= */
+export const removeProductImage = async (req, res) => {
+  try {
+    const { productId, imageUrl } = req.body;
+
+    if (!productId || !imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID and image URL are required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+        result: {},
+      });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+        result: {},
+      });
+    }
+
+    const imageIndex = product.productImages.indexOf(imageUrl);
+    if (imageIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found in product",
+        result: {},
+      });
+    }
+
+    product.productImages.splice(imageIndex, 1);
+    await product.save();
+
+    await product.populate("categoryId", "category categoryType description");
+
+    res.status(200).json({
+      success: true,
+      message: "Product image removed successfully",
+      result: product,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= REPLACE ALL PRODUCT IMAGES ================= */
+export const replaceProductImages = async (req, res) => {
+  try {
+    const { productId } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+        result: {},
+      });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Product images are required",
+        result: {},
+      });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+        result: {},
+      });
+    }
+
+    const imageUrls = req.files.map(file => file.path);
+    product.productImages = imageUrls;
+    await product.save();
+
+    await product.populate("categoryId", "category categoryType description");
+
+    res.status(200).json({
+      success: true,
+      message: "Product images replaced successfully",
+      result: product,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
 /* ================= GET ALL PRODUCTS ================= */
 export const getProduct = async (req, res) => {
   try {
-    const { search, type, usageType, active, page = 1, limit = 20 } = req.query;
+    const { search, categoryId, type, usageType, active, page = 1, limit = 20 } = req.query;
     let query = {};
+
+    if (categoryId !== undefined) {
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid categoryId",
+          result: {},
+        });
+      }
+      query.categoryId = categoryId;
+    }
 
     if (active !== undefined) query.isActive = active === "true";
     if (type) query.productType = { $regex: type, $options: "i" };

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Technician from "../Schemas/Technician.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import WalletTransaction from "../Schemas/TechnicianWallet.js";
 
@@ -58,7 +58,7 @@ export const createWalletTransaction = async (req, res) => {
       });
     }
 
-    if (!["job", "penalty"].includes(source)) {
+    if (![ "job", "penalty"].includes(source)) {
       return res.status(400).json({
         success: false,
         message: "Invalid transaction source",
@@ -66,7 +66,7 @@ export const createWalletTransaction = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(technicianId);
+    const technician = await TechnicianProfile.findById(technicianId);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -130,20 +130,33 @@ export const getWalletHistory = async (req, res) => {
       }
       technicianId = requestedTechnicianId;
     } else {
-      const technician = await Technician.findOne({ userId: req.user.userId });
-      if (!technician) {
-        return res.status(404).json({
+      technicianId = req.user?.profileId;
+      if (!technicianId) {
+        return res.status(401).json({
           success: false,
-          message: "Technician not found",
+          message: "Unauthorized",
           result: {},
         });
       }
-      technicianId = technician._id;
     }
 
-    const history = await WalletTransaction.find({ technicianId }).sort({
-      createdAt: -1,
-    });
+    const wallet = await TechnicianWallet.findOne({ technicianId })
+      .populate("technicianId", "userId skills status");
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found",
+        result: {},
+      });
+    }
+
+    const transactions = await TechnicianTransaction.find({ walletId: wallet._id })
+      .populate("walletId", "totalEarnings totalDebits");
+
+    const history = await WalletTransaction.find({ technicianId })
+      .populate("technicianId", "firstName lastName skills status")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,

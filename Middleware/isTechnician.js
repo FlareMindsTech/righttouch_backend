@@ -1,4 +1,4 @@
-import Technician from "../schemas/Technician.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 
 /* ================= TECHNICIAN ONLY ================= */
 const isTechnician = async (req, res, next) => {
@@ -11,11 +11,16 @@ const isTechnician = async (req, res, next) => {
       });
     }
 
-    // 2️⃣ Technician record check
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    });
+    // 2️⃣ Profile check
+    const profileId = req.user.profileId;
+    if (!profileId) {
+      return res.status(403).json({
+        success: false,
+        message: "Technician profile not found",
+      });
+    }
 
+    const technician = await TechnicianProfile.findById(profileId).select("-password");
     if (!technician) {
       return res.status(403).json({
         success: false,

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import TechnicianKyc from "../Schemas/TechnicianKYC.js";
-import Technician from "../Schemas/Technician.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 
@@ -8,9 +8,9 @@ const isValidObjectId = mongoose.Types.ObjectId.isValid;
 export const submitTechnicianKyc = async (req, res) => {
   try {
     const { aadhaarNumber, panNumber, drivingLicenseNumber } = req.body;
-    const authUserId = req.user?.userId;
+    const technicianProfileId = req.user?.profileId;
 
-    if (!authUserId) {
+    if (!technicianProfileId) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
@@ -18,21 +18,19 @@ export const submitTechnicianKyc = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findOne({ userId: authUserId });
-    if (!technician) {
-      return res.status(404).json({
+    // Enforce Technician role for KYC submission
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
         success: false,
-        message: "Technician not found",
+        message: "Technician access only",
         result: {},
       });
     }
 
-    const technicianId = technician._id;
-
     const kyc = await TechnicianKyc.findOneAndUpdate(
-      { technicianId },
+      { technicianId: technicianProfileId },
       {
-        technicianId,
+        technicianId: technicianProfileId,
         aadhaarNumber,
         panNumber,
         drivingLicenseNumber,
@@ -81,16 +79,25 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findOne({ userId: authUserId });
-    if (!technician) {
-      return res.status(404).json({
+    // Enforce Technician role for KYC documents upload
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
         success: false,
-        message: "Technician not found",
+        message: "Technician access only",
         result: {},
       });
     }
 
-    const kyc = await TechnicianKyc.findOne({ technicianId: technician._id });
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId });
     if (!kyc) {
       return res.status(404).json({
         success: false,
@@ -138,7 +145,8 @@ export const getAllTechnicianKyc = async (req, res) => {
       });
     }
 
-    const kyc = await TechnicianKyc.find();
+    const kyc = await TechnicianKyc.find()
+      .populate("technicianId", "userId skills status");
 
     return res.status(200).json({
       success: true,
@@ -167,7 +175,8 @@ export const getTechnicianKyc = async (req, res) => {
       });
     }
 
-    const kyc = await TechnicianKyc.findOne({ technicianId });
+    const kyc = await TechnicianKyc.findOne({ technicianId })
+      .populate("technicianId", "userId skills status");
 
     if (!kyc) {
       return res.status(404).json({
@@ -180,8 +189,8 @@ export const getTechnicianKyc = async (req, res) => {
     const authUserId = req.user?.userId;
     const isOwner = req.user?.role === "Owner";
     if (!isOwner) {
-      const technician = await Technician.findOne({ userId: authUserId });
-      if (!technician || technician._id.toString() !== technicianId) {
+      const technicianProfileId = req.user?.profileId;
+      if (!technicianProfileId || technicianProfileId.toString() !== technicianId) {
         return res.status(403).json({
           success: false,
           message: "Access denied",
@@ -200,6 +209,43 @@ export const getTechnicianKyc = async (req, res) => {
       success: false,
       message: "Server error",
       result: {error: error.message},
+    });
+  }
+};
+
+/* ================= GET MY TECHNICIAN KYC (FROM TOKEN) ================= */
+export const getMyTechnicianKyc = async (req, res) => {
+  try {
+    const technicianProfileId = req.user?.profileId;
+
+    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId })
+      .populate("technicianId", "firstName lastName skills status");
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: "KYC record not found",
+        result: {},
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "KYC fetched successfully",
+      result: kyc,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: { error: error.message },
     });
   }
 };
@@ -258,12 +304,12 @@ export const verifyTechnicianKyc = async (req, res) => {
     await kyc.save();
 
     if (status === "approved") {
-      await Technician.findByIdAndUpdate(technicianId, {
+      await TechnicianProfile.findByIdAndUpdate(technicianId, {
         status: "approved",
         approvedAt: new Date(),
       });
     } else {
-      await Technician.findByIdAndUpdate(technicianId, {
+      await TechnicianProfile.findByIdAndUpdate(technicianId, {
         status: "suspended",
         "availability.isOnline": false,
       });
@@ -314,7 +360,7 @@ export const deleteTechnicianKyc = async (req, res) => {
       });
     }
 
-    await Technician.findByIdAndUpdate(technicianId, {
+    await TechnicianProfile.findByIdAndUpdate(technicianId, {
       status: "suspended",
       "availability.isOnline": false,
     });

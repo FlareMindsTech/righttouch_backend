@@ -1,18 +1,23 @@
 import express from "express";
-import { Auth } from "../middleware/Auth.js";
+import { Auth, authorizeRoles } from "../middleware/Auth.js";
 import {
   createAddress,
   getMyAddresses,
-  getAddressById,
   updateAddress,
   deleteAddress,
   setDefaultAddress,
   getDefaultAddress,
+  adminGetAllAddresses,
+  adminGetAddressById,
 } from "../controllers/addressController.js";
 
 const router = express.Router();
 
 /* ================= ADDRESS ROUTES ================= */
+
+/* ================= ADMIN ONLY ================= */
+router.get("/admin/all", authorizeRoles("Admin", "Owner"), adminGetAllAddresses);
+router.get("/admin/:id", authorizeRoles("Admin", "Owner"), adminGetAddressById);
 
 // Create address
 router.post("/", Auth, createAddress);
@@ -23,16 +28,13 @@ router.get("/", Auth, getMyAddresses);
 // Get default address
 router.get("/default", Auth, getDefaultAddress);
 
-// Get single address by ID
-router.get("/:id", Auth, getAddressById);
+// Update address (customer) - pass addressId in body
+router.put("/", Auth, updateAddress);
 
-// Update address
-router.put("/:id", Auth, updateAddress);
+// Set as default address (customer) - pass addressId in body
+router.put("/default", Auth, setDefaultAddress);
 
-// Set as default address
-router.put("/:id/default", Auth, setDefaultAddress);
-
-// Delete address
-router.delete("/:id", Auth, deleteAddress);
+// Delete address (customer) - pass addressId in body
+router.delete("/", Auth, deleteAddress);
 
 export default router;

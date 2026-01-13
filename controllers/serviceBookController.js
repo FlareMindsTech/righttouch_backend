@@ -1,6 +1,6 @@
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import Technician from "../Schemas/Technician.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import Service from "../Schemas/Service.js";
 import mongoose from "mongoose";
 
@@ -12,10 +12,16 @@ const toNumber = value => {
 
 export const createBooking = async (req, res) => {
   try {
-    const userId = req.user?.userId;
-    if (!userId) {
+    if (!req.user?.userId) {
       return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
     }
+    if (req.user?.role !== "Customer") {
+      return res.status(403).json({ success: false, message: "Customer access only", result: {} });
+    }
+    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    }
+    const customerProfileId = req.user.profileId;
 
     const { serviceId, baseAmount, address, scheduledAt } = req.body;
 
@@ -44,7 +50,7 @@ export const createBooking = async (req, res) => {
 
     // 1️⃣ Create booking
     const booking = await ServiceBooking.create({
-      customerId: userId,
+      customerProfileId,
       serviceId,
       baseAmount: baseAmountNum,
       address,
@@ -53,7 +59,7 @@ export const createBooking = async (req, res) => {
     });
 
     // 2️⃣ 🔒 FIXED: Find technicians with skill matching and online availability
-    const technicians = await Technician.find({
+    const technicians = await TechnicianProfile.find({
       status: "approved",
       "availability.isOnline": true,
       "skills.serviceId": new mongoose.Types.ObjectId(serviceId),
@@ -96,16 +102,23 @@ export const getBookings = async (req, res) => {
     let filter = {};
 
     if (req.user.role === "Customer") {
-      filter.customerId = req.user.userId;
+      if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+        return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+      }
+      filter.customerProfileId = req.user.profileId;
     }
 
     if (req.user.role === "Technician") {
-      filter.technicianId = req.user.technicianId;
+      const technicianProfileId = req.user?.profileId;
+      if (!technicianProfileId || !mongoose.Types.ObjectId.isValid(technicianProfileId)) {
+        return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+      }
+      filter.technicianId = technicianProfileId;
     }
 
     const bookings = await ServiceBooking.find(filter)
       .populate("serviceId", "serviceName")
-      .populate("customerId", "firstName lastName phone")
+      .populate("customerProfileId", "firstName lastName mobileNumber")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -129,8 +142,14 @@ export const getBookings = async (req, res) => {
 
 export const getCustomerBookings = async (req, res) => {
   try {
+    if (req.user?.role !== "Customer") {
+      return res.status(403).json({ success: false, message: "Customer access only", result: {} });
+    }
+    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    }
     const bookings = await ServiceBooking.find({
-      customerId: req.user.userId,
+      customerProfileId: req.user.profileId,
     })
       .populate("serviceId", "serviceName")
       .sort({ createdAt: -1 });
@@ -155,13 +174,26 @@ export const getCustomerBookings = async (req, res) => {
 
 export const getTechnicianJobHistory = async (req, res) => {
   try {
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    });
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+        result: {},
+      });
+    }
+
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
 
     const jobs = await ServiceBooking.find({
-      technicianId: technician._id,
-      status: { $in: ["accepted", "rejected", "complete"] },
+      technicianId: technicianProfileId,
+      status: { $in: ["completed", "cancelled"] },
     })
       // .populate("bookingId")
       .sort({ updatedAt: -1 });
@@ -194,11 +226,17 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    });
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
     const jobs = await ServiceBooking.find({
-      technicianId: technician._id,
+      technicianId: technicianProfileId,
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
     // .populate({
@@ -206,7 +244,6 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     //   populate: { path: "serviceId", select: "serviceName" },
     // })
     .sort({ createdAt: -1 });
-    console.log(technician._id)
       
 
     return res.status(200).json({
@@ -272,8 +309,8 @@ export const updateBookingStatus = async (req, res) => {
       return res.status(403).json({ success: false, message: "Only technician can update status", result: {} });
     }
 
-    const technician = await Technician.findOne({ userId: req.user.userId });
-    if (!technician || !booking.technicianId || booking.technicianId.toString() !== technician._id.toString()) {
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId || !booking.technicianId || booking.technicianId.toString() !== technicianProfileId.toString()) {
       return res.status(403).json({ success: false, message: "Access denied for this booking", result: {} });
     }
 
@@ -332,7 +369,11 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    if (booking.customerId.toString() !== req.user.userId.toString()) {
+    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    }
+
+    if (booking.customerProfileId.toString() !== req.user.profileId.toString()) {
       return res.status(403).json({
         success: false,
         message: "Access denied",

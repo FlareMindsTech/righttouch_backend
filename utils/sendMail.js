@@ -1,29 +1,26 @@
 import nodemailer from "nodemailer";
 
+const transporter = nodemailer.createTransport({
+  host: "smtp.mailersend.net",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.MAILERSEND_SMTP_USER,
+    pass: process.env.MAILERSEND_SMTP_PASS,
+  },
+});
+
 export const sendEmail = async (to, subject, text) => {
   try {
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      host:"smtp.gmail.com", // e.g. "smtp.gmail.com"
-      port: "587", // e.g. 587
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user:"gokila1305@gmail.com", // Your email
-        pass: "dklocgiabjsvozwm"  // Your email password or app password
-      }
-    });
-
-    // Send mail
-    const info = await transporter.sendMail({
-      from: `"Service App" <${"gokila1305@gmail.com"}>`,
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
       to,
       subject,
-      text
+      text,
     });
-
-    console.log(`Email sent: ${info.messageId}`);
-  } catch (error) {
-    console.error("Error sending email:", error);
+    console.log("Email sent successfully");
+  } catch (err) {
+    console.error("MailerSend SMTP Error:", err);
     throw new Error("Email could not be sent");
   }
 };

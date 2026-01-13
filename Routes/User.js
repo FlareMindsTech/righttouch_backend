@@ -3,23 +3,25 @@ import { upload } from "../utils/cloudinaryUpload.js";
 import rateLimit from "express-rate-limit";
 
 import {
-  changePassword,
-  getAllUsers,
-  getMyProfile,
-  getUserById,
-  login,
-  resendOtp,
-  requestPasswordResetOtp,
-  resetPassword,
   signupAndSendOtp,
-  updateUser,
+  resendOtp,
   verifyOtp,
+  setPassword,
+  login,
+  requestPasswordResetOtp,
   verifyPasswordResetOtp,
+  resetPassword,
+  getMyProfile,
+  completeProfile,
+  updateMyProfile,
+  getUserById,
+  getAllUsers,
 } from "../controllers/User.js";
 
 import {
   serviceCategory,
   uploadCategoryImage,
+  removeCategoryImage,
   getAllCategory,
   getByIdCategory,
   updateCategory,
@@ -43,6 +45,8 @@ import {
 import {
   createService,
   uploadServiceImages,
+  removeServiceImage,
+  replaceServiceImages,
   getAllServices,
   getServiceById,
   updateService,
@@ -63,6 +67,8 @@ import {
   getOneProduct,
   deleteProduct,
   uploadProductImages,
+  removeProductImage,
+  replaceProductImages,
   updateProduct,
 } from "../controllers/productController.js";
 
@@ -119,17 +125,27 @@ const otpLimiter = rateLimit({
 
 /* ================= USER ================= */
 router.post("/signup", authLimiter, signupAndSendOtp);
-router.post("/login", authLimiter, login);
-router.post("/resendOtp", otpLimiter, resendOtp);
+router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
-router.put("/update-user/:id", Auth, updateUser);
-router.get("/getallusers", Auth, getAllUsers);
-router.get("/getuserbyid/:id", Auth, getUserById);
-router.get("/getMyProfile", Auth, getMyProfile);
-router.post("/requestPasswordResetOtp", otpLimiter, requestPasswordResetOtp);
-router.post("/verifyPasswordResetOtp", authLimiter, verifyPasswordResetOtp);
-router.put("/changepassword", Auth, changePassword);
-router.post("/resetPassword", Auth, resetPassword);
+router.post("/set-password", authLimiter, setPassword);
+router.post("/login", authLimiter, login);
+router.post(
+  "/request-password-reset-otp",
+  otpLimiter,
+  requestPasswordResetOtp
+);
+router.post(
+  "/verify-password-reset-otp",
+  authLimiter,
+  verifyPasswordResetOtp
+);
+router.post("/reset-password", authLimiter, resetPassword);
+router.get("/me", Auth, getMyProfile);
+router.post("/complete-profile", Auth, completeProfile);
+router.put("/me", Auth, updateMyProfile);
+router.get("/users/:role/:id", Auth, getUserById);
+router.get("/users/:role", Auth, getAllUsers);
+
 
 /* ================= CATEGORY ================= */
 
@@ -140,6 +156,7 @@ router.post(
   upload.single("image"),
   uploadCategoryImage
 );
+router.delete("/category/remove-image", Auth, removeCategoryImage);
 router.get("/getAllcategory", getAllCategory);
 router.get("/getByIdcategory/:id", getByIdCategory);
 router.put("/updatecategory/:id", Auth, updateCategory);
@@ -160,6 +177,13 @@ router.post(
   upload.array("serviceImages", 5),
   uploadServiceImages
 );
+router.delete("/services/remove-image", Auth, removeServiceImage);
+router.put(
+  "/services/replace-images",
+  Auth,
+  upload.array("serviceImages", 5),
+  replaceServiceImages
+);
 router.get("/getAllServices", getAllServices);
 router.get("/getServiceById/:id", getServiceById);
 router.put("/updateService/:id", Auth, updateService);
@@ -167,8 +191,8 @@ router.delete("/services/:id", Auth, deleteService);
 
 /* ================= SERVICE BOOKING ================= */
 
-router.post("/serviceBook", Auth,
-   createBooking);
+// Booking creation happens via /checkout (cart)
+// router.post("/serviceBook", Auth, createBooking);
 
 // Admin / Technician / Customer view bookings
 router.get("/service/booking", Auth,
@@ -196,6 +220,13 @@ router.post(
   upload.array("productImages", 5),
   uploadProductImages
 );
+router.delete("/product/remove-image", Auth, removeProductImage);
+router.put(
+  "/product/replace-images",
+  Auth,
+  upload.array("productImages", 5),
+  replaceProductImages
+);
 router.get("/getProduct", getProduct);
 router.get("/getOneProduct/:id", getOneProduct);
 router.put(
@@ -208,7 +239,8 @@ router.delete("/deleteProduct/:id", Auth, deleteProduct);
 
 /* ================= PRODUCT BOOKING ================= */
 
-router.post("/productBooking", Auth, productBooking);
+// Booking creation happens via /checkout (cart)
+// router.post("/productBooking", Auth, productBooking);
 router.get("/getAllProductBooking", Auth, getAllProductBooking);
 router.put("/productBookingUpdate/:id", Auth, productBookingUpdate);
 router.put("/productBookingCancel/:id", Auth, productBookingCancel);

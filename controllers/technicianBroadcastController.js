@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
-import Technician from "../Schemas/Technician.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 
 /* ================= GET MY JOBS ================= */
 export const getMyJobs = async (req, res) => {
@@ -14,7 +14,8 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
-    if (!req.user?.userId) {
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
@@ -22,18 +23,8 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findOne({ userId: req.user.userId });
-
-    if (!technician) {
-      return res.status(404).json({
-        success: false,
-        message: "Technician not found",
-        result: {},
-      });
-    }
-
     const jobs = await JobBroadcast.find({
-      technicianId: technician._id,
+      technicianId: technicianProfileId,
       status: "sent",
     })
       .populate({
@@ -99,15 +90,12 @@ export const respondToJob = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    }).session(session);
-
-    if (!technician) {
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
       await session.abortTransaction();
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        message: "Technician not found",
+        message: "Unauthorized",
         result: {},
       });
     }
@@ -123,7 +111,7 @@ export const respondToJob = async (req, res) => {
       });
     }
 
-    if (job.technicianId.toString() !== technician._id.toString()) {
+    if (job.technicianId.toString() !== technicianProfileId.toString()) {
       await session.abortTransaction();
       return res.status(403).json({
         success: false,

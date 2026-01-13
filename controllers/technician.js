@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
-import Technician from "../Schemas/Technician.js";
-import User from "../Schemas/User.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 const TECHNICIAN_STATUSES = ["pending", "trained", "approved", "suspended"];
@@ -13,13 +12,13 @@ const validateSkills = (skills) => {
   );
 };
 
-/* ================= CREATE TECHNICIAN ================= */
+/* ================= UPDATE TECHNICIAN SKILLS ================= */
 export const createTechnician = async (req, res) => {
   try {
-    const authUserId = req.user?.userId;
+    const technicianProfileId = req.user?.profileId;
     const { skills } = req.body;
 
-    if (!authUserId || !isValidObjectId(authUserId)) {
+    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
@@ -35,32 +34,32 @@ export const createTechnician = async (req, res) => {
       });
     }
 
-    const userExists = await User.findById(authUserId);
-    if (!userExists) {
+    // Ensure only users with Technician role can update skills
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Only users with Technician role can update skills",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findByIdAndUpdate(
+      technicianProfileId,
+      { skills },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!technician) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Technician profile not found",
         result: {},
       });
     }
 
-    const existing = await Technician.findOne({ userId: authUserId });
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: "Technician already exists for this user",
-        result: {},
-      });
-    }
-
-    const technician = await Technician.create({
-      userId: authUserId,
-      skills,
-    });
-
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: "Technician created successfully",
+      message: "Skills updated successfully",
       result: technician,
     });
   } catch (error) {
@@ -90,12 +89,16 @@ export const getAllTechnicians = async (req, res) => {
     }
 
     if (search) {
-      query.$or = [{ status: { $regex: search, $options: "i" } }];
+      query.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { status: { $regex: search, $options: "i" } },
+      ];
     }
 
-    const technicians = await Technician.find(query)
-      .populate("userId", "fname lname email phone")
-      .populate("skills.serviceId", "serviceName");
+    const technicians = await TechnicianProfile.find(query)
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
 
     return res.status(200).json({
       success: true,
@@ -124,9 +127,9 @@ export const getTechnicianById = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(id)
-      .populate("userId", "name email phone")
-      .populate("skills.serviceId", "serviceName");
+    const technician = await TechnicianProfile.findById(id)
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
 
     if (!technician) {
       return res.status(404).json({
@@ -146,6 +149,45 @@ export const getTechnicianById = async (req, res) => {
       success: false,
       message: "Server error",
       result: {error: error.message},
+    });
+  }
+};
+
+/* ================= GET MY TECHNICIAN (FROM TOKEN) ================= */
+export const getMyTechnician = async (req, res) => {
+  try {
+    const technicianProfileId = req.user?.profileId;
+
+    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findById(technicianProfileId)
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
+
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician fetched successfully",
+      result: technician,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: { error: error.message },
     });
   }
 };
@@ -172,7 +214,7 @@ export const updateTechnician = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(id);
+    const technician = await TechnicianProfile.findById(id);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -181,8 +223,8 @@ export const updateTechnician = async (req, res) => {
       });
     }
 
-    const authUserId = req.user?.userId;
-    if (!authUserId || technician.userId.toString() !== authUserId.toString()) {
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId || technician._id.toString() !== technicianProfileId.toString()) {
       return res.status(403).json({
         success: false,
         message: "Access denied",
@@ -206,10 +248,13 @@ export const updateTechnician = async (req, res) => {
 
     await technician.save();
 
+    const result = technician.toObject();
+    delete result.password;
+
     return res.status(200).json({
       success: true,
       message: "Technician updated successfully",
-      result: technician,
+      result,
     });
   } catch (error) {
     return res.status(500).json({
@@ -240,7 +285,7 @@ export const updateTechnicianStatus = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(technicianId);
+    const technician = await TechnicianProfile.findById(technicianId);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -274,10 +319,13 @@ export const updateTechnicianStatus = async (req, res) => {
 
     await technician.save();
 
+    const result = technician.toObject();
+    delete result.password;
+
     return res.status(200).json({
       success: true,
       message: "Technician admin update successful",
-      result: technician,
+      result,
     });
   } catch (error) {
     return res.status(500).json({
@@ -301,7 +349,7 @@ export const deleteTechnician = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(id);
+    const technician = await TechnicianProfile.findById(id);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -310,9 +358,9 @@ export const deleteTechnician = async (req, res) => {
       });
     }
 
-    const authUserId = req.user?.userId;
+    const technicianProfileId = req.user?.profileId;
     const isOwner = req.user?.role === "Owner";
-    if (!isOwner && (!authUserId || technician.userId.toString() !== authUserId.toString())) {
+    if (!isOwner && (!technicianProfileId || technician._id.toString() !== technicianProfileId.toString())) {
       return res.status(403).json({
         success: false,
         message: "Access denied",

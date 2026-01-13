@@ -124,7 +124,7 @@ export const createService = async (req, res) => {
   }
 };
 
-// UPLOAD SERVICE IMAGES
+// UPLOAD SERVICE IMAGES (ADD)
 export const uploadServiceImages = async (req, res) => {
   try {
     const { serviceId } = req.body;
@@ -180,10 +180,133 @@ export const uploadServiceImages = async (req, res) => {
     });
   }
 };
+
+// REMOVE SERVICE IMAGE
+export const removeServiceImage = async (req, res) => {
+  try {
+    const { serviceId, imageUrl } = req.body;
+
+    if (!serviceId || !imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Service ID and image URL are required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceId", result: {} });
+    }
+
+    const service = await Service.findById(serviceId);
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+        result: {},
+      });
+    }
+
+    const imageIndex = service.serviceImages.indexOf(imageUrl);
+    if (imageIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found in service",
+        result: {},
+      });
+    }
+
+    service.serviceImages.splice(imageIndex, 1);
+    await service.save();
+
+    const responseDoc = await Service.findById(service._id)
+      .select(HIDE_FIELDS)
+      .populate("categoryId", "category categoryType description");
+
+    return res.status(200).json({
+      success: true,
+      message: "Service image removed successfully",
+      result: responseDoc,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
+// REPLACE ALL SERVICE IMAGES
+export const replaceServiceImages = async (req, res) => {
+  try {
+    const { serviceId } = req.body;
+
+    if (!serviceId) {
+      return res.status(400).json({
+        success: false,
+        message: "Service ID is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceId", result: {} });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Service images are required",
+        result: {},
+      });
+    }
+
+    const service = await Service.findById(serviceId);
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+        result: {},
+      });
+    }
+
+    const images = req.files.map(file => file.path);
+    service.serviceImages = images;
+    await service.save();
+
+    const responseDoc = await Service.findById(service._id)
+      .select(HIDE_FIELDS)
+      .populate("categoryId", "category categoryType description");
+
+    return res.status(200).json({
+      success: true,
+      message: "Service images replaced successfully",
+      result: responseDoc,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
 export const getAllServices = async (req, res) => {
   try {
-    const { search, page = 1, limit = 20 } = req.query;
+    const { search, categoryId, page = 1, limit = 20 } = req.query;
     let query = { isActive: true };
+
+    if (categoryId !== undefined) {
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid categoryId",
+          result: {},
+        });
+      }
+      query.categoryId = categoryId;
+    }
 
     if (search) {
       query.$or = [

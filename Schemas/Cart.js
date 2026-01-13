@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const cartSchema = new mongoose.Schema(
   {
-    userId: {
+    customerProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "CustomerProfile",
       required: true,
     },
     itemType: {
@@ -26,7 +26,7 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Ensure unique cart item per user per item
-cartSchema.index({ userId: 1, itemType: 1, itemId: 1 }, { unique: true });
+// Ensure unique cart item per customer profile per item
+cartSchema.index({ customerProfileId: 1, itemType: 1, itemId: 1 }, { unique: true });
 
 export default mongoose.models.Cart || mongoose.model("Cart", cartSchema);

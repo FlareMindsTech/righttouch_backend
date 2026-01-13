@@ -1,12 +1,40 @@
+import mongoose from "mongoose";
+
 import Address from "../Schemas/Address.js";
+import CustomerProfile from "../Schemas/CustomerProfile.js";
+
+const ensureCustomer = (req) => {
+  if (!req.user || req.user.role !== "Customer") {
+    const err = new Error("Customer access only");
+    err.statusCode = 403;
+    throw err;
+  }
+  if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+    const err = new Error("Invalid token profile");
+    err.statusCode = 401;
+    throw err;
+  }
+};
+
+const getAddressIdFromReq = (req) => req.params?.id || req.body?.addressId || req.body?.id;
 
 /* ================= CREATE ADDRESS ================= */
 export const createAddress = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { label, name, phone, addressLine, city, state, pincode, latitude, longitude, isDefault } = req.body;
+    ensureCustomer(req);
+    const customerProfileId = req.user.profileId;
 
-    // Validate required fields
+    const {
+      label,
+      addressLine,
+      city,
+      state,
+      pincode,
+      latitude,
+      longitude,
+      isDefault,
+    } = req.body;
+
     if (!addressLine) {
       return res.status(400).json({
         success: false,
@@ -15,69 +43,133 @@ export const createAddress = async (req, res) => {
       });
     }
 
-    // If setting as default, unset other defaults for this user
+    // 🔒 Optional safety limit
+    const count = await Address.countDocuments({ customerProfileId });
+    if (count >= 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Address limit reached",
+        result: {},
+      });
+    }
+
+    // 🔒 Ensure single default address
     if (isDefault) {
-      await Address.updateMany({ userId }, { isDefault: false });
+      await Address.updateMany(
+        { customerProfileId },
+        { isDefault: false }
+      );
+    }
+
+    // ✅ Take name + phone from CustomerProfile (not from request body)
+    const customer = await CustomerProfile.findById(customerProfileId).select(
+      "firstName lastName mobileNumber email"
+    );
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer profile not found",
+        result: {},
+      });
+    }
+
+    const derivedName = [customer.firstName, customer.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    const derivedPhone = customer.mobileNumber;
+
+    if (!derivedName || !derivedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Please complete your profile (firstName, mobileNumber) before adding an address",
+        result: {},
+      });
     }
 
     const address = await Address.create({
-      userId,
+      customerProfileId,
       label: label || "home",
-      name,
-      phone,
+      name: derivedName,
+      phone: derivedPhone,
       addressLine,
       city,
       state,
       pincode,
       latitude,
       longitude,
-      isDefault: isDefault || false,
+      isDefault: Boolean(isDefault),
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Address created successfully",
       result: address,
     });
   } catch (error) {
     console.error("Create address error:", error);
-    res.status(500).json({
+    return res.status(error?.statusCode || 500).json({
       success: false,
-      message: "Failed to create address",
-      result: {error: error.message},
+      message: error.message || "Failed to create address",
+      result: {},
     });
   }
 };
+
 
 /* ================= GET ALL ADDRESSES ================= */
 export const getMyAddresses = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    ensureCustomer(req);
 
-    const addresses = await Address.find({ userId }).sort({ createdAt: -1 });
+    const addresses = await Address.find({
+      customerProfileId: req.user.profileId,
+    })
+      .populate("customerProfileId", "firstName lastName mobileNumber email")
+      .sort({ isDefault: -1, createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Addresses fetched successfully",
       result: addresses,
     });
-  } catch (error) {
-    console.error("Get addresses error:", error);
-    res.status(500).json({
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({
       success: false,
-      message: "Failed to fetch addresses",
-      result: {error: error.message},
+      message: err.message,
+      result: {},
     });
   }
 };
 
+
 /* ================= GET SINGLE ADDRESS ================= */
 export const getAddressById = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    ensureCustomer(req);
 
-    const address = await Address.findOne({ _id: id, userId });
+    const addressId = getAddressIdFromReq(req);
+    if (!addressId) {
+      return res.status(400).json({
+        success: false,
+        message: "addressId is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(addressId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address id",
+        result: {},
+      });
+    }
+
+    const address = await Address.findOne({
+      _id: addressId,
+      customerProfileId: req.user.profileId,
+    }).populate("customerProfileId", "firstName lastName mobileNumber email");
 
     if (!address) {
       return res.status(404).json({
@@ -87,17 +179,12 @@ export const getAddressById = async (req, res) => {
       });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Address fetched successfully",
-      result: address,
-    });
-  } catch (error) {
-    console.error("Get address error:", error);
-    res.status(500).json({
+    res.json({ success: true, result: address });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({
       success: false,
-      message: "Failed to fetch address",
-      result: {error: error.message},
+      message: err.message,
+      result: {},
     });
   }
 };
@@ -105,12 +192,29 @@ export const getAddressById = async (req, res) => {
 /* ================= UPDATE ADDRESS ================= */
 export const updateAddress = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
-    const { label, name, phone, addressLine, city, state, pincode, latitude, longitude, isDefault } = req.body;
+    ensureCustomer(req);
 
-    // Check if address exists and belongs to user
-    const address = await Address.findOne({ _id: id, userId });
+    const id = getAddressIdFromReq(req);
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "addressId is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address id",
+        result: {},
+      });
+    }
+
+    const address = await Address.findOne({
+      _id: id,
+      customerProfileId: req.user.profileId,
+    });
 
     if (!address) {
       return res.status(404).json({
@@ -120,51 +224,53 @@ export const updateAddress = async (req, res) => {
       });
     }
 
-    // If setting as default, unset other defaults
-    if (isDefault && !address.isDefault) {
-      await Address.updateMany({ userId, _id: { $ne: id } }, { isDefault: false });
+    if (req.body.isDefault) {
+      await Address.updateMany(
+        { customerProfileId: req.user.profileId, _id: { $ne: id } },
+        { isDefault: false }
+      );
     }
 
-    // Update address
-    const updatedAddress = await Address.findByIdAndUpdate(
-      id,
-      {
-        label: label || address.label,
-        name: name || address.name,
-        phone: phone || address.phone,
-        addressLine: addressLine || address.addressLine,
-        city: city || address.city,
-        state: state || address.state,
-        pincode: pincode || address.pincode,
-        latitude: latitude !== undefined ? latitude : address.latitude,
-        longitude: longitude !== undefined ? longitude : address.longitude,
-        isDefault: isDefault !== undefined ? isDefault : address.isDefault,
-      },
-      { new: true }
-    );
+    Object.assign(address, req.body);
+    await address.save();
 
-    res.status(200).json({
-      success: true,
-      message: "Address updated successfully",
-      result: updatedAddress,
-    });
-  } catch (error) {
-    console.error("Update address error:", error);
-    res.status(500).json({
+    res.json({ success: true, result: address });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({
       success: false,
-      message: "Failed to update address",
-      result: {error: error.message},
+      message: err.message,
+      result: {},
     });
   }
 };
 
+
 /* ================= DELETE ADDRESS ================= */
 export const deleteAddress = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    ensureCustomer(req);
 
-    const address = await Address.findOneAndDelete({ _id: id, userId });
+    const id = getAddressIdFromReq(req);
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "addressId is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address id",
+        result: {},
+      });
+    }
+
+    const address = await Address.findOneAndDelete({
+      _id: id,
+      customerProfileId: req.user.profileId,
+    });
 
     if (!address) {
       return res.status(404).json({
@@ -181,9 +287,9 @@ export const deleteAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete address error:", error);
-    res.status(500).json({
+    res.status(error?.statusCode || 500).json({
       success: false,
-      message: "Failed to delete address",
+      message: error.message || "Failed to delete address",
       result: {error: error.message},
     });
   }
@@ -192,11 +298,30 @@ export const deleteAddress = async (req, res) => {
 /* ================= SET DEFAULT ADDRESS ================= */
 export const setDefaultAddress = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    ensureCustomer(req);
 
-    // Check if address exists and belongs to user
-    const address = await Address.findOne({ _id: id, userId });
+    const id = getAddressIdFromReq(req);
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "addressId is required",
+        result: {},
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address id",
+        result: {},
+      });
+    }
+
+    // Check if address exists and belongs to customer
+    const address = await Address.findOne({
+      _id: id,
+      customerProfileId: req.user.profileId,
+    });
 
     if (!address) {
       return res.status(404).json({
@@ -207,7 +332,10 @@ export const setDefaultAddress = async (req, res) => {
     }
 
     // Unset all other defaults
-    await Address.updateMany({ userId, _id: { $ne: id } }, { isDefault: false });
+    await Address.updateMany(
+      { customerProfileId: req.user.profileId, _id: { $ne: id } },
+      { isDefault: false }
+    );
 
     // Set this as default
     const updatedAddress = await Address.findByIdAndUpdate(
@@ -223,9 +351,9 @@ export const setDefaultAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Set default address error:", error);
-    res.status(500).json({
+    res.status(error?.statusCode || 500).json({
       success: false,
-      message: "Failed to set default address",
+      message: error.message || "Failed to set default address",
       result: {error: error.message},
     });
   }
@@ -234,9 +362,12 @@ export const setDefaultAddress = async (req, res) => {
 /* ================= GET DEFAULT ADDRESS ================= */
 export const getDefaultAddress = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    ensureCustomer(req);
 
-    const address = await Address.findOne({ userId, isDefault: true });
+    const address = await Address.findOne({
+      customerProfileId: req.user.profileId,
+      isDefault: true,
+    }).populate("customerProfileId", "firstName lastName mobileNumber email");
 
     if (!address) {
       return res.status(404).json({
@@ -253,10 +384,44 @@ export const getDefaultAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Get default address error:", error);
-    res.status(500).json({
+    res.status(error?.statusCode || 500).json({
       success: false,
-      message: "Failed to fetch default address",
+      message: error.message || "Failed to fetch default address",
       result: {error: error.message},
     });
+  }
+};
+
+/* ================= ADMIN: GET ALL ADDRESSES ================= */
+export const adminGetAllAddresses = async (req, res) => {
+  try {
+    const addresses = await Address.find()
+      .populate("customerProfileId", "firstName lastName mobileNumber email")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, result: addresses });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, result: {} });
+  }
+};
+
+/* ================= ADMIN: GET ADDRESS BY ID ================= */
+export const adminGetAddressById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid address id", result: {} });
+    }
+
+    const address = await Address.findById(id).populate(
+      "customerProfileId",
+      "firstName lastName mobileNumber email"
+    );
+    if (!address) {
+      return res.status(404).json({ success: false, message: "Address not found", result: {} });
+    }
+
+    res.json({ success: true, result: address });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, result: {} });
   }
 };

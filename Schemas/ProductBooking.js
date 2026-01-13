@@ -8,9 +8,9 @@ const ProductBookingSchema = new mongoose.Schema(
       required: true,
     },
 
-    userId: {
+    customerProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "CustomerProfile",
       required: true,
     },
 

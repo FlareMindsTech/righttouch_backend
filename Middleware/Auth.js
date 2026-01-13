@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import User from "../Schemas/User.js";
 
 export const Auth = (req, res, next) => {
   try {
@@ -25,9 +24,13 @@ export const Auth = (req, res, next) => {
       algorithms: ["HS256"], // prevents alg attack
     });
 
-    // Attach ONLY what is needed
+    // Attach ONLY what is needed (support both legacy + new token payloads)
+    const userId = decoded.userId || decoded.profileId;
+    const profileId = decoded.profileId || decoded.userId;
+
     req.user = {
-      userId: decoded.userId,
+      userId,
+      profileId,
       role: decoded.role,
       email: decoded.email,
     };
@@ -59,29 +62,26 @@ export const authorizeRoles = (...allowedRoles) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-        algorithms: ["HS256"], // prevents alg attack
+        algorithms: ["HS256"],
       });
 
-      // ✅ Note: use userId, not id
-      const user = await User.findById(decoded.userId).select("-password");
-
-      if (!user) {
-        return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });
-      }
-
-      // ✅ Case-insensitive role check
       const isAllowed = allowedRoles
         .map((r) => r.toLowerCase())
-        .includes(user.role.toLowerCase());
+        .includes((decoded.role || "").toLowerCase());
 
       if (!isAllowed) {
-        return res
-          .status(403)
-          .json({ success: false, message: `Access denied: ${allowedRoles.join(", ")} only`, result: "Insufficient permissions" });
+        return res.status(403).json({ success: false, message: `Access denied: ${allowedRoles.join(", ")} only`, result: "Insufficient permissions" });
       }
 
-      // Attach user info to request
-      req.user = user;
+      const userId = decoded.userId || decoded.profileId;
+      const profileId = decoded.profileId || decoded.userId;
+
+      req.user = {
+        userId,
+        profileId,
+        role: decoded.role,
+        email: decoded.email,
+      };
       next();
     } catch (error) {
       return res.status(401).json({ success: false, message: "Token invalid or expired", result: "Authentication failed" });
