@@ -43,7 +43,19 @@ const serviceBookingSchema = new mongoose.Schema(
     // ⏰ SCHEDULE
     scheduledAt: {
       type: Date,
-      // required: true,
+    },
+
+    // 💳 PAYMENT
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "refunded"],
+      default: "pending",
+      index: true,
+    },
+
+    paymentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
     },
 
     // 📌 STATUS FLOW

@@ -1,0 +1,272 @@
+{
+  "info": {
+    "_postman_id": "c93ddc8b-9e3c-40c4-a055-2b2d4b8b7b72",
+    "name": "RightTouch - Owner Flow (A to Z)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "End-to-end Owner/Admin flow: auth -> create category/service/product -> view technicians -> view KYC -> approve technician -> view bookings -> update payment status -> wallet transaction + history -> admin address tools. Uses environment tokens/ids from RightTouch.postman_environment.json."
+  },
+  "item": [
+    {
+      "name": "00 - Setup (Pick ONE)",
+      "item": [
+        {
+          "name": "DEV - Create Owner (sets tokenOwner + ownerProfileId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-dev-secret", "value": "{{devSecret}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/dev/users", "host": ["{{baseUrl}}"], "path": ["api", "dev", "users"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"Owner\",\n  \"email\": \"{{devOwnerEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"confirmPassword\": \"{{testPassword}}\",\n  \"profile\": {\n    \"mobileNumber\": \"7000000001\",\n    \"firstName\": \"Owner\",\n    \"lastName\": \"One\",\n    \"profileComplete\": true\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.environment.set('tokenOwner', j?.result?.token || j?.token || '');",
+                  "pm.environment.set('ownerProfileId', j?.result?.profileId || '');",
+                  "pm.test('tokenOwner saved', () => pm.expect(pm.environment.get('tokenOwner')).to.not.equal(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Owner) -> tokenOwner",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/user/login", "host": ["{{baseUrl}}"], "path": ["api", "user", "login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"mobileNumber\": \"7000000001\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"Owner\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.environment.set('tokenOwner', j?.token || '');",
+                  "pm.test('tokenOwner saved', () => pm.expect(pm.environment.get('tokenOwner')).to.not.equal(''));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Category (Create -> id)",
+      "item": [
+        {
+          "name": "Create Category (service) -> categoryId",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenOwner}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/user/category", "host": ["{{baseUrl}}"], "path": ["api", "user", "category"] },
+            "body": { "mode": "raw", "raw": "{\n  \"category\": \"Air Conditioner\",\n  \"description\": \"AC services\",\n  \"categoryType\": \"service\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const id = j?.result?._id || j?._id;",
+                  "if (id) pm.environment.set('categoryId', id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Service (Create -> id)",
+      "item": [
+        {
+          "name": "Create Service -> serviceId",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenOwner}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/user/service", "host": ["{{baseUrl}}"], "path": ["api", "user", "service"] },
+            "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"serviceName\": \"AC Repair\",\n  \"description\": \"Repair AC issues\",\n  \"serviceType\": \"Repair\",\n  \"pricingType\": \"fixed\",\n  \"serviceCost\": 499\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const id = j?.result?._id || j?._id;",
+                  "if (id) pm.environment.set('serviceId', id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Product (Create -> id)",
+      "item": [
+        {
+          "name": "Create Product -> productId",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenOwner}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/user/product", "host": ["{{baseUrl}}"], "path": ["api", "user", "product"] },
+            "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"productName\": \"Water Purifier\",\n  \"productType\": \"RO\",\n  \"description\": \"RO purifier\",\n  \"pricingModel\": \"starting_from\",\n  \"estimatedPriceFrom\": 5999\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const id = j?.result?._id || j?._id;",
+                  "if (id) pm.environment.set('productId', id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Technician Oversight (KYC Approval)",
+      "item": [
+        {
+          "name": "Get All Technicians",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenOwner}}" }],
+            "url": { "raw": "{{baseUrl}}/api/technician/technicianAll", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technicianAll"] }
+          }
+        },
+        {
+          "name": "Get All Technician KYC",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenOwner}}" }],
+            "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc"] }
+          }
+        },
+        {
+          "name": "Verify Technician KYC (approve technician)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenOwner}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc/verify", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc", "verify"] },
+            "body": { "mode": "raw", "raw": "{\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"status\": \"approved\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Bookings & Payments",
+      "item": [
+        {
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenOwner}}" }],
+            "url": { "raw": "{{baseUrl}}/api/user/service/booking", "host": ["{{baseUrl}}"], "path": ["api", "user", "service", "booking"] }
+          }
+        },
+        {
+          "name": "Update Payment Status (success/failed)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenOwner}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/user/payment/{{paymentId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "user", "payment", "{{paymentId}}", "status"] },
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"success\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Wallet",
+      "item": [
+        {
+          "name": "Create Wallet Transaction -> walletTxnId",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenOwner}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/technician/wallet/transaction", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "transaction"] },
+            "body": { "mode": "raw", "raw": "{\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"bookingId\": \"{{bookingId}}\",\n  \"amount\": 100,\n  \"type\": \"credit\",\n  \"source\": \"job\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const id = j?.result?._id || j?._id;",
+                  "if (id) pm.environment.set('walletTxnId', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Wallet History (Owner querying technicianId)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenOwner}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/technician/wallet/history?technicianId={{technicianProfileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "technician", "wallet", "history"],
+              "query": [{ "key": "technicianId", "value": "{{technicianProfileId}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Admin Address Tools",
+      "item": [
+        {
+          "name": "Admin/Owner - Get All Addresses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenOwner}}" }],
+            "url": { "raw": "{{baseUrl}}/api/addresses/admin/all", "host": ["{{baseUrl}}"], "path": ["api", "addresses", "admin", "all"] }
+          }
+        },
+        {
+          "name": "Admin/Owner - Get Address By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenOwner}}" }],
+            "url": { "raw": "{{baseUrl}}/api/addresses/admin/{{addressId}}", "host": ["{{baseUrl}}"], "path": ["api", "addresses", "admin", "{{addressId}}"] }
+          }
+        }
+      ]
+    }
+  ]
+}

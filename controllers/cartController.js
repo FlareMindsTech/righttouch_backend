@@ -6,8 +6,9 @@ import ProductBooking from "../Schemas/ProductBooking.js";
 import Address from "../Schemas/Address.js";
 import CustomerProfile from "../Schemas/CustomerProfile.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import mongoose from "mongoose";
+import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
+import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
 
 const ensureCustomer = (req) => {
   if (!req.user || req.user.role !== "Customer") {
@@ -482,6 +483,8 @@ export const checkout = async (req, res) => {
       paymentMode,
     };
 
+    const notificationsToSend = [];
+
     // Create Service Bookings
     for (const cartItem of validServiceItems) {
       const service = await Service.findById(cartItem.itemId).session(session);
@@ -498,14 +501,21 @@ export const checkout = async (req, res) => {
         status: "broadcasted",
       }], { session });
 
-      // Broadcast job to eligible technicians (same rules as service booking flow)
-      const technicians = await TechnicianProfile.find({
-        status: "approved",
-        "availability.isOnline": true,
-        "skills.serviceId": new mongoose.Types.ObjectId(cartItem.itemId),
-      })
-        .select("_id")
-        .session(session);
+      // Broadcast job to eligible technicians (KYC approved + profileComplete + workStatus approved + online + skill match + nearby/area match)
+      // Geo selection runs outside the transaction session; writes remain transactional.
+      const technicians = await findEligibleTechniciansForService({
+        serviceId: cartItem.itemId,
+        address: {
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode,
+          latitude: address.latitude,
+          longitude: address.longitude,
+        },
+        radiusMeters: 5000,
+        limit: 50,
+        enableGeo: true,
+      });
 
       if (technicians.length > 0) {
         await JobBroadcast.insertMany(
@@ -516,6 +526,18 @@ export const checkout = async (req, res) => {
           })),
           { session, ordered: false }
         );
+
+        notificationsToSend.push({
+          technicianIds: technicians.map((t) => t._id.toString()),
+          jobData: {
+            bookingId: serviceBooking[0]._id,
+            serviceId: service._id,
+            serviceName: service.serviceName,
+            baseAmount,
+            address: address.addressLine,
+            scheduledAt: scheduledAt || new Date(),
+          },
+        });
       }
 
       bookingResults.serviceBookings.push({
@@ -569,6 +591,15 @@ export const checkout = async (req, res) => {
     await Cart.deleteMany({ customerProfileId }).session(session);
 
     await session.commitTransaction();
+
+    // Send notifications AFTER successful commit (non-blocking)
+    try {
+      for (const item of notificationsToSend) {
+        await broadcastJobToTechnicians(req.io, item.technicianIds, item.jobData);
+      }
+    } catch (notifErr) {
+      console.error("⚠️ Checkout notifications failed (non-blocking):", notifErr.message);
+    }
 
     res.status(201).json({
       success: true,

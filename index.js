@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import multer from "multer";
 import rateLimit from "express-rate-limit";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 import UserRoutes from "./routes/User.js";
 import TechnicianRoutes from "./routes/technician.js";
@@ -20,6 +22,43 @@ if (!process.env.JWT_SECRET) {
 }
 
 const App = express();
+const httpServer = createServer(App);
+
+// 🔌 Initialize Socket.IO
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_URL || "*",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// 🔌 Socket.IO connection handler
+io.on("connection", (socket) => {
+  console.log(`🔌 Client connected: ${socket.id}`);
+
+  // Technician joins their room
+  socket.on("join_technician", (technicianId) => {
+    socket.join(`technician_${technicianId}`);
+    console.log(`👨‍🔧 Technician ${technicianId} joined their room`);
+  });
+
+  // Customer joins their room
+  socket.on("join_customer", (customerProfileId) => {
+    socket.join(`customer_${customerProfileId}`);
+    console.log(`👤 Customer ${customerProfileId} joined their room`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
+
+// Attach io to req for use in controllers
+App.use((req, res, next) => {
+  req.io = io;
+  next();
+});
 
 App.use(express.json());
 App.use(cors());
@@ -99,7 +138,18 @@ App.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 7372;
-App.listen(port, () => {
-  console.log("Server connected to " + port);
+httpServer.on("error", (err) => {
+  if (err?.code === "EADDRINUSE") {
+    console.error(
+      `❌ Port ${port} is already in use. Stop the other server or set PORT to a different value.`
+    );
+    process.exit(1);
+  }
+  console.error("❌ Server error:", err);
+  process.exit(1);
+});
+httpServer.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
+  console.log(`🔌 Socket.IO ready for real-time notifications`);
 });
 

@@ -74,25 +74,25 @@ export const createTechnician = async (req, res) => {
 /* ================= GET ALL TECHNICIANS ================= */
 export const getAllTechnicians = async (req, res) => {
   try {
-    const { status, search } = req.query;
+    const { workStatus, search } = req.query;
     const query = {};
 
-    if (status) {
-      if (!TECHNICIAN_STATUSES.includes(status)) {
+    if (workStatus) {
+      if (!TECHNICIAN_STATUSES.includes(workStatus)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid status filter",
+          message: "Invalid workStatus filter",
           result: {},
         });
       }
-      query.status = status;
+      query.workStatus = workStatus;
     }
 
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
-        { status: { $regex: search, $options: "i" } },
+        { workStatus: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -236,13 +236,25 @@ export const updateTechnician = async (req, res) => {
     }
 
     if (availability?.isOnline !== undefined) {
-      if (technician.status !== "approved") {
+      // Check if technician is approved before allowing online status
+      if (technician.workStatus !== "approved") {
         return res.status(403).json({
           success: false,
-          message: "Only approved technicians can go online",
-          result: {},
+          message: "Only approved technicians can go online. Current status: " + technician.workStatus,
+          result: { currentStatus: technician.workStatus },
         });
       }
+
+      // Check if KYC is approved
+      const kyc = await mongoose.model('TechnicianKyc').findOne({ technicianId: id });
+      if (!kyc || kyc.verificationStatus !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: "Your KYC must be approved by owner before going online",
+          result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+        });
+      }
+
       technician.availability.isOnline = Boolean(availability.isOnline);
     }
 
@@ -268,7 +280,7 @@ export const updateTechnician = async (req, res) => {
 /* ================= UPDATE TECHNICIAN STATUS (ADMIN) ================= */
 export const updateTechnicianStatus = async (req, res) => {
   try {
-    const { technicianId, trainingCompleted, status } = req.body;
+    const { technicianId, trainingCompleted, workStatus } = req.body;
 
     if (!isValidObjectId(technicianId)) {
       return res.status(400).json({
@@ -297,22 +309,22 @@ export const updateTechnicianStatus = async (req, res) => {
     if (trainingCompleted !== undefined) {
       technician.trainingCompleted = Boolean(trainingCompleted);
       if (trainingCompleted === true) {
-        technician.status = "trained";
+        technician.workStatus = "trained";
       }
     }
 
-    if (status !== undefined) {
-      if (!["approved", "suspended", "trained"].includes(status)) {
+    if (workStatus !== undefined) {
+      if (!TECHNICIAN_STATUSES.includes(workStatus)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid status value",
+          message: "Invalid workStatus value. Must be: pending, trained, approved, or suspended",
           result: {},
         });
       }
 
-      technician.status = status;
+      technician.workStatus = workStatus;
 
-      if (status === "suspended") {
+      if (workStatus === "suspended") {
         technician.availability.isOnline = false;
       }
     }
@@ -324,7 +336,7 @@ export const updateTechnicianStatus = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Technician admin update successful",
+      message: "Technician status updated successfully",
       result,
     });
   } catch (error) {

@@ -10,9 +10,8 @@ const technicianProfileSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: true,
       unique: true,
-      
+      sparse: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "Invalid email"],
@@ -23,12 +22,6 @@ const technicianProfileSchema = new mongoose.Schema(
       required: true,
       minlength: 8,
       select: false,
-    },
-
-    status: {
-      type: String,
-      enum: ["Active", "Inactive"],
-      default: "Active",
     },
 
     firstName: {
@@ -76,6 +69,20 @@ const technicianProfileSchema = new mongoose.Schema(
       match: [/^[0-9]{6}$/, "Invalid pincode"],
     },
 
+    // 🌍 Optional geo location (for nearby technician matching)
+    // Stored as GeoJSON Point: [longitude, latitude]
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined,
+      },
+    },
+
     /* ==========================
        🛠 WORK DETAILS
     ========================== */
@@ -120,7 +127,7 @@ const technicianProfileSchema = new mongoose.Schema(
       default: false,
     },
 
-    status: {
+    workStatus: {
       type: String,
       enum: ["pending", "trained", "approved", "suspended"],
       default: "pending",
@@ -155,6 +162,9 @@ const technicianProfileSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// 2dsphere index for geo queries (nearby technicians)
+technicianProfileSchema.index({ location: "2dsphere" });
 
 export default mongoose.models.TechnicianProfile ||
   mongoose.model("TechnicianProfile", technicianProfileSchema);

@@ -27,6 +27,24 @@ export const submitTechnicianKyc = async (req, res) => {
       });
     }
 
+    // Check if technician profile is complete
+    const technician = await TechnicianProfile.findById(technicianProfileId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    if (!technician.profileComplete) {
+      return res.status(403).json({
+        success: false,
+        message: "Please complete your profile first before submitting KYC",
+        result: {},
+      });
+    }
+
     const kyc = await TechnicianKyc.findOneAndUpdate(
       { technicianId: technicianProfileId },
       {
@@ -305,12 +323,12 @@ export const verifyTechnicianKyc = async (req, res) => {
 
     if (status === "approved") {
       await TechnicianProfile.findByIdAndUpdate(technicianId, {
-        status: "approved",
+        workStatus: "approved",
         approvedAt: new Date(),
       });
     } else {
       await TechnicianProfile.findByIdAndUpdate(technicianId, {
-        status: "suspended",
+        workStatus: "suspended",
         "availability.isOnline": false,
       });
     }
@@ -361,7 +379,7 @@ export const deleteTechnicianKyc = async (req, res) => {
     }
 
     await TechnicianProfile.findByIdAndUpdate(technicianId, {
-      status: "suspended",
+      workStatus: "suspended",
       "availability.isOnline": false,
     });
 

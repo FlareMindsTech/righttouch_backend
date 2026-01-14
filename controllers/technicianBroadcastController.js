@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import { notifyCustomerJobAccepted, notifyJobTaken } from "../utils/sendNotification.js";
 
 /* ================= GET MY JOBS ================= */
 export const getMyJobs = async (req, res) => {
@@ -20,6 +21,52 @@ export const getMyJobs = async (req, res) => {
         success: false,
         message: "Unauthorized",
         result: {},
+      });
+    }
+
+    // Check technician profile status
+    const technician = await TechnicianProfile.findById(technicianProfileId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    if (!technician.profileComplete) {
+      return res.status(403).json({
+        success: false,
+        message: "Please complete your profile first",
+        result: { profileComplete: false },
+      });
+    }
+
+    // Check KYC status
+    const TechnicianKyc = mongoose.model('TechnicianKyc');
+    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId });
+    if (!kyc) {
+      return res.status(403).json({
+        success: false,
+        message: "Please submit your KYC documents first",
+        result: { kycStatus: "not_submitted" },
+      });
+    }
+
+    if (kyc.verificationStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Your KYC is not approved yet. Current status: " + kyc.verificationStatus,
+        result: { kycStatus: kyc.verificationStatus },
+      });
+    }
+
+    // Check workStatus
+    if (technician.workStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is not approved by owner yet. Current status: " + technician.workStatus,
+        result: { workStatus: technician.workStatus },
       });
     }
 
@@ -100,6 +147,48 @@ export const respondToJob = async (req, res) => {
       });
     }
 
+    // Check technician profile and approval status
+    const technician = await TechnicianProfile.findById(technicianProfileId).session(session);
+    if (!technician) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    if (!technician.profileComplete) {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Please complete your profile first",
+        result: { profileComplete: false },
+      });
+    }
+
+    // Check KYC status
+    const TechnicianKyc = mongoose.model('TechnicianKyc');
+    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId }).session(session);
+    if (!kyc || kyc.verificationStatus !== "approved") {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Your KYC must be approved before accepting jobs. Status: " + (kyc?.verificationStatus || "not_submitted"),
+        result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+      });
+    }
+
+    // Check workStatus
+    if (technician.workStatus !== "approved") {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Your account must be approved by owner before accepting jobs. Status: " + technician.workStatus,
+        result: { workStatus: technician.workStatus },
+      });
+    }
+
     const job = await JobBroadcast.findById(id).session(session);
 
     if (!job || job.status !== "sent") {
@@ -134,7 +223,7 @@ export const respondToJob = async (req, res) => {
 
     const booking = await ServiceBooking.findOneAndUpdate(
       { _id: job.bookingId, status: "broadcasted" },
-      { technicianId: technician._id, status: "accepted" },
+      { technicianId: technicianProfileId, status: "accepted" },
       { new: true, session }
     );
 
@@ -150,6 +239,12 @@ export const respondToJob = async (req, res) => {
     job.status = "accepted";
     await job.save({ session });
 
+    // Update all other broadcasts for this booking to expired
+    const otherBroadcasts = await JobBroadcast.find(
+      { bookingId: booking._id, _id: { $ne: job._id } },
+      { technicianId: 1 }
+    ).session(session);
+
     await JobBroadcast.updateMany(
       { bookingId: booking._id, _id: { $ne: job._id } },
       { status: "expired" },
@@ -157,6 +252,27 @@ export const respondToJob = async (req, res) => {
     );
 
     await session.commitTransaction();
+
+    // 5️⃣ Send notifications AFTER transaction commits
+    try {
+      // Notify customer about job acceptance
+      await notifyCustomerJobAccepted(req.io, booking.customerProfileId, {
+        bookingId: booking._id,
+        technicianId: technicianProfileId,
+        status: "accepted",
+      });
+
+      // Notify other technicians that job was taken
+      const otherTechnicianIds = otherBroadcasts
+        .map((b) => b.technicianId.toString())
+        .filter((id) => id !== technicianProfileId.toString());
+
+      if (otherTechnicianIds.length > 0) {
+        notifyJobTaken(req.io, otherTechnicianIds, booking._id);
+      }
+    } catch (notifError) {
+      console.error("⚠️ Notification error (non-blocking):", notifError.message);
+    }
 
     return res.status(200).json({
       success: true,

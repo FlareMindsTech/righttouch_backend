@@ -2,7 +2,10 @@ import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import Service from "../Schemas/Service.js";
+import Address from "../Schemas/Address.js";
 import mongoose from "mongoose";
+import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
+import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
 
 const toNumber = value => {
   const num = Number(value);
@@ -23,9 +26,9 @@ export const createBooking = async (req, res) => {
     }
     const customerProfileId = req.user.profileId;
 
-    const { serviceId, baseAmount, address, scheduledAt } = req.body;
+    const { serviceId, baseAmount, address, addressId, scheduledAt } = req.body;
 
-    if (!serviceId || baseAmount == null || !address) {
+    if (!serviceId || baseAmount == null || (!address && !addressId)) {
       return res.status(400).json({
         success: false,
         message: "All fields required",
@@ -48,25 +51,56 @@ export const createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: "Service not found or inactive", result: {} });
     }
 
+    // Optional: if addressId is provided, use Address collection (supports nearby matching)
+    let addressForBooking = address;
+    let addressForMatching = {};
+
+    if (addressId) {
+      if (!mongoose.Types.ObjectId.isValid(addressId)) {
+        return res.status(400).json({ success: false, message: "Invalid addressId format", result: {} });
+      }
+
+      const addressDoc = await Address.findOne({
+        _id: addressId,
+        customerProfileId,
+      });
+
+      if (!addressDoc) {
+        return res.status(404).json({ success: false, message: "Address not found", result: {} });
+      }
+
+      addressForBooking = addressDoc.addressLine;
+      addressForMatching = {
+        city: addressDoc.city,
+        state: addressDoc.state,
+        pincode: addressDoc.pincode,
+        latitude: addressDoc.latitude,
+        longitude: addressDoc.longitude,
+      };
+    }
+
     // 1️⃣ Create booking
     const booking = await ServiceBooking.create({
       customerProfileId,
       serviceId,
       baseAmount: baseAmountNum,
-      address,
+      address: addressForBooking,
       scheduledAt,
       status: "broadcasted",
     });
 
-    // 2️⃣ 🔒 FIXED: Find technicians with skill matching and online availability
-    const technicians = await TechnicianProfile.find({
-      status: "approved",
-      "availability.isOnline": true,
-      "skills.serviceId": new mongoose.Types.ObjectId(serviceId),
-    }).select("_id");
+    // 2️⃣ Find eligible technicians (KYC approved + profileComplete + workStatus approved + online + skill match + nearby/area match)
+    const technicians = await findEligibleTechniciansForService({
+      serviceId,
+      address: addressForMatching,
+      radiusMeters: 5000,
+      limit: 50,
+      enableGeo: true,
+    });
 
     // 3️⃣ Create broadcast records
     if (technicians.length > 0) {
+      // Create JobBroadcast documents
       await JobBroadcast.insertMany(
         technicians.map((t) => ({
           bookingId: booking._id,
@@ -74,6 +108,22 @@ export const createBooking = async (req, res) => {
           status: "sent",
         }))
       );
+
+      // 4️⃣ Send notifications to all eligible technicians
+      const technicianIds = technicians.map((t) => t._id.toString());
+      await broadcastJobToTechnicians(
+        req.io, // Socket.io instance (pass from index.js)
+        technicianIds,
+        {
+          bookingId: booking._id,
+          serviceId: service._id,
+          serviceName: service.serviceName,
+          baseAmount: baseAmountNum,
+          address: addressForBooking,
+          scheduledAt,
+        }
+      );
+
       console.log(`✅ Broadcasted to ${technicians.length} matching, online technicians`);
     } else {
       console.log("⚠️ No matching, online technicians found for this service");
@@ -82,7 +132,11 @@ export const createBooking = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Booking created & broadcasted",
-      result: booking,
+      result: {
+        booking,
+        broadcastCount: technicians.length,
+        status: technicians.length > 0 ? "broadcasted" : "no_technicians_available",
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -312,6 +366,44 @@ export const updateBookingStatus = async (req, res) => {
     const technicianProfileId = req.user?.profileId;
     if (!technicianProfileId || !booking.technicianId || booking.technicianId.toString() !== technicianProfileId.toString()) {
       return res.status(403).json({ success: false, message: "Access denied for this booking", result: {} });
+    }
+
+    // Check technician approval status
+    const technician = await TechnicianProfile.findById(technicianProfileId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    if (!technician.profileComplete) {
+      return res.status(403).json({
+        success: false,
+        message: "Please complete your profile first",
+        result: { profileComplete: false },
+      });
+    }
+
+    // Check KYC status
+    const TechnicianKyc = mongoose.model('TechnicianKyc');
+    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId });
+    if (!kyc || kyc.verificationStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Your KYC must be approved before updating job status. Status: " + (kyc?.verificationStatus || "not_submitted"),
+        result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+      });
+    }
+
+    // Check workStatus
+    if (technician.workStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account must be approved by owner before working. Status: " + technician.workStatus,
+        result: { workStatus: technician.workStatus },
+      });
     }
 
     booking.status = status;
