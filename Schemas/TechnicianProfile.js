@@ -113,6 +113,7 @@ const technicianProfileSchema = new mongoose.Schema(
     /* ==========================
        🔧 TECHNICIAN OPERATIONAL DATA
     ========================== */
+    
     skills: [
       {
         serviceId: {
