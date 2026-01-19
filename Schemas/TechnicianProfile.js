@@ -75,7 +75,7 @@ const technicianProfileSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ["Point"],
-        default: "Point",
+        // ❌ Removed default to prevent partial GeoJSON objects
       },
       coordinates: {
         type: [Number],

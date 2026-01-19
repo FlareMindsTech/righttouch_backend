@@ -236,6 +236,15 @@ export const updateTechnician = async (req, res) => {
     }
 
     if (availability?.isOnline !== undefined) {
+      // 🔒 Check if training is completed
+      if (!technician.trainingCompleted) {
+        return res.status(403).json({
+          success: false,
+          message: "Training must be completed before going online. Contact admin to complete your training.",
+          result: { trainingCompleted: false },
+        });
+      }
+
       // Check if technician is approved before allowing online status
       if (technician.workStatus !== "approved") {
         return res.status(403).json({
@@ -387,6 +396,78 @@ export const deleteTechnician = async (req, res) => {
       result: {},
     });
   } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= UPDATE TECHNICIAN TRAINING STATUS (OWNER ONLY) ================= */
+export const updateTechnicianTraining = async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    const { trainingCompleted } = req.body;
+
+    // 🛡️ Owner access only
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Owner access only",
+        result: {},
+      });
+    }
+
+    if (!isValidObjectId(technicianId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Technician ID",
+        result: {},
+      });
+    }
+
+    if (typeof trainingCompleted !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "trainingCompleted must be a boolean value",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findById(technicianId).select("-password");
+    
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+        result: {},
+      });
+    }
+
+    // Update training status
+    technician.trainingCompleted = trainingCompleted;
+    
+    // If training is being set to false, force offline
+    if (!trainingCompleted && technician.availability?.isOnline) {
+      technician.availability.isOnline = false;
+      console.log(`⚠️ Technician ${technicianId} forced offline due to incomplete training`);
+    }
+
+    await technician.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Training status updated to ${trainingCompleted ? 'completed' : 'incomplete'}`,
+      result: {
+        technicianId: technician._id,
+        trainingCompleted: technician.trainingCompleted,
+        workStatus: technician.workStatus,
+        isOnline: technician.availability?.isOnline || false,
+      },
+    });
+  } catch (error) {
+    console.error("Update training error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",

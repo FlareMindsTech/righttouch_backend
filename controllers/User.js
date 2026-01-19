@@ -343,13 +343,24 @@ export const setPassword = async (req, res) => {
     const Profile = roleModelMap[normalizedRole];
     const userId = new mongoose.Types.ObjectId();
 
-    const profile = await Profile.create({
+    // Different roles use different status field names
+    const profileData = {
       userId,
       mobileNumber: identifier,
       password: hashedPassword,
-      status: "Active",
       profileComplete: false,
-    });
+    };
+
+    // Technician uses 'workStatus', others use 'status'
+    if (normalizedRole === "Technician") {
+      profileData.workStatus = "pending";
+      // Prevent geo index error: don't create location object without coordinates
+      profileData.location = undefined;
+    } else {
+      profileData.status = "Active";
+    }
+
+    const profile = await Profile.create(profileData);
 
     if (!profile) {
       return fail(res, 500, "Failed to create user account", "PROFILE_CREATE_FAILED");

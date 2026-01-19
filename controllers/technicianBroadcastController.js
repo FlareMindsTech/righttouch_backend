@@ -70,6 +70,18 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
+    // 🔒 HARD GATE: Check training completion
+    if (!technician.trainingCompleted) {
+      return res.status(403).json({
+        success: false,
+        message: "Training must be completed before viewing job broadcasts. Contact admin to complete your training.",
+        result: { 
+          trainingCompleted: false,
+          workStatus: technician.workStatus 
+        },
+      });
+    }
+
     const jobs = await JobBroadcast.find({
       technicianId: technicianProfileId,
       status: "sent",
@@ -186,6 +198,19 @@ export const respondToJob = async (req, res) => {
         success: false,
         message: "Your account must be approved by owner before accepting jobs. Status: " + technician.workStatus,
         result: { workStatus: technician.workStatus },
+      });
+    }
+
+    // 🔒 HARD GATE: Check training completion
+    if (!technician.trainingCompleted) {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Training must be completed before accepting job broadcasts. Contact admin to complete your training.",
+        result: { 
+          trainingCompleted: false,
+          workStatus: technician.workStatus 
+        },
       });
     }
 

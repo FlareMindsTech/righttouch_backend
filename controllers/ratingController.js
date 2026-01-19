@@ -11,7 +11,9 @@ const isValidObjectId = value => mongoose.Types.ObjectId.isValid(value);
 export const userRating = async (req, res) => {
   try {
     const userId = req.user?.userId;
-    if (!userId) {
+    const profileId = req.user?.profileId;
+    
+    if (!userId || !profileId) {
       return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
     }
 
@@ -51,7 +53,8 @@ export const userRating = async (req, res) => {
     // ✅ Verify booking exists and belongs to user
     let booking;
     if (bookingType === "service") {
-      booking = await ServiceBooking.findOne({ _id: bookingId, customerId: userId });
+      // Use customerProfileId (not customerId) - matches schema
+      booking = await ServiceBooking.findOne({ _id: bookingId, customerProfileId: profileId });
       if (!booking) {
         return res.status(404).json({
           success: false,
@@ -83,6 +86,7 @@ export const userRating = async (req, res) => {
         });
       }
     } else {
+      // ProductBooking uses userId
       booking = await ProductBooking.findOne({ _id: bookingId, userId });
       if (!booking) {
         return res.status(404).json({
@@ -128,6 +132,29 @@ export const userRating = async (req, res) => {
       rates,
       comment,
     });
+
+    // 🔥 Update technician rating.avg and rating.count for service bookings
+    if (bookingType === "service" && booking.technicianId) {
+      const TechnicianProfile = mongoose.model('TechnicianProfile');
+      const technician = await TechnicianProfile.findById(booking.technicianId);
+      
+      if (technician) {
+        const currentCount = technician.rating?.count || 0;
+        const currentAvg = technician.rating?.avg || 0;
+        
+        // Calculate new average
+        const newCount = currentCount + 1;
+        const newAvg = ((currentAvg * currentCount) + rates) / newCount;
+        
+        technician.rating = {
+          avg: Math.round(newAvg * 10) / 10, // Round to 1 decimal
+          count: newCount
+        };
+        
+        await technician.save();
+        console.log(`✅ Updated technician ${technician._id} rating: ${newAvg.toFixed(1)} (${newCount} ratings)`);
+      }
+    }
 
     res.status(201).json({
       success: true,

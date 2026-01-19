@@ -163,8 +163,9 @@ export const getAllTechnicianKyc = async (req, res) => {
       });
     }
 
-    const kyc = await TechnicianKyc.find()
-      .populate("technicianId", "userId skills status");
+    // 🔒 Filter out records with null technicianId (invalid KYC records)
+    const kyc = await TechnicianKyc.find({ technicianId: { $ne: null } })
+      .populate("technicianId", "userId firstName lastName email mobileNumber skills status workStatus");
 
     return res.status(200).json({
       success: true,
@@ -194,7 +195,7 @@ export const getTechnicianKyc = async (req, res) => {
     }
 
     const kyc = await TechnicianKyc.findOne({ technicianId })
-      .populate("technicianId", "userId skills status");
+      .populate("technicianId", "userId firstName lastName email mobileNumber skills status workStatus");
 
     if (!kyc) {
       return res.status(404).json({
@@ -236,20 +237,33 @@ export const getMyTechnicianKyc = async (req, res) => {
   try {
     const technicianProfileId = req.user?.profileId;
 
-    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
+    // Debug logging
+    console.log("getMyTechnicianKyc - profileId:", technicianProfileId);
+    console.log("getMyTechnicianKyc - req.user:", req.user);
+
+    if (!technicianProfileId) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized",
+        message: "Profile ID not found in token",
+        result: {},
+      });
+    }
+
+    if (!isValidObjectId(technicianProfileId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Profile ID format in token",
         result: {},
       });
     }
 
     const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId })
-      .populate("technicianId", "firstName lastName skills status");
+      .populate("technicianId", "userId firstName lastName email mobileNumber skills status workStatus");
+    
     if (!kyc) {
       return res.status(404).json({
         success: false,
-        message: "KYC record not found",
+        message: "KYC record not found. Please submit your KYC first.",
         result: {},
       });
     }
@@ -260,6 +274,7 @@ export const getMyTechnicianKyc = async (req, res) => {
       result: kyc,
     });
   } catch (error) {
+    console.error("getMyTechnicianKyc error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",
