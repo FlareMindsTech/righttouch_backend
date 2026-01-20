@@ -89,10 +89,20 @@ export const getMyJobs = async (req, res) => {
       .populate({
         path: "bookingId",
         match: { status: "broadcasted" },
-        populate: {
-          path: "serviceId",
-          select: "serviceName",
-        },
+        populate: [
+          {
+            path: "serviceId",
+            select: "serviceName",
+          },
+          {
+            path: "customerProfileId",
+            select: "firstName lastName mobileNumber",
+          },
+          {
+            path: "addressId",
+            select: "name phone addressLine city state pincode latitude longitude",
+          },
+        ],
       })
       .sort({ createdAt: -1 });
 

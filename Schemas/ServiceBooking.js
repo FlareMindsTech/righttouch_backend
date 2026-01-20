@@ -40,6 +40,14 @@ const serviceBookingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // 📍 ADDRESS REFERENCE (for customer details)
+    addressId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Address",
+      default: null,
+      index: true,
+    },
+
     // ⏰ SCHEDULE
     scheduledAt: {
       type: Date,

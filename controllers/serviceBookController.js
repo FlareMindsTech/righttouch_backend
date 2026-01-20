@@ -293,10 +293,18 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       technicianId: technicianProfileId,
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
-    // .populate({
-    //   path: "bookingId",
-    //   populate: { path: "serviceId", select: "serviceName" },
-    // })
+    .populate({
+      path: "customerProfileId",
+      select: "firstName lastName mobileNumber",
+    })
+    .populate({
+      path: "addressId",
+      select: "name phone addressLine city state pincode latitude longitude",
+    })
+    .populate({
+      path: "serviceId",
+      select: "serviceName",
+    })
     .sort({ createdAt: -1 });
       
 

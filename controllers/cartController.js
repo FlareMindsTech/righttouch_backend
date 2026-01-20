@@ -528,6 +528,7 @@ export const checkout = async (req, res) => {
         serviceId: cartItem.itemId,
         baseAmount,
         address: address.addressLine,
+        addressId: address._id,
         scheduledAt: scheduledAt || new Date(),
         status: "broadcasted",
       }], { session });

@@ -1,0 +1,441 @@
+{
+  "apis": {
+    "currentJobs": {
+      "endpoint": "GET /api/technician/jobs/current",
+      "description": "Fetch all current active jobs assigned to technician",
+      "auth": "Bearer token (Technician)",
+      "successResponse": {
+        "success": true,
+        "message": "Active jobs fetched",
+        "result": [
+          {
+            "_id": "65a8d4c9b8f2e1a0b5c9d8e1",
+            "customerProfileId": {
+              "_id": "64b7c3b8a7f6d5c4b3a2e1f0",
+              "firstName": "Raj",
+              "lastName": "Kumar",
+              "mobileNumber": "9876543210"
+            },
+            "serviceId": {
+              "_id": "63a6b5a9c8f7e6d5c4b3a2f1",
+              "serviceName": "AC Installation"
+            },
+            "baseAmount": 500,
+            "address": "123 Main St, Apt 4B, Bangalore",
+            "addressId": {
+              "_id": "62f5a4c9b8e7d6c5b4a3f2e1",
+              "name": "Home",
+              "phone": "9876543210",
+              "addressLine": "123 Main St, Apt 4B",
+              "city": "Bangalore",
+              "state": "Karnataka",
+              "pincode": "560001",
+              "latitude": 12.9716,
+              "longitude": 77.5946
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "in_progress",
+            "paymentStatus": "paid",
+            "scheduledAt": "2025-01-20T14:00:00Z",
+            "createdAt": "2025-01-19T10:30:00Z",
+            "updatedAt": "2025-01-20T11:45:00Z"
+          },
+          {
+            "_id": "65a8d4c9b8f2e1a0b5c9d8e2",
+            "customerProfileId": {
+              "_id": "64b7c3b8a7f6d5c4b3a2e1f1",
+              "firstName": "Priya",
+              "lastName": "Singh",
+              "mobileNumber": "8765432109"
+            },
+            "serviceId": {
+              "_id": "63a6b5a9c8f7e6d5c4b3a2f2",
+              "serviceName": "Plumbing Repair"
+            },
+            "baseAmount": 300,
+            "address": "456 Tech Park, Floor 5, Bangalore",
+            "addressId": {
+              "_id": "62f5a4c9b8e7d6c5b4a3f2e2",
+              "name": "Office",
+              "phone": "8765432109",
+              "addressLine": "456 Tech Park, Floor 5",
+              "city": "Bangalore",
+              "state": "Karnataka",
+              "pincode": "560001",
+              "latitude": 12.9720,
+              "longitude": 77.5980
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "reached",
+            "paymentStatus": "paid",
+            "scheduledAt": "2025-01-20T10:00:00Z",
+            "createdAt": "2025-01-19T08:00:00Z",
+            "updatedAt": "2025-01-20T09:30:00Z"
+          },
+          {
+            "_id": "65a8d4c9b8f2e1a0b5c9d8e3",
+            "customerProfileId": {
+              "_id": "64b7c3b8a7f6d5c4b3a2e1f2",
+              "firstName": "Vikram",
+              "lastName": "Patel",
+              "mobileNumber": "7654321098"
+            },
+            "serviceId": {
+              "_id": "63a6b5a9c8f7e6d5c4b3a2f3",
+              "serviceName": "Electrical Wiring"
+            },
+            "baseAmount": 800,
+            "address": "789 Residency Complex, Wing A, Bangalore",
+            "addressId": {
+              "_id": "62f5a4c9b8e7d6c5b4a3f2e3",
+              "name": "Apartment",
+              "phone": "7654321098",
+              "addressLine": "789 Residency Complex, Wing A",
+              "city": "Bangalore",
+              "state": "Karnataka",
+              "pincode": "560034",
+              "latitude": 12.9698,
+              "longitude": 77.5912
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "on_the_way",
+            "paymentStatus": "paid",
+            "scheduledAt": "2025-01-20T16:00:00Z",
+            "createdAt": "2025-01-20T07:15:00Z",
+            "updatedAt": "2025-01-20T10:45:00Z"
+          }
+        ]
+      },
+      "errorResponses": {
+        "403_AccessDenied": {
+          "success": false,
+          "message": "Access denied",
+          "result": {}
+        },
+        "401_Unauthorized": {
+          "success": false,
+          "message": "Unauthorized",
+          "result": {}
+        },
+        "500_ServerError": {
+          "success": false,
+          "message": "Server error",
+          "result": {
+            "error": "Database connection failed"
+          }
+        }
+      }
+    },
+    "myJobs": {
+      "endpoint": "GET /api/technician/job-broadcast/my-jobs",
+      "description": "Fetch all available broadcast jobs for technician",
+      "auth": "Bearer token (Technician)",
+      "prerequisites": {
+        "profileComplete": true,
+        "kycApproved": true,
+        "workStatusApproved": true,
+        "trainingCompleted": true
+      },
+      "successResponse": {
+        "success": true,
+        "message": "Jobs fetched successfully",
+        "result": [
+          {
+            "_id": "66b9e5d0c2g4c5d6e7f8g9h0",
+            "bookingId": {
+              "_id": "65a8d4c9b8f2e1a0b5c9d8e4",
+              "customerProfileId": {
+                "_id": "64b7c3b8a7f6d5c4b3a2e1f3",
+                "firstName": "Amit",
+                "lastName": "Verma",
+                "mobileNumber": "9123456789"
+              },
+              "serviceId": {
+                "_id": "63a6b5a9c8f7e6d5c4b3a2f4",
+                "serviceName": "Water Heater Installation"
+              },
+              "baseAmount": 450,
+              "address": "Apartment 12B, Green Valley Society, Bangalore",
+              "addressId": {
+                "_id": "62f5a4c9b8e7d6c5b4a3f2e4",
+                "name": "Residential",
+                "phone": "9123456789",
+                "addressLine": "Apartment 12B, Green Valley Society",
+                "city": "Bangalore",
+                "state": "Karnataka",
+                "pincode": "560045",
+                "latitude": 12.9745,
+                "longitude": 77.6025
+              },
+              "status": "broadcasted",
+              "paymentStatus": "pending",
+              "scheduledAt": "2025-01-21T09:00:00Z",
+              "createdAt": "2025-01-20T15:30:00Z"
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "sent",
+            "createdAt": "2025-01-20T15:30:00Z"
+          },
+          {
+            "_id": "66b9e5d0c2g4c5d6e7f8g9h1",
+            "bookingId": {
+              "_id": "65a8d4c9b8f2e1a0b5c9d8e5",
+              "customerProfileId": {
+                "_id": "64b7c3b8a7f6d5c4b3a2e1f4",
+                "firstName": "Neha",
+                "lastName": "Gupta",
+                "mobileNumber": "8912345678"
+              },
+              "serviceId": {
+                "_id": "63a6b5a9c8f7e6d5c4b3a2f5",
+                "serviceName": "Refrigerator Repair"
+              },
+              "baseAmount": 350,
+              "address": "Plot 45, Silver Springs, Bangalore",
+              "addressId": {
+                "_id": "62f5a4c9b8e7d6c5b4a3f2e5",
+                "name": "Home",
+                "phone": "8912345678",
+                "addressLine": "Plot 45, Silver Springs",
+                "city": "Bangalore",
+                "state": "Karnataka",
+                "pincode": "560060",
+                "latitude": 12.9650,
+                "longitude": 77.5890
+              },
+              "status": "broadcasted",
+              "paymentStatus": "pending",
+              "scheduledAt": "2025-01-21T11:00:00Z",
+              "createdAt": "2025-01-20T14:00:00Z"
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "sent",
+            "createdAt": "2025-01-20T14:00:00Z"
+          },
+          {
+            "_id": "66b9e5d0c2g4c5d6e7f8g9h2",
+            "bookingId": {
+              "_id": "65a8d4c9b8f2e1a0b5c9d8e6",
+              "customerProfileId": {
+                "_id": "64b7c3b8a7f6d5c4b3a2e1f5",
+                "firstName": "Rohan",
+                "lastName": "Sharma",
+                "mobileNumber": "7812345678"
+              },
+              "serviceId": {
+                "_id": "63a6b5a9c8f7e6d5c4b3a2f6",
+                "serviceName": "Microwave Oven Repair"
+              },
+              "baseAmount": 200,
+              "address": "Villa 23, Palm Grove Apartments, Bangalore",
+              "addressId": {
+                "_id": "62f5a4c9b8e7d6c5b4a3f2e6",
+                "name": "House",
+                "phone": "7812345678",
+                "addressLine": "Villa 23, Palm Grove Apartments",
+                "city": "Bangalore",
+                "state": "Karnataka",
+                "pincode": "560070",
+                "latitude": 12.9555,
+                "longitude": 77.5780
+              },
+              "status": "broadcasted",
+              "paymentStatus": "pending",
+              "scheduledAt": "2025-01-21T13:00:00Z",
+              "createdAt": "2025-01-20T13:15:00Z"
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "sent",
+            "createdAt": "2025-01-20T13:15:00Z"
+          },
+          {
+            "_id": "66b9e5d0c2g4c5d6e7f8g9h3",
+            "bookingId": {
+              "_id": "65a8d4c9b8f2e1a0b5c9d8e7",
+              "customerProfileId": {
+                "_id": "64b7c3b8a7f6d5c4b3a2e1f6",
+                "firstName": "Sneha",
+                "lastName": "Reddy",
+                "mobileNumber": "9234567890"
+              },
+              "serviceId": {
+                "_id": "63a6b5a9c8f7e6d5c4b3a2f7",
+                "serviceName": "Gas Stove Repair"
+              },
+              "baseAmount": 250,
+              "address": "Flat 301, Crown Residency, Bangalore",
+              "addressId": {
+                "_id": "62f5a4c9b8e7d6c5b4a3f2e7",
+                "name": "Apartment",
+                "phone": "9234567890",
+                "addressLine": "Flat 301, Crown Residency",
+                "city": "Bangalore",
+                "state": "Karnataka",
+                "pincode": "560040",
+                "latitude": 12.9785,
+                "longitude": 77.6050
+              },
+              "status": "broadcasted",
+              "paymentStatus": "pending",
+              "scheduledAt": "2025-01-21T15:30:00Z",
+              "createdAt": "2025-01-20T12:45:00Z"
+            },
+            "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+            "status": "sent",
+            "createdAt": "2025-01-20T12:45:00Z"
+          }
+        ]
+      },
+      "errorResponses": {
+        "403_AccessDenied": {
+          "success": false,
+          "message": "Access denied",
+          "result": {}
+        },
+        "401_Unauthorized": {
+          "success": false,
+          "message": "Unauthorized",
+          "result": {}
+        },
+        "403_ProfileNotComplete": {
+          "success": false,
+          "message": "Please complete your profile first",
+          "result": {
+            "profileComplete": false
+          }
+        },
+        "403_KycNotSubmitted": {
+          "success": false,
+          "message": "Please submit your KYC documents first",
+          "result": {
+            "kycStatus": "not_submitted"
+          }
+        },
+        "403_KycNotApproved": {
+          "success": false,
+          "message": "Your KYC is not approved yet. Current status: pending",
+          "result": {
+            "kycStatus": "pending"
+          }
+        },
+        "403_NotApproved": {
+          "success": false,
+          "message": "Your account is not approved by owner yet. Current status: trained",
+          "result": {
+            "workStatus": "trained"
+          }
+        },
+        "403_TrainingNotCompleted": {
+          "success": false,
+          "message": "Training must be completed before viewing job broadcasts. Contact admin to complete your training.",
+          "result": {
+            "trainingCompleted": false,
+            "workStatus": "approved"
+          }
+        },
+        "500_ServerError": {
+          "success": false,
+          "message": "Server error",
+          "result": {
+            "error": "Database connection failed"
+          }
+        }
+      }
+    },
+    "respondToJob": {
+      "endpoint": "PUT /api/technician/job-broadcast/:id",
+      "description": "Accept or reject a job broadcast",
+      "auth": "Bearer token (Technician)",
+      "method": "PUT",
+      "requestBody": {
+        "status": "accepted"
+      },
+      "statusOptions": ["accepted", "rejected"],
+      "successResponse": {
+        "success": true,
+        "message": "Job accepted successfully",
+        "result": {
+          "_id": "66b9e5d0c2g4c5d6e7f8g9h0",
+          "bookingId": "65a8d4c9b8f2e1a0b5c9d8e4",
+          "technicianId": "65c9e2d0a1f3b4c5d6e7f8a9",
+          "status": "accepted"
+        }
+      }
+    }
+  },
+  "fieldDescriptions": {
+    "currentJobs": {
+      "_id": "Unique booking ID",
+      "customerProfileId": {
+        "_id": "Customer profile ID",
+        "firstName": "Customer first name",
+        "lastName": "Customer last name",
+        "mobileNumber": "10-digit phone number for contact"
+      },
+      "serviceId": {
+        "_id": "Service ID",
+        "serviceName": "Name of the service (e.g., AC Installation)"
+      },
+      "baseAmount": "Service cost in rupees",
+      "address": "Address string (deprecated, use addressId)",
+      "addressId": {
+        "_id": "Address reference ID",
+        "name": "Address label (home/office/other)",
+        "phone": "Phone number associated with address",
+        "addressLine": "Street address with apartment/flat number",
+        "city": "City name",
+        "state": "State name",
+        "pincode": "6-digit postal code",
+        "latitude": "GPS latitude coordinate",
+        "longitude": "GPS longitude coordinate"
+      },
+      "technicianId": "ID of assigned technician",
+      "status": "Job status: accepted, on_the_way, reached, in_progress, completed",
+      "paymentStatus": "Payment status: pending, paid, refunded",
+      "scheduledAt": "ISO timestamp of scheduled service time",
+      "createdAt": "ISO timestamp when booking was created",
+      "updatedAt": "ISO timestamp of last update"
+    },
+    "myJobs": {
+      "_id": "Unique broadcast ID",
+      "bookingId": {
+        "_id": "Service booking ID",
+        "customerProfileId": "Customer details (same as currentJobs)",
+        "serviceId": "Service details (same as currentJobs)",
+        "baseAmount": "Service cost",
+        "address": "Address string",
+        "addressId": "Full address details with GPS coordinates",
+        "status": "Always 'broadcasted' for available jobs"
+      },
+      "technicianId": "Technician ID",
+      "status": "Broadcast status: sent (pending acceptance), accepted, rejected"
+    }
+  },
+  "usageExamples": {
+    "javascript_currentJobs": {
+      "description": "Fetch current active jobs for technician",
+      "code": "const response = await fetch('http://api.righttouch.com/api/technician/jobs/current', {\n  method: 'GET',\n  headers: {\n    'Authorization': 'Bearer ' + technicianToken,\n    'Content-Type': 'application/json'\n  }\n});\nconst data = await response.json();\nconsole.log(data.result[0].customerProfileId.firstName); // 'Raj'"
+    },
+    "javascript_myJobs": {
+      "description": "Fetch available jobs (broadcasts) for technician",
+      "code": "const response = await fetch('http://api.righttouch.com/api/technician/job-broadcast/my-jobs', {\n  method: 'GET',\n  headers: {\n    'Authorization': 'Bearer ' + technicianToken,\n    'Content-Type': 'application/json'\n  }\n});\nconst data = await response.json();\ndata.result.forEach(job => {\n  console.log(`${job.bookingId.customerProfileId.firstName} needs ${job.bookingId.serviceId.serviceName}`);\n});"
+    },
+    "javascript_acceptJob": {
+      "description": "Accept a broadcast job",
+      "code": "const broadcastId = '66b9e5d0c2g4c5d6e7f8g9h0';\nconst response = await fetch(`http://api.righttouch.com/api/technician/job-broadcast/${broadcastId}`, {\n  method: 'PUT',\n  headers: {\n    'Authorization': 'Bearer ' + technicianToken,\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({ status: 'accepted' })\n});\nconst data = await response.json();\nconsole.log(data.message); // 'Job accepted successfully'"
+    },
+    "react_displayCurrentJob": {
+      "description": "React component to display current job",
+      "code": "function CurrentJob({ job }) {\n  const { customerProfileId, addressId, serviceId, baseAmount, status } = job;\n  \n  return (\n    <div className='job-card'>\n      <h3>{customerProfileId.firstName} {customerProfileId.lastName}</h3>\n      <p>📞 {customerProfileId.mobileNumber}</p>\n      <p>🔧 {serviceId.serviceName}</p>\n      <p>📍 {addressId.addressLine}, {addressId.city}</p>\n      <p>💰 ₹{baseAmount}</p>\n      <p>⏱️ {status}</p>\n      <button>Call Customer</button>\n      <button>Open in Maps</button>\n    </div>\n  );\n}"
+    }
+  },
+  "integrationTips": {
+    "GPS_Navigation": "Use addressId.latitude and addressId.longitude with Google Maps API for navigation",
+    "DirectCall": "Pass customerProfileId.mobileNumber to dialer for direct calling",
+    "WhatsApp": "Use customerProfileId.mobileNumber for WhatsApp integration",
+    "GeoLocation": "Compare technician location with addressId coordinates for arrival tracking",
+    "AddressVerification": "Show addressId.name and addressId.phone to technician for verification at site",
+    "BulkJobLoading": "Cache results; refresh every 30 seconds for real-time updates",
+    "ErrorHandling": "Always check prerequisites before calling my-jobs API"
+  }
+}
