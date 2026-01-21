@@ -98,6 +98,13 @@ import { Auth, authorizeRoles } from "../middleware/Auth.js";
 
 const router = express.Router();
 
+const getClientIp = (req) => {
+  const xff = req.headers?.["x-forwarded-for"];
+  if (typeof xff === "string" && xff.trim()) return xff.split(",")[0].trim();
+  if (req.ip) return req.ip;
+  return req.socket?.remoteAddress || "unknown";
+};
+
 // 🔒 Strict Rate Limiters for Authentication
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -109,6 +116,10 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false },
+  keyGenerator: (req) => getClientIp(req),
+  validate: { ip: false },
+  keyGenerator: (req) => getClientIp(req),
 });
 
 const otpLimiter = rateLimit({

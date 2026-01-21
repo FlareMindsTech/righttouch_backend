@@ -4,6 +4,9 @@ import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 
+const isOwnerOrAdmin = (req) =>
+  req.user?.role === "Owner" || req.user?.role === "Admin";
+
 /* ================= SUBMIT / UPDATE TECHNICIAN KYC (NO IMAGE) ================= */
 export const submitTechnicianKyc = async (req, res) => {
   try {
@@ -155,16 +158,49 @@ export const uploadTechnicianKycDocuments = async (req, res) => {
 /* ================= GET TECHNICIAN KYC (TECHNICIAN / ADMIN) ================= */
 export const getAllTechnicianKyc = async (req, res) => {
   try {
-    if (req.user?.role !== "Owner") {
+    if (!isOwnerOrAdmin(req)) {
       return res.status(403).json({
         success: false,
-        message: "Owner access only",
+        message: "Owner/Admin access only",
         result: {},
       });
     }
 
-    const kyc = await TechnicianKyc.find()
-      .populate("technicianId", "userId skills status");
+    // NOTE:
+    // Some legacy/bad records may have `technicianId` missing/null OR referencing a deleted TechnicianProfile.
+    // If we only use populate(), those become `technicianId: null` and it's impossible to debug in the client.
+    // So we fetch lean docs, then attach a populated technician object when possible + expose technicianIdRaw.
+    const kycDocs = await TechnicianKyc.find().lean();
+
+    const technicianIds = Array.from(
+      new Set(
+        kycDocs
+          .map((k) => k.technicianId)
+          .filter((id) => id && isValidObjectId(id))
+          .map((id) => id.toString())
+      )
+    ).map((id) => new mongoose.Types.ObjectId(id));
+
+    const technicians = technicianIds.length
+      ? await TechnicianProfile.find({ _id: { $in: technicianIds } })
+          .select("userId skills workStatus profileComplete availability")
+          .lean()
+      : [];
+
+    const techById = new Map(technicians.map((t) => [t._id.toString(), t]));
+
+    const kyc = kycDocs.map((k) => {
+      const technicianIdRaw = k.technicianId ? k.technicianId.toString() : null;
+      const technician = technicianIdRaw ? techById.get(technicianIdRaw) : null;
+
+      return {
+        ...k,
+        technicianId: technician || null,
+        technicianIdRaw,
+        technicianIdMissing: technicianIdRaw === null,
+        orphanedTechnician: technicianIdRaw !== null && !technician,
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -193,10 +229,9 @@ export const getTechnicianKyc = async (req, res) => {
       });
     }
 
-    const kyc = await TechnicianKyc.findOne({ technicianId })
-      .populate("technicianId", "userId skills status");
+    const kycDoc = await TechnicianKyc.findOne({ technicianId }).lean();
 
-    if (!kyc) {
+    if (!kycDoc) {
       return res.status(404).json({
         success: false,
         message: "KYC record not found",
@@ -204,9 +239,8 @@ export const getTechnicianKyc = async (req, res) => {
       });
     }
 
-    const authUserId = req.user?.userId;
-    const isOwner = req.user?.role === "Owner";
-    if (!isOwner) {
+    const isPrivileged = isOwnerOrAdmin(req);
+    if (!isPrivileged) {
       const technicianProfileId = req.user?.profileId;
       if (!technicianProfileId || technicianProfileId.toString() !== technicianId) {
         return res.status(403).json({
@@ -216,6 +250,18 @@ export const getTechnicianKyc = async (req, res) => {
         });
       }
     }
+
+    const technician = await TechnicianProfile.findById(technicianId)
+      .select("userId skills workStatus profileComplete availability")
+      .lean();
+
+    const kyc = {
+      ...kycDoc,
+      technicianId: technician || null,
+      technicianIdRaw: technicianId,
+      technicianIdMissing: false,
+      orphanedTechnician: !technician,
+    };
 
     return res.status(200).json({
       success: true,
@@ -245,7 +291,7 @@ export const getMyTechnicianKyc = async (req, res) => {
     }
 
     const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId })
-      .populate("technicianId", "firstName lastName skills status");
+      .populate("technicianId", "firstName lastName skills workStatus profileComplete availability");
     if (!kyc) {
       return res.status(404).json({
         success: false,
@@ -273,10 +319,10 @@ export const verifyTechnicianKyc = async (req, res) => {
   try {
     const { technicianId, status, rejectionReason } = req.body;
 
-    if (req.user?.role !== "Owner") {
+    if (!isOwnerOrAdmin(req)) {
       return res.status(403).json({
         success: false,
-        message: "Owner access only",
+        message: "Owner/Admin access only",
         result: {},
       });
     }
@@ -360,10 +406,10 @@ export const deleteTechnicianKyc = async (req, res) => {
       });
     }
 
-    if (req.user?.role !== "Owner") {
+    if (!isOwnerOrAdmin(req)) {
       return res.status(403).json({
         success: false,
-        message: "Owner access only",
+        message: "Owner/Admin access only",
         result: {},
       });
     }
