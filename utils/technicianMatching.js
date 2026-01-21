@@ -45,6 +45,7 @@ export const findEligibleTechniciansForService = async ({
     _id: { $in: approvedTechnicianIds },
     workStatus: "approved",
     profileComplete: true,
+    trainingCompleted: true, // 🔒 Only trained technicians receive broadcasts
     "availability.isOnline": true,
     "skills.serviceId": serviceObjectId,
   };

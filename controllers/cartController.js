@@ -10,6 +10,24 @@ import mongoose from "mongoose";
 import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
 import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
 
+// Cleanup old indexes on startup
+const cleanupOldIndexes = async () => {
+  try {
+    const indexes = await Cart.collection.getIndexes();
+    for (const indexName of Object.keys(indexes)) {
+      if (indexName.includes("userId") || indexName.includes("productId")) {
+        await Cart.collection.dropIndex(indexName);
+        console.log(`Dropped old index: ${indexName}`);
+      }
+    }
+  } catch (err) {
+    console.error("Index cleanup error:", err);
+  }
+};
+
+// Run cleanup once
+cleanupOldIndexes();
+
 const ensureCustomer = (req) => {
   if (!req.user || req.user.role !== "Customer") {
     const err = new Error("Customer access only");
@@ -29,6 +47,19 @@ export const addToCart = async (req, res) => {
     ensureCustomer(req);
     const { itemId, itemType, quantity = 1 } = req.body;
     const customerProfileId = req.user.profileId;
+
+    // Debug: Log what we're receiving
+    console.log("Add to cart - customerProfileId:", customerProfileId);
+    console.log("Add to cart - itemId:", itemId);
+    console.log("Add to cart - itemType:", itemType);
+
+    if (!customerProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Customer profile ID not found in token",
+        result: {},
+      });
+    }
 
     if (!itemId || !itemType) {
       return res.status(400).json({
@@ -503,6 +534,7 @@ export const checkout = async (req, res) => {
         serviceId: cartItem.itemId,
         baseAmount,
         address: address.addressLine,
+        addressId: address._id,
         scheduledAt: scheduledAt || new Date(),
         status: "requested", // phase 1: booking created, broadcast happens post-commit
       };

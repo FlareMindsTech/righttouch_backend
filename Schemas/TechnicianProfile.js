@@ -100,8 +100,15 @@ const technicianProfileSchema = new mongoose.Schema(
     // 🌍 Optional geo location (for nearby technician matching)
     // Stored as GeoJSON Point: [longitude, latitude]
     location: {
-      type: geoPointSchema,
-      default: undefined,
+      type: {
+        type: String,
+        enum: ["Point"],
+        // ❌ Removed default to prevent partial GeoJSON objects
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined,
+      },
     },
 
     /* ==========================

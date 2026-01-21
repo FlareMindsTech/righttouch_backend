@@ -68,10 +68,12 @@ const serviceBookingSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // 🌍 Booking location snapshot (GeoJSON Point: [longitude, latitude])
-    location: {
-      type: geoPointSchema,
-      default: undefined,
+    // 📍 ADDRESS REFERENCE (for customer details)
+    addressId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Address",
+      default: null,
+      index: true,
     },
 
     // ⏰ SCHEDULE

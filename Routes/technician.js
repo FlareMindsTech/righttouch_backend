@@ -16,6 +16,7 @@ import {
   updateTechnician,
   updateTechnicianStatus,
   deleteTechnician,
+  updateTechnicianTraining,
 } from "../controllers/technician.js";
 
 import {
@@ -49,6 +50,7 @@ router.get("/technicianById/:id", Auth, getTechnicianById);
 router.get("/technician/me", Auth, getMyTechnician);
 router.put("/updateTechnician/:id", Auth, updateTechnician);
 router.put("/technician/status", Auth, updateTechnicianStatus);
+router.put("/:technicianId/training", Auth, updateTechnicianTraining);
 router.delete("/technicianDelete/:id", Auth, deleteTechnician);
 
 /* ================= TECHNICIAN KYC ================= */
@@ -69,9 +71,7 @@ router.post(
 
 // IMPORTANT: define '/me' BEFORE '/:technicianId' so 'me' doesn't get treated as an id.
 router.get("/technician/kyc/me", Auth, isTechnician, getMyTechnicianKyc);
-
 router.get("/technician/kyc", Auth, getAllTechnicianKyc);
-
 router.get("/technician/kyc/:technicianId", Auth, getTechnicianKyc);
 router.put("/technician/kyc/verify", Auth, verifyTechnicianKyc);
 router.delete("/technician/deletekyc/:technicianId", Auth, deleteTechnicianKyc);

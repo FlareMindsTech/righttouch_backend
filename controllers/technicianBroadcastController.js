@@ -70,6 +70,19 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
+    // 🔒 HARD GATE: Check training completion
+    if (!technician.trainingCompleted) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Training must be completed before viewing job broadcasts. Contact admin to complete your training.",
+        result: {
+          trainingCompleted: false,
+          workStatus: technician.workStatus,
+        },
+      });
+    }
+
     const now = new Date();
 
     const jobs = await JobBroadcast.find({
@@ -83,10 +96,20 @@ export const getMyJobs = async (req, res) => {
       .populate({
         path: "bookingId",
         match: { status: "broadcasted" },
-        populate: {
-          path: "serviceId",
-          select: "serviceName",
-        },
+        populate: [
+          {
+            path: "serviceId",
+            select: "serviceName",
+          },
+          {
+            path: "customerProfileId",
+            select: "firstName lastName mobileNumber",
+          },
+          {
+            path: "addressId",
+            select: "name phone addressLine city state pincode latitude longitude",
+          },
+        ],
       })
       .sort({ createdAt: -1 });
 
@@ -192,6 +215,19 @@ export const respondToJob = async (req, res) => {
         success: false,
         message: "Your account must be approved by owner before accepting jobs. Status: " + technician.workStatus,
         result: { workStatus: technician.workStatus },
+      });
+    }
+
+    // 🔒 HARD GATE: Check training completion
+    if (!technician.trainingCompleted) {
+      await session.abortTransaction();
+      return res.status(403).json({
+        success: false,
+        message: "Training must be completed before accepting job broadcasts. Contact admin to complete your training.",
+        result: { 
+          trainingCompleted: false,
+          workStatus: technician.workStatus 
+        },
       });
     }
 
