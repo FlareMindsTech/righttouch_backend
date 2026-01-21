@@ -87,6 +87,18 @@ export const signupAndSendOtp = async (req, res) => {
       });
     }
 
+    // Prevent re-registering an existing mobile number (across any role)
+    const mobileExists = await findAnyProfileByMobileNumber(mobileNumber);
+    if (mobileExists) {
+      return fail(
+        res,
+        409,
+        "Mobile number already registered. Please login.",
+        "MOBILE_ALREADY_EXISTS",
+        { mobileNumber }
+      );
+    }
+
     // Step 1: Create / update temp user (FIRST)
     const tempUser = await TempUser.findOneAndUpdate(
       { identifier: mobileNumber, role },
@@ -152,6 +164,18 @@ export const resendOtp = async (req, res) => {
       return fail(res, 400, "Mobile number and role required", "VALIDATION_ERROR", {
         required: ["mobileNumber", "role"],
       });
+    }
+
+    // If user already exists, do not allow resend for signup flow
+    const mobileExists = await findAnyProfileByMobileNumber(identifier);
+    if (mobileExists) {
+      return fail(
+        res,
+        409,
+        "Mobile number already registered. Please login.",
+        "MOBILE_ALREADY_EXISTS",
+        { mobileNumber: identifier }
+      );
     }
 
     const tempUser = await TempUser.findOne({
@@ -423,8 +447,7 @@ export const login = async (req, res) => {
         role: normalizedRole,
         mobileNumber: user.mobileNumber,
       },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      process.env.JWT_SECRET
     );
 
     // Keep backward compatibility: top-level token exists, AND result.token exists
