@@ -75,7 +75,15 @@ const technicianProfileSchema = new mongoose.Schema(
     },
 
     /* ==========================
-       📍 FIXED OFFICIAL ADDRESS
+       � PROFILE IMAGE
+    ========================== */
+    profileImage: {
+      type: String,
+      trim: true,
+    },
+
+    /* ==========================
+       �📍 FIXED OFFICIAL ADDRESS
     ========================== */
     address: {
       type: String,
@@ -109,6 +117,17 @@ const technicianProfileSchema = new mongoose.Schema(
         type: [Number],
         default: undefined,
       },
+    },
+
+    // 📍 Display-friendly lat/long strings
+    latitude: {
+      type: String,
+      trim: true,
+    },
+
+    longitude: {
+      type: String,
+      trim: true,
     },
 
     /* ==========================
