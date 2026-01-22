@@ -106,15 +106,9 @@ export const getMyJobs = async (req, res) => {
       });
     }
 
-    const now = new Date();
-
     const jobs = await JobBroadcast.find({
       technicianId: technicianProfileId,
       status: "sent",
-      $or: [
-        { expiresAt: { $gt: now } },
-        { expiresAt: { $exists: false } },
-      ],
     })
       .populate({
         path: "bookingId",
@@ -228,22 +222,7 @@ export const respondToJob = async (req, res) => {
       });
     }
 
-    // Treat as expired if time passed (even if TTL hasn't deleted it yet)
     const now = new Date();
-    if (job.expiresAt && job.expiresAt.getTime() <= now.getTime()) {
-      await JobBroadcast.updateOne(
-        { _id: job._id, status: "sent" },
-        { $set: { status: "expired" } },
-        { session }
-      );
-
-      await session.commitTransaction();
-      return res.status(409).json({
-        success: false,
-        message: "Job expired",
-        result: {},
-      });
-    }
 
     if (job.technicianId.toString() !== technicianProfileId.toString()) {
       await session.abortTransaction();
@@ -317,7 +296,7 @@ export const respondToJob = async (req, res) => {
 
     await JobBroadcast.updateMany(
       { bookingId: booking._id, _id: { $ne: job._id } },
-      { $set: { status: "expired", expiresAt: now } },
+      { $set: { status: "expired" } },
       { session }
     );
 

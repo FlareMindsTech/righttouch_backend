@@ -17,6 +17,7 @@ import {
   updateTechnicianStatus,
   deleteTechnician,
   updateTechnicianTraining,
+  uploadProfileImage,
 } from "../controllers/technician.js";
 
 import {
@@ -26,6 +27,7 @@ import {
   getMyTechnicianKyc,
   getAllTechnicianKyc,
   verifyTechnicianKyc,
+  verifyBankDetails,
   deleteTechnicianKyc,
 } from "../controllers/technicianKycController.js";
 
@@ -56,6 +58,7 @@ router.get("/technician/me", Auth, getMyTechnician);
 router.put("/updateTechnician/:id", Auth, updateTechnician);
 router.put("/technician/status", Auth, updateTechnicianStatus);
 router.put("/:technicianId/training", Auth, updateTechnicianTraining);
+router.post("/technician/profile-image", Auth, isTechnician, upload.single("profileImage"), uploadProfileImage);
 router.delete("/technicianDelete/:id", Auth, deleteTechnician);
 
 /* ================= TECHNICIAN KYC ================= */
@@ -79,6 +82,7 @@ router.get("/technician/kyc/me", Auth, isTechnician, getMyTechnicianKyc);
 router.get("/technician/kyc", Auth, getAllTechnicianKyc);
 router.get("/technician/kyc/:technicianId", Auth, getTechnicianKyc);
 router.put("/technician/kyc/verify", Auth, verifyTechnicianKyc);
+router.put("/technician/kyc/bank/verify", Auth, verifyBankDetails);
 router.delete("/technician/deletekyc/:technicianId", Auth, deleteTechnicianKyc);
 
 /* ================= JOB BROADCAST ================= */
