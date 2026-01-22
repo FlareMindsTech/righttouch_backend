@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import TechnicianKyc from "../Schemas/TechnicianKYC.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import { getTechnicianJobEligibility } from "../utils/technicianEligibility.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 
@@ -300,10 +301,15 @@ export const getMyTechnicianKyc = async (req, res) => {
       });
     }
 
+    const eligibility = await getTechnicianJobEligibility({ technicianProfileId });
+
     return res.status(200).json({
       success: true,
       message: "KYC fetched successfully",
-      result: kyc,
+      result: {
+        ...kyc.toObject(),
+        eligibility,
+      },
     });
   } catch (error) {
     return res.status(500).json({

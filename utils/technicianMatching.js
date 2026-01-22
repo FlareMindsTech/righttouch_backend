@@ -29,9 +29,11 @@ export const findEligibleTechniciansForService = async ({
 
   const serviceObjectId = new mongoose.Types.ObjectId(serviceId);
 
-  const approvedKyc = await TechnicianKyc.find({ verificationStatus: "approved" })
-    .select("technicianId")
-    .session(session || null);
+  let approvedKycQuery = TechnicianKyc.find({ verificationStatus: "approved" }).select(
+    "technicianId"
+  );
+  if (session) approvedKycQuery = approvedKycQuery.session(session);
+  const approvedKyc = await approvedKycQuery;
 
   const approvedTechnicianIds = approvedKyc
     .map((d) => d.technicianId)
@@ -76,10 +78,9 @@ export const findEligibleTechniciansForService = async ({
       },
     };
 
-    const nearby = await TechnicianProfile.find(geoQuery)
-      .select("_id")
-      .limit(limit)
-      .session(session || null);
+    let nearbyQuery = TechnicianProfile.find(geoQuery).select("_id").limit(limit);
+    if (session) nearbyQuery = nearbyQuery.session(session);
+    const nearby = await nearbyQuery;
 
     if (nearby.length > 0) return nearby;
   }
@@ -95,8 +96,9 @@ export const findEligibleTechniciansForService = async ({
     fallbackQuery.state = new RegExp(`^${escapeRegExp(String(address.state).trim())}$`, "i");
   }
 
-  return TechnicianProfile.find(fallbackQuery)
+  let fallbackFindQuery = TechnicianProfile.find(fallbackQuery)
     .select("_id")
-    .limit(limit)
-    .session(session || null);
+    .limit(limit);
+  if (session) fallbackFindQuery = fallbackFindQuery.session(session);
+  return fallbackFindQuery;
 };
