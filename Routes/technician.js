@@ -29,6 +29,9 @@ import {
   verifyTechnicianKyc,
   verifyBankDetails,
   deleteTechnicianKyc,
+  getOrphanedKyc,
+  deleteOrphanedKyc,
+  deleteAllOrphanedKyc,
 } from "../controllers/technicianKycController.js";
 
 import {
@@ -50,7 +53,7 @@ router.post("/technicianData", Auth, createTechnician);
 router.get("/technicianAll", Auth, getAllTechnicians);
 router.get("/technicianById/:id", Auth, getTechnicianById);
 router.get("/technician/me", Auth, getMyTechnician);
-router.put("/updateTechnician/:id", Auth, updateTechnician);
+router.put("/updateTechnician", Auth, updateTechnician);
 router.put("/technician/status", Auth, updateTechnicianStatus);
 router.put("/:technicianId/training", Auth, updateTechnicianTraining);
 router.post("/technician/profile-image", Auth, isTechnician, upload.single("profileImage"), uploadProfileImage);
@@ -79,6 +82,9 @@ router.get("/technician/kyc/:technicianId", Auth, getTechnicianKyc);
 router.put("/technician/kyc/verify", Auth, verifyTechnicianKyc);
 router.put("/technician/kyc/bank/verify", Auth, verifyBankDetails);
 router.delete("/technician/deletekyc/:technicianId", Auth, deleteTechnicianKyc);
+router.get("/technician/kyc/orphaned/list", Auth, getOrphanedKyc);
+router.delete("/technician/kyc/orphaned/:kycId", Auth, deleteOrphanedKyc);
+router.delete("/technician/kyc/orphaned/cleanup/all", Auth, deleteAllOrphanedKyc);
 
 /* ================= JOB BROADCAST ================= */
 

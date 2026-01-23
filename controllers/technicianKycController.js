@@ -315,7 +315,9 @@ export const getAllTechnicianKyc = async (req, res) => {
     // Some legacy/bad records may have `technicianId` missing/null OR referencing a deleted TechnicianProfile.
     // If we only use populate(), those become `technicianId: null` and it's impossible to debug in the client.
     // So we fetch lean docs, then attach a populated technician object when possible + expose technicianIdRaw.
-    const kycDocs = await TechnicianKyc.find().lean();
+    const kycDocs = await TechnicianKyc.find()
+      .select('+bankDetails.accountNumber +bankDetails.accountNumberHash')
+      .lean();
 
     const technicianIds = Array.from(
       new Set(
@@ -328,7 +330,7 @@ export const getAllTechnicianKyc = async (req, res) => {
 
     const technicians = technicianIds.length
       ? await TechnicianProfile.find({ _id: { $in: technicianIds } })
-          .select("userId skills workStatus profileComplete availability")
+          .select("userId firstName lastName skills workStatus profileComplete availability")
           .lean()
       : [];
 
@@ -542,7 +544,7 @@ export const verifyTechnicianKyc = async (req, res) => {
 /* ================= ADMIN VERIFY / REJECT BANK DETAILS ================= */
 export const verifyBankDetails = async (req, res) => {
   try {
-    const { technicianId, verified } = req.body;
+    const { technicianId, verified, bankRejectionReason } = req.body;
 
     if (!isOwnerOrAdmin(req)) {
       return res.status(403).json({
@@ -560,7 +562,16 @@ export const verifyBankDetails = async (req, res) => {
       });
     }
 
-    const kyc = await TechnicianKyc.findOne({ technicianId });
+    // If rejecting (verified: false) and bankRejectionReason provided, validate it
+    if (!verified && bankRejectionReason && String(bankRejectionReason).trim().length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason must be at least 5 characters",
+        result: {},
+      });
+    }
+
+    const kyc = await TechnicianKyc.findOne({ technicianId }).select('+bankDetails.accountNumber');
     if (!kyc) {
       return res.status(404).json({
         success: false,
@@ -604,17 +615,23 @@ export const verifyBankDetails = async (req, res) => {
       kyc.bankVerifiedBy = req.user.userId;
       kyc.bankVerificationStatus = "approved";
       kyc.bankEditableUntil = null; // lock edits
+      kyc.bankRejectionReason = null; // clear any previous reason
     } else {
       kyc.bankVerified = false;
       kyc.bankUpdateRequired = true;
       kyc.bankVerificationStatus = "pending";
+      // Set rejection reason if provided
+      if (bankRejectionReason) {
+        kyc.bankRejectionReason = String(bankRejectionReason).trim();
+      }
       // keep editable; optionally extend window
       if (!kyc.bankEditableUntil || kyc.bankEditableUntil < new Date()) {
         kyc.bankEditableUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       }
     }
 
-    await kyc.save();
+    // Skip validation since we're only updating flags, not the encrypted bank details
+    await kyc.save({ validateModifiedOnly: true });
 
     if (verified) {
       return res.status(200).json({
@@ -627,7 +644,11 @@ export const verifyBankDetails = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Bank details update requested from technician",
-      data: { bankVerified: false, bankUpdateRequired: true },
+      data: { 
+        bankVerified: false, 
+        bankUpdateRequired: true,
+        bankRejectionReason: kyc.bankRejectionReason || null
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -678,6 +699,159 @@ export const deleteTechnicianKyc = async (req, res) => {
       success: true,
       message: "Technician KYC deleted successfully",
       result: {},
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= GET ALL ORPHANED KYC RECORDS ================= */
+export const getOrphanedKyc = async (req, res) => {
+  try {
+    if (!isOwnerOrAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Owner/Admin access only",
+        result: {},
+      });
+    }
+
+    // Fetch all KYC records
+    const allKyc = await TechnicianKyc.find().lean();
+
+    // Get all technician IDs that exist
+    const technicianIds = await TechnicianProfile.find().select("_id").lean();
+    const existingTechIds = new Set(technicianIds.map((t) => t._id.toString()));
+
+    // Find orphaned records
+    const orphanedRecords = allKyc.filter((k) => {
+      const techIdStr = k.technicianId ? k.technicianId.toString() : null;
+      return techIdStr && !existingTechIds.has(techIdStr);
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Found ${orphanedRecords.length} orphaned KYC records`,
+      result: {
+        count: orphanedRecords.length,
+        records: orphanedRecords,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= DELETE ORPHANED KYC BY ID ================= */
+export const deleteOrphanedKyc = async (req, res) => {
+  try {
+    const { kycId } = req.params;
+
+    if (!isValidObjectId(kycId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid KYC ID",
+        result: {},
+      });
+    }
+
+    if (!isOwnerOrAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Owner/Admin access only",
+        result: {},
+      });
+    }
+
+    const kyc = await TechnicianKyc.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: "KYC record not found",
+        result: {},
+      });
+    }
+
+    // Verify it's actually orphaned
+    if (kyc.technicianId) {
+      const technician = await TechnicianProfile.findById(kyc.technicianId);
+      if (technician) {
+        return res.status(400).json({
+          success: false,
+          message: "KYC record is not orphaned. This technician exists.",
+          result: { technicianId: kyc.technicianId },
+        });
+      }
+    }
+
+    // Delete orphaned KYC
+    await TechnicianKyc.findByIdAndDelete(kycId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Orphaned KYC record deleted successfully",
+      result: { kycId },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= DELETE ALL ORPHANED KYC RECORDS ================= */
+export const deleteAllOrphanedKyc = async (req, res) => {
+  try {
+    if (!isOwnerOrAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Owner/Admin access only",
+        result: {},
+      });
+    }
+
+    // Fetch all KYC records
+    const allKyc = await TechnicianKyc.find().lean();
+
+    // Get all technician IDs that exist
+    const technicianIds = await TechnicianProfile.find().select("_id").lean();
+    const existingTechIds = new Set(technicianIds.map((t) => t._id.toString()));
+
+    // Find orphaned records
+    const orphanedIds = allKyc
+      .filter((k) => {
+        const techIdStr = k.technicianId ? k.technicianId.toString() : null;
+        return techIdStr && !existingTechIds.has(techIdStr);
+      })
+      .map((k) => k._id);
+
+    if (orphanedIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No orphaned KYC records found",
+        result: { deletedCount: 0 },
+      });
+    }
+
+    // Delete all orphaned records
+    const deleteResult = await TechnicianKyc.deleteMany({
+      _id: { $in: orphanedIds },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Deleted ${deleteResult.deletedCount} orphaned KYC records`,
+      result: { deletedCount: deleteResult.deletedCount, recordIds: orphanedIds },
     });
   } catch (error) {
     return res.status(500).json({
