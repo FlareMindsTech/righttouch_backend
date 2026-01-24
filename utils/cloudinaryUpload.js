@@ -5,59 +5,70 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// --------------------------------------------------
-// ✅ Cloudinary Configuration
-// --------------------------------------------------
+/* ======================================================
+   CLOUDINARY CONFIGURATION
+====================================================== */
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// --------------------------------------------------
-// ✅ Cloudinary Storage Configuration
-// --------------------------------------------------
+/* ======================================================
+   CLOUDINARY STORAGE CONFIG
+====================================================== */
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: async (req, file) => ({
-    folder: "boutique/category",
-    allowed_formats: ["jpg", "jpeg", "png", "webp"],
-    public_id: `${Date.now()}-${file.originalname.split(".")[0]}`,
-    transformation: [
-      {
-        quality: "auto",
-        fetch_format: "auto",
-      },
-    ],
-  }),
+  params: async (req, file) => {
+    const fileName = file.originalname
+      .split(".")[0]
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9-_]/g, "")
+      .toLowerCase();
+
+    return {
+      folder: "boutique/category",
+      allowed_formats: ["jpg", "jpeg", "png", "webp", "jfif"], // ✅ jfif added
+      public_id: `${Date.now()}-${fileName}`,
+      transformation: [
+        {
+          quality: "auto",
+          fetch_format: "auto",
+        },
+      ],
+    };
+  },
 });
 
-// --------------------------------------------------
-// ✅ File Filter (Images only) — FIXED
-// --------------------------------------------------
+/* ======================================================
+   FILE FILTER (IMAGES ONLY)
+====================================================== */
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
+  const allowedMimeTypes = [
     "image/jpeg",
     "image/png",
     "image/jpg",
     "image/webp",
   ];
 
-  if (!allowedTypes.includes(file.mimetype)) {
+  const ext = file.originalname.split(".").pop().toLowerCase();
+
+  if (!allowedMimeTypes.includes(file.mimetype) && ext !== "jfif") {
     return cb(
       new multer.MulterError(
         "LIMIT_UNEXPECTED_FILE",
-        "Only JPG, JPEG, PNG, WEBP images are allowed"
-      )
+        "Only JPG, JPEG, PNG, WEBP, JFIF images are allowed"
+      ),
+      false
     );
   }
 
   cb(null, true);
 };
 
-// --------------------------------------------------
-// ✅ Multer Upload (20MB limit)
-// --------------------------------------------------
+/* ======================================================
+   MULTER UPLOAD CONFIG (20MB LIMIT)
+====================================================== */
 export const upload = multer({
   storage,
   fileFilter,

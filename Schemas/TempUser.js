@@ -60,4 +60,4 @@ const tempUserSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-export default mongoose.model("TempUser", tempUserSchema);
+export default mongoose.models.TempUser || mongoose.model("TempUser", tempUserSchema);

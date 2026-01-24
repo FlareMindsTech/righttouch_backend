@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema({
+  categoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Category",
+    required: true,
+  },
+
   productName: {
     type: String,
     required: true,
@@ -63,6 +69,7 @@ const productSchema = new mongoose.Schema({
 
   warrantyPeriod: String,
 
+
   amcAvailable: {
     type: Boolean,
     default: false,
@@ -86,4 +93,4 @@ const productSchema = new mongoose.Schema({
   },
 });
 
-export default mongoose.model("Product", productSchema);
+export default mongoose.models.Product || mongoose.model("Product", productSchema);
