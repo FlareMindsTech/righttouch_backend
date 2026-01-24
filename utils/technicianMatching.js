@@ -28,6 +28,7 @@ export const findEligibleTechniciansForService = async ({
   }
 
   const serviceObjectId = new mongoose.Types.ObjectId(serviceId);
+  const serviceIdString = String(serviceId);
 
   let approvedKycQuery = TechnicianKyc.find({ verificationStatus: "approved" }).select(
     "technicianId"
@@ -47,9 +48,16 @@ export const findEligibleTechniciansForService = async ({
     _id: { $in: approvedTechnicianIds },
     workStatus: "approved",
     profileComplete: true,
-    trainingCompleted: true, // 🔒 Only trained technicians receive broadcasts
     "availability.isOnline": true,
-    "skills.serviceId": serviceObjectId,
+    $or: [
+      // canonical shape: skills: [{ serviceId: ObjectId }]
+      { "skills.serviceId": serviceObjectId },
+      // legacy/dirty data: string stored instead of ObjectId
+      { "skills.serviceId": serviceIdString },
+      // extra tolerance (in case skills stored as raw array of ids)
+      { skills: serviceObjectId },
+      { skills: serviceIdString },
+    ],
   };
 
   const lat = Number(address?.latitude);
@@ -65,17 +73,26 @@ export const findEligibleTechniciansForService = async ({
 
   // 1) Prefer geo query when possible (requires technicians to have `location`)
   if (enableGeo && hasCoords) {
+    // Only match technicians who actually have a valid GeoJSON Point.
+    // Many profiles may have latitude/longitude strings but no GeoJSON `location`.
     const geoQuery = {
       ...baseQuery,
-      location: {
-        $nearSphere: {
-          $geometry: {
-            type: "Point",
-            coordinates: [lng, lat],
+      $and: [
+        { "location.type": "Point" },
+        { "location.coordinates.0": { $type: "number" } },
+        { "location.coordinates.1": { $type: "number" } },
+        {
+          location: {
+            $nearSphere: {
+              $geometry: {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+              $maxDistance: radiusMeters,
+            },
           },
-          $maxDistance: radiusMeters,
         },
-      },
+      ],
     };
 
     let nearbyQuery = TechnicianProfile.find(geoQuery).select("_id").limit(limit);

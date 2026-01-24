@@ -47,17 +47,6 @@ const eligibilityToHttp = (eligibility, { action } = {}) => {
     };
   }
 
-  if (reasons.includes("training_not_completed")) {
-    return {
-      httpStatus: 403,
-      message:
-        "Training must be completed before " +
-        (action === "accept" ? "accepting job broadcasts" : "viewing job broadcasts") +
-        ". Contact admin to complete your training.",
-      result: { trainingCompleted: false, workStatus: status.workStatus, eligibility },
-    };
-  }
-
   if (reasons.includes("offline")) {
     return {
       httpStatus: 403,

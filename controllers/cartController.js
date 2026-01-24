@@ -722,6 +722,21 @@ export const checkout = async (req, res) => {
     setImmediate(async () => {
       try {
         for (const task of serviceBroadcastTasks) {
+          // Skip broadcasting if booking already got assigned/cancelled in the meantime.
+          // We allow both "requested" and already-"broadcasted" bookings here to make retries safe.
+          const bookingStillOpen = await ServiceBooking.find7One(
+            {
+              _id: task.bookingId,
+              status: { $in: ["requested", "broadcasted"] },
+              technicianId: null,
+            },
+            { _id: 1 }
+          );
+
+          if (!bookingStillOpen) {
+            continue;
+          }
+
           const technicians = await findEligibleTechniciansForService({
             serviceId: task.serviceId,
             address: {
@@ -739,6 +754,13 @@ export const checkout = async (req, res) => {
           if (!technicians || technicians.length === 0) {
             continue;
           }
+
+          // Mark booking broadcasted only if it hasn't been assigned yet.
+          // Do this BEFORE inserting broadcasts so technicians fetching quickly can still populate.
+          await ServiceBooking.updateOne(
+            { _id: task.bookingId, status: { $in: ["requested", "broadcasted"] }, technicianId: null },
+            { $set: { status: "broadcasted" } }
+          );
 
           const now = new Date();
 
@@ -758,12 +780,6 @@ export const checkout = async (req, res) => {
               throw e;
             }
           }
-
-          // Mark booking broadcasted only if it hasn't been assigned yet
-          await ServiceBooking.updateOne(
-            { _id: task.bookingId, status: "requested", technicianId: null },
-            { $set: { status: "broadcasted" } }
-          );
 
           await broadcastJobToTechnicians(req.io, technicians.map((t) => t._id.toString()), {
             bookingId: task.bookingId,

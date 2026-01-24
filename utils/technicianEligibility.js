@@ -10,7 +10,6 @@ export const getTechnicianJobEligibility = async ({ technicianProfileId, session
       status: {
         profileComplete: false,
         workStatus: null,
-        trainingCompleted: false,
         isOnline: false,
         kycStatus: "not_submitted",
       },
@@ -30,7 +29,6 @@ export const getTechnicianJobEligibility = async ({ technicianProfileId, session
       status: {
         profileComplete: false,
         workStatus: null,
-        trainingCompleted: false,
         isOnline: false,
         kycStatus: "not_submitted",
       },
@@ -46,7 +44,6 @@ export const getTechnicianJobEligibility = async ({ technicianProfileId, session
   const status = {
     profileComplete: Boolean(tech.profileComplete),
     workStatus: tech.workStatus || null,
-    trainingCompleted: Boolean(tech.trainingCompleted),
     isOnline: Boolean(tech.availability?.isOnline),
     kycStatus: kyc?.verificationStatus || "not_submitted",
   };
@@ -55,7 +52,6 @@ export const getTechnicianJobEligibility = async ({ technicianProfileId, session
   if (!status.profileComplete) reasons.push("profile_incomplete");
   if (status.kycStatus !== "approved") reasons.push("kyc_not_approved");
   if (status.workStatus !== "approved") reasons.push("workStatus_not_approved");
-  if (!status.trainingCompleted) reasons.push("training_not_completed");
   if (!status.isOnline) reasons.push("offline");
 
   return {
