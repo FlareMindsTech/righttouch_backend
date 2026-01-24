@@ -1,69 +1,40 @@
 import jwt from "jsonwebtoken";
-import User from "../Schemas/User.js";
+import UserSchema from "../Schemas/User.js";// ✅ Import User Schema properly
 
-export const Auth = (req, res, next) => {
+export const Auth = async (req, res, next) => {      // 🔹 Token validation middleware
+  const token = req.headers.token; // frontend should send header: { token: "<jwt_token>" }
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Authorization token required", result: "Missing authorization token" });
+  }
+
   try {
-    const authHeader = req.headers.authorization;
+    // Verify the token using JWT_SECRET key
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!authHeader) {
-      return res.status(401).json({
-        success: false,
-        message: "Authorization header missing",
-      });
-    }
+    // Attach decoded info (userId, email, role) to request
+    req.user = decoded;
 
-    const [scheme, token] = authHeader.split(" ");
-
-    if (scheme !== "Bearer" || !token) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authorization format",
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-      algorithms: ["HS256"], // prevents alg attack
-    });
-
-    // Attach ONLY what is needed
-    req.user = {
-      userId: decoded.userId,
-      role: decoded.role,
-      email: decoded.email,
-    };
-
-    next();
+    next(); // continue to next middleware / controller
   } catch (err) {
-    return res.status(401).json({
-      success: false,
-      message: "Token invalid or expired",
-    });
+    return res.status(401).json({ success: false, message: "Token invalid or expired", result: "Authentication failed" });
   }
 };
-
 
 // 🔹 Role-based access middleware
 export const authorizeRoles = (...allowedRoles) => {
   return async (req, res, next) => {
-    const authHeader = req.headers.authorization;
+    const token = req.headers.token;
 
-    if (!authHeader) {
-      return res.status(401).json({ success: false, message: "Authorization header missing", result: "Missing authorization header" });
-    }
-
-    const [scheme, token] = authHeader.split(" ");
-
-    if (scheme !== "Bearer" || !token) {
-      return res.status(401).json({ success: false, message: "Invalid authorization format", result: "Token must be in Bearer format" });
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Authorization token required", result: "Missing authorization token" });
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-        algorithms: ["HS256"], // prevents alg attack
-      });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // ✅ Note: use userId, not id
-      const user = await User.findById(decoded.userId).select("-password");
+      const user = await UserSchema.findById(decoded.userId).select("-password");
 
       if (!user) {
         return res.status(404).json({ success: false, message: "User not found", result: "No user exists with this ID" });

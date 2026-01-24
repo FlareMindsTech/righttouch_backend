@@ -14,7 +14,7 @@ import {
   updateUser,
   verifyOtp,
   verifyPasswordResetOtp,
-} from "../controllers/User.js";
+} from "../Controller/User.js";
 
 import {
   serviceCategory,
@@ -23,7 +23,7 @@ import {
   getByIdCategory,
   updateCategory,
   deleteCategory,
-} from "../controllers/categoryController.js";
+} from "../Controller/categoryController.js";
 
 import {
   userRating,
@@ -31,13 +31,13 @@ import {
   getRatingById,
   updateRating,
   deleteRating,
-} from "../controllers/ratingController.js";
+} from "../Controller/ratingController.js";
 
 import {
   userReport,
   getAllReports,
   getReportById,
-} from "../controllers/reportController.js";
+} from "../Controller/reportController.js";
 
 import {
   createService,
@@ -46,15 +46,14 @@ import {
   getServiceById,
   updateService,
   deleteService,
-} from "../controllers/serviceController.js";
+} from "../Controller/serviceController.js";
 
 import {
-  createBooking,
-  getBookings,
-  getCustomerBookings,
-  cancelBooking,
-} from "../controllers/serviceBookController.js";
-
+  serviceBook,
+  getAllServiceBooking,
+  serviceBookUpdate,
+  serviceBookingCancel,
+} from "../Controller/serviceBookController.js";
 
 import {
   createProduct,
@@ -63,31 +62,16 @@ import {
   deleteProduct,
   uploadProductImages,
   updateProduct,
-} from "../controllers/productController.js";
+} from "../Controller/productController.js";
 
 import {
   productBooking,
   getAllProductBooking,
   productBookingUpdate,
   productBookingCancel,
-} from "../controllers/productBooking.js";
+} from "../Controller/productBooking.js";
 
-import {
-  createPayment,
-  updatePaymentStatus,
-} from "../controllers/paymentController.js";
-
-import {
-  addToCart,
-  getMyCart,
-  updateCartItem,
-  removeFromCart,
-  getCartById,
-  updateCartById,
-  checkout,
-} from "../controllers/cartController.js";
-
-import { Auth, authorizeRoles } from "../middleware/Auth.js";
+import { Auth, authorizeRoles } from "../Middleware/Auth.js";
 
 const router = express.Router();
 
@@ -123,7 +107,7 @@ router.delete("/deletecategory/:id", Auth, deleteCategory);
 
 router.post("/report", Auth, userReport);
 router.get("/getAllReports", getAllReports);
-router.get("/getReportById/:id", Auth, getReportById);
+router.get("/getReportById/:id", getReportById);
 
 /* ================= SERVICE ================= */
 
@@ -141,17 +125,10 @@ router.delete("/services/:id", Auth, deleteService);
 
 /* ================= SERVICE BOOKING ================= */
 
-router.post("/serviceBook", Auth,
-   createBooking);
-
-// Admin / Technician / Customer view bookings
-router.get("/service/booking", Auth,
-  getBookings);
-
-// Customer / Admin cancels booking
-router.put("/booking/cancel/:id", Auth, cancelBooking);
-
-router.get("/booking/getCustomerBookings", Auth, getCustomerBookings);
+router.post("/serviceBook", serviceBook);
+router.get("/getAllServiceBooking", getAllServiceBooking);
+router.put("/serviceBookUpdate/:id", serviceBookUpdate);
+router.put("/serviceBookingCancel/:id", serviceBookingCancel);
 
 /* ================= RATING ================= */
 
@@ -186,23 +163,5 @@ router.post("/productBooking", productBooking);
 router.get("/getAllProductBooking", getAllProductBooking);
 router.put("/productBookingUpdate/:id", productBookingUpdate);
 router.put("/productBookingCancel/:id", productBookingCancel);
-
-/* ================= PAYMENT ================= */
-
-// Create online payment (Customer)
-router.post("/payment", Auth, createPayment);
-// Update payment status (System/Admin/Webhook)
-router.put("/payment/:id/status", Auth, updatePaymentStatus);
-
-/* ================= CART ================= */
-router.post("/cart/add", Auth, addToCart);
-router.get("/cart/my-cart", Auth, getMyCart);
-router.get("/cart/:id", Auth, getCartById);
-router.put("/cart/update", Auth, updateCartItem);
-router.put("/cart/:id", Auth, updateCartById);
-router.delete("/cart/remove/:id", Auth, removeFromCart);
-
-/* ================= CHECKOUT ================= */
-router.post("/checkout", Auth, checkout);
 
 export default router;
