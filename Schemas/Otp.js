@@ -2,9 +2,16 @@ import mongoose from "mongoose";
 
 const otpSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
+    identifier: {
+      type: String, // email or phone
       required: true,
+      index: true,
+    },
+    role: {
+      type: String,
+      enum: ["Owner", "Admin", "Customer", "Technician"],
+      required: true,
+      index: true,
     },
     otp: {
       type: String,
@@ -21,6 +28,11 @@ const otpSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    purpose: {
+      type: String,
+      enum: ["SIGNUP", "RESET_PASSWORD"],
+      required: true,
     },
   },
   { timestamps: true }

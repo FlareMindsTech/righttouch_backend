@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const addressSchema = new mongoose.Schema(
   {
-    userId: {
+    customerProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "CustomerProfile",
       required: true,
       index: true,
     },
@@ -15,20 +15,48 @@ const addressSchema = new mongoose.Schema(
       default: "home",
     },
 
-    name: String, // Person name
-    phone: String,
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    phone: {
+      type: String,
+      required: true,
+      match: [/^[0-9]{10}$/, "Phone must be 10 digits"],
+    },
 
     addressLine: {
       type: String,
       required: true,
+      trim: true,
     },
 
-    city: String,
-    state: String,
-    pincode: String,
+    city: {
+      type: String,
+      trim: true,
+    },
 
-    latitude: Number, // optional (future map support)
-    longitude: Number,
+    state: {
+      type: String,
+      trim: true,
+    },
+
+    pincode: {
+      type: String,
+      match: [/^[0-9]{6}$/, "Invalid pincode"],
+    },
+
+    latitude: {
+      type: String,
+      trim: true,
+    },
+
+    longitude: {
+      type: String,
+      trim: true,
+    },
 
     isDefault: {
       type: Boolean,
@@ -36,6 +64,14 @@ const addressSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+/**
+ * Only ONE default address per customer
+ */
+addressSchema.index(
+  { customerProfileId: 1, isDefault: 1 },
+  { unique: true, partialFilterExpression: { isDefault: true } }
 );
 
 export default mongoose.models.Address ||

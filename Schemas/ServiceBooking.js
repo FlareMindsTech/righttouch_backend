@@ -1,11 +1,39 @@
 import mongoose from "mongoose";
 
+const geoPointSchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      enum: ["Point"],
+      required: true,
+    },
+    coordinates: {
+      type: [Number],
+      required: true,
+      validate: {
+        validator: function (v) {
+          return (
+            Array.isArray(v) &&
+            v.length === 2 &&
+            typeof v[0] === "number" &&
+            Number.isFinite(v[0]) &&
+            typeof v[1] === "number" &&
+            Number.isFinite(v[1])
+          );
+        },
+        message: "location.coordinates must be [longitude, latitude]",
+      },
+    },
+  },
+  { _id: false }
+);
+
 const serviceBookingSchema = new mongoose.Schema(
   {
     // 👤 CUSTOMER
-    customerId: {
+    customerProfileId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "CustomerProfile",
       required: true,
       index: true,
     },
@@ -21,7 +49,7 @@ const serviceBookingSchema = new mongoose.Schema(
     // 👨‍🔧 TECHNICIAN (assigned after accept)
     technicianId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Technician",
+      ref: "TechnicianProfile",
       default: null,
       index: true,
     },
@@ -40,10 +68,86 @@ const serviceBookingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // 📍 ADDRESS REFERENCE (for customer details)
+    addressId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Address",
+      default: null,
+      index: true,
+    },
+
     // ⏰ SCHEDULE
     scheduledAt: {
       type: Date,
-      // required: true,
+    },
+
+    // 💳 PAYMENT
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "refunded"],
+      default: "pending",
+      index: true,
+    },
+
+    paymentProvider: {
+      type: String,
+      enum: ["razorpay"],
+      default: "razorpay",
+    },
+
+    paymentOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    paymentProviderPaymentId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    paidAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    commissionPercentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+
+    commissionAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    technicianAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    paymentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+    },
+
+    // ✅ Settlement to technician wallet (idempotent)
+    settlementStatus: {
+      type: String,
+      enum: ["pending", "eligible", "settled"],
+      default: "pending",
+      index: true,
+    },
+
+    settledAt: {
+      type: Date,
+      default: null,
     },
 
     // 📌 STATUS FLOW
@@ -62,11 +166,26 @@ const serviceBookingSchema = new mongoose.Schema(
       default: "requested",
       index: true,
     },
+
+    assignedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
+    // Optional GeoJSON point for nearby matching
+    location: {
+      type: geoPointSchema,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 // Helpful index for technician dashboard
 serviceBookingSchema.index({ technicianId: 1, status: 1 });
+
+// 2dsphere index for geo queries (optional, but required when using $near for bookings)
+serviceBookingSchema.index({ location: "2dsphere" });
 
 export default mongoose.models.ServiceBooking || mongoose.model("ServiceBooking", serviceBookingSchema);

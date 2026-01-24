@@ -1,4 +1,8 @@
 import Category from "../Schemas/Category.js";
+import mongoose from "mongoose";
+
+// Escape regex special chars (for safe user-provided search)
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /* ================= CREATE CATEGORY (NO IMAGE) ================= */
 export const serviceCategory = async (req, res) => {
@@ -13,7 +17,9 @@ export const serviceCategory = async (req, res) => {
       });
     }
 
-    if (!["service", "product"].includes(categoryType)) {
+    const normalizedType = categoryType.trim().toLowerCase();
+
+    if (!["service", "product"].includes(normalizedType)) {
       return res.status(400).json({
         success: false,
         message: "categoryType must be 'service' or 'product'",
@@ -21,24 +27,32 @@ export const serviceCategory = async (req, res) => {
       });
     }
 
-    // Duplicate check (case-insensitive)
+    // Duplicate check (case-insensitive) - same name allowed for different types
     const existing = await Category.findOne({
-      category: { $regex: `^${category}$`, $options: "i" },
-      categoryType,
+      category: { $regex: `^${escapeRegex(category)}$`, $options: "i" },
+      categoryType: normalizedType,
     });
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "Category already exists for this type",
-        result: {},
+        message: `Category '${existing.category}' already exists for type '${existing.categoryType}'. Note: Same category name is allowed for different types.`,
+        error: "DUPLICATE_CATEGORY",
+        result: {
+          existingCategory: {
+            id: existing._id,
+            name: existing.category,
+            type: existing.categoryType,
+            description: existing.description
+          }
+        },
       });
     }
 
     const categoryData = await Category.create({
       category,
       description,
-      categoryType,
+      categoryType: normalizedType,
     });
 
     return res.status(201).json({
@@ -50,7 +64,7 @@ export const serviceCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -64,6 +78,15 @@ export const uploadCategoryImage = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Category ID is required",
+        result: {},
+      });
+    }
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
         result: {},
       });
     }
@@ -97,7 +120,55 @@ export const uploadCategoryImage = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error : error.message},
+    });
+  }
+};
+
+/* ================= REMOVE CATEGORY IMAGE ================= */
+export const removeCategoryImage = async (req, res) => {
+  try {
+    const { categoryId } = req.body;
+
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Category ID is required",
+        result: {},
+      });
+    }
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+        result: {},
+      });
+    }
+
+    category.image = null;
+    await category.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Category image removed successfully",
+      result: category,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error : error.message},
     });
   }
 };
@@ -105,25 +176,14 @@ export const uploadCategoryImage = async (req, res) => {
 /* ================= GET ALL CATEGORIES ================= */
 export const getAllCategory = async (req, res) => {
   try {
-    const { search, categoryType } = req.query;
-    let query = {};
+    const { categoryType } = req.query;
+
+    let query = {
+      isActive: { $ne: false },
+    };
 
     if (categoryType) {
-      if (!["service", "product"].includes(categoryType)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid categoryType. Must be 'service' or 'product'",
-          result: {},
-        });
-      }
-      query.categoryType = categoryType;
-    }
-
-    if (search) {
-      query.$or = [
-        { category: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
+      query.categoryType = categoryType.trim().toLowerCase();
     }
 
     const categories = await Category.find(query);
@@ -137,7 +197,7 @@ export const getAllCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -145,7 +205,18 @@ export const getAllCategory = async (req, res) => {
 /* ================= GET CATEGORY BY ID ================= */
 export const getByIdCategory = async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
+    const category = await Category.findById(id);
 
     if (!category) {
       return res.status(404).json({
@@ -164,7 +235,7 @@ export const getByIdCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -175,42 +246,82 @@ export const updateCategory = async (req, res) => {
     const { id } = req.params;
     const { category, description, categoryType } = req.body;
 
-    if (category) {
-      const existing = await Category.findOne({
-        category: { $regex: `^${category}$`, $options: "i" },
-        _id: { $ne: id },
-      });
-
-      if (existing) {
-        return res.status(409).json({
-          success: false,
-          message: "Category name already exists",
-          result: {},
-        });
-      }
-    }
-
-    if (categoryType && !["service", "product"].includes(categoryType)) {
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid categoryType. Must be 'service' or 'product'",
+        message: "Invalid category ID format",
         result: {},
       });
     }
 
-    const updatedCategory = await Category.findByIdAndUpdate(
-      id,
-      { category, description, categoryType },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedCategory) {
+    // Fetch existing category to keep current type/slug context
+    const existingCategory = await Category.findById(id);
+    if (!existingCategory) {
       return res.status(404).json({
         success: false,
         message: "Category not found",
         result: {},
       });
     }
+
+    // Normalize/validate type
+    let normalizedType = existingCategory.categoryType;
+    if (categoryType) {
+      normalizedType = categoryType.trim().toLowerCase();
+      if (!["service", "product"].includes(normalizedType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid categoryType. Must be 'service' or 'product'",
+          result: {},
+        });
+      }
+    }
+
+    // Duplicate check scoped by name + type - same name allowed for different types
+    if (category) {
+      const existing = await Category.findOne({
+        category: { $regex: `^${escapeRegex(category)}$`, $options: "i" },
+        categoryType: normalizedType,
+        _id: { $ne: id },
+      });
+
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: `Category '${existing.category}' already exists for type '${existing.categoryType}'. Note: Same category name is allowed for different types.`,
+          error: "DUPLICATE_CATEGORY",
+          result: {
+            existingCategory: {
+              id: existing._id,
+              name: existing.category,
+              type: existing.categoryType,
+              description: existing.description
+            }
+          },
+        });
+      }
+    }
+
+    const updatePayload = {
+      category,
+      description,
+      categoryType: normalizedType,
+    };
+
+    // Update slug when name changes
+    if (category) {
+      updatePayload.slug = category
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/\s+/g, "-");
+    }
+
+    const updatedCategory = await Category.findByIdAndUpdate(
+      id,
+      updatePayload,
+      { new: true, runValidators: true }
+    );
 
     return res.status(200).json({
       success: true,
@@ -221,7 +332,7 @@ export const updateCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -229,7 +340,18 @@ export const updateCategory = async (req, res) => {
 /* ================= DELETE CATEGORY ================= */
 export const deleteCategory = async (req, res) => {
   try {
-    const category = await Category.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID format",
+        result: {},
+      });
+    }
+
+    const category = await Category.findByIdAndDelete(id);
 
     if (!category) {
       return res.status(404).json({
@@ -248,7 +370,7 @@ export const deleteCategory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };

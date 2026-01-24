@@ -27,7 +27,7 @@ export const userReport = async (req, res) => {
       result: reportData
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", result: {} });
+    res.status(500).json({ success: false, message: "Server error", result: {error: error.message} });
   }
 };
 
@@ -72,7 +72,7 @@ export const getAllReports = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {}
+      result: {error: error.message}
     });
   }
 };
@@ -96,6 +96,6 @@ export const getReportById = async (req, res) => {
 
     return res.status(200).json({ success: true, message: "Report fetched successfully", result: report });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", result: {} });
+    res.status(500).json({ success: false, message: "Server error", result: {error: error.message} });
   }
 };

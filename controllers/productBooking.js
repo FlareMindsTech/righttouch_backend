@@ -1,24 +1,76 @@
+import mongoose from "mongoose";
 import ProductBooking from "../Schemas/ProductBooking.js";
+import Product from "../Schemas/Product.js";
+
+const PAYMENT_STATUSES = ["pending", "paid", "refunded", "completed"];
+const BOOKING_STATUSES = ["active", "completed", "cancelled"];
+
+const toNumber = value => {
+  const num = Number(value);
+  return Number.isNaN(num) ? NaN : num;
+};
+
+const ensureCustomer = (req) => {
+  if (!req.user || req.user.role !== "Customer") {
+    const err = new Error("Customer access only");
+    err.statusCode = 403;
+    throw err;
+  }
+  if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+    const err = new Error("Invalid token profile");
+    err.statusCode = 401;
+    throw err;
+  }
+};
 
 // Create A new ProductBooking
 export const productBooking = async (req, res) => {
   try {
-    const { userId, productId, status, amount } = req.body;
+    ensureCustomer(req);
+    const customerProfileId = req.user.profileId;
 
-    // ✅ Validation
-    if (!userId || !productId || !status || amount === undefined) {
+    const { productId, amount, quantity = 1, paymentStatus } = req.body;
+
+    if (!productId || amount === undefined) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "productId and amount are required",
         result: {},
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ success: false, message: "Invalid productId", result: {} });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product || !product.isActive) {
+      return res.status(404).json({ success: false, message: "Product not found or inactive", result: {} });
+    }
+
+    const amountNum = toNumber(amount);
+    const quantityNum = toNumber(quantity);
+
+    if (Number.isNaN(amountNum) || amountNum < 0) {
+      return res.status(400).json({ success: false, message: "amount must be a non-negative number", result: {} });
+    }
+
+    if (!Number.isInteger(quantityNum) || quantityNum < 1) {
+      return res.status(400).json({ success: false, message: "quantity must be an integer >= 1", result: {} });
+    }
+
+    let paymentStatusValue = paymentStatus || "pending";
+    if (!PAYMENT_STATUSES.includes(paymentStatusValue)) {
+      return res.status(400).json({ success: false, message: "Invalid paymentStatus", result: {} });
+    }
+
     const productData = await ProductBooking.create({
-      userId,
-      ProductId: productId, // 👈 match schema field name
-      status,
-      amount,
+      customerProfileId,
+      productId,
+      status: "active",
+      amount: amountNum,
+      quantity: quantityNum,
+      paymentStatus: paymentStatusValue,
     });
 
     res.status(201).json({
@@ -27,27 +79,33 @@ export const productBooking = async (req, res) => {
       result: productData,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error?.statusCode || 500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
 
 export const getAllProductBooking = async (req, res) => {
   try {
-    const getAllBooking = await ProductBooking.find()
-      .populate("userId", "firstName lastName email")
-      .populate("ProductId", "productName price");
+    const role = req.user?.role?.toLowerCase();
 
-    if (getAllBooking.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No product booking data found",
-        result: {},
-      });
+    let filter = {};
+    if (role !== "admin") {
+      if (!req.user?.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid token profile",
+          result: {},
+        });
+      }
+      filter = { customerProfileId: req.user.profileId };
     }
+
+    const getAllBooking = await ProductBooking.find(filter)
+      .populate("customerProfileId", "firstName lastName gender mobileNumber")
+      .populate("productId", "productName pricingModel estimatedPriceFrom estimatedPriceTo");
 
     res.status(200).json({
       success: true,
@@ -58,7 +116,7 @@ export const getAllProductBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching product bookings",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -66,25 +124,57 @@ export const getAllProductBooking = async (req, res) => {
 
 export const productBookingUpdate = async (req, res) => {
   try {
-    const { userId, productId, status, amount } = req.body;
+    ensureCustomer(req);
+    const customerProfileId = req.user.profileId;
 
-    if (!userId || !productId || !status || amount === undefined) {
+    const { id } = req.params;
+    const { amount, paymentStatus, status, quantity } = req.body;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "Invalid booking ID format",
         result: {},
       });
     }
 
-    const updateBooking = await ProductBooking.findByIdAndUpdate(
-      req.params.id,
-      {
-        userId,
-        ProductId: productId, // 👈 match schema
-        status,
-        amount,
-      },
-      { new: true, runValidators: true }
+    const update = {};
+
+    if (amount !== undefined) {
+      const amountNum = toNumber(amount);
+      if (Number.isNaN(amountNum) || amountNum < 0) {
+        return res.status(400).json({ success: false, message: "amount must be a non-negative number", result: {} });
+      }
+      update.amount = amountNum;
+    }
+
+    if (quantity !== undefined) {
+      const quantityNum = toNumber(quantity);
+      if (!Number.isInteger(quantityNum) || quantityNum < 1) {
+        return res.status(400).json({ success: false, message: "quantity must be an integer >= 1", result: {} });
+      }
+      update.quantity = quantityNum;
+    }
+
+    if (paymentStatus !== undefined) {
+      if (!PAYMENT_STATUSES.includes(paymentStatus)) {
+        return res.status(400).json({ success: false, message: "Invalid paymentStatus", result: {} });
+      }
+      update.paymentStatus = paymentStatus;
+    }
+
+    if (status !== undefined) {
+      if (!BOOKING_STATUSES.includes(status)) {
+        return res.status(400).json({ success: false, message: "Invalid status", result: {} });
+      }
+      update.status = status;
+    }
+
+    const updateBooking = await ProductBooking.findOneAndUpdate(
+      { _id: id, customerProfileId },
+      update,
+      { new: true, runValidators: true, context: "query" }
     );
 
     if (!updateBooking) {
@@ -101,16 +191,19 @@ export const productBookingUpdate = async (req, res) => {
       result: updateBooking,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error?.statusCode || 500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
 
 export const productBookingCancel = async (req, res) => {
   try {
+    ensureCustomer(req);
+    const customerProfileId = req.user.profileId;
+
     const { id } = req.params;
 
     if (!id) {
@@ -121,8 +214,17 @@ export const productBookingCancel = async (req, res) => {
       });
     }
 
-    const cancelBooking = await ProductBooking.findByIdAndUpdate(
-      id,
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
+      });
+    }
+
+    const cancelBooking = await ProductBooking.findOneAndUpdate(
+      { _id: id, customerProfileId },
       { status: "cancelled" },
       { new: true }
     );
@@ -141,10 +243,10 @@ export const productBookingCancel = async (req, res) => {
       result: cancelBooking
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error?.statusCode || 500).json({
       success: false,
       message: "Server error",
-      result: {}
+      result: {error: error.message}
     });
   }
 };

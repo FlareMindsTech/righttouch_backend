@@ -1,61 +1,74 @@
 import mongoose from "mongoose";
-import Technician from "../Schemas/Technician.js";
-import User from "../Schemas/User.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
+import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 
-/* ================= CREATE TECHNICIAN ================= */
+const isValidObjectId = mongoose.Types.ObjectId.isValid;
+const TECHNICIAN_STATUSES = ["pending", "trained", "approved", "suspended"];
+
+const validateSkills = (skills) => {
+  if (skills === undefined) return true;
+  if (!Array.isArray(skills)) return false;
+  return skills.every((item) =>
+    item && item.serviceId && isValidObjectId(item.serviceId)
+  );
+};
+
+/* ================= UPDATE TECHNICIAN SKILLS ================= */
 export const createTechnician = async (req, res) => {
   try {
-    const { userId, skills } = req.body;
+    const technicianProfileId = req.user?.profileId;
+    const { skills } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
+    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
+      return res.status(401).json({
         success: false,
-        message: "User ID is required",
+        message: "Unauthorized",
         result: {},
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!validateSkills(skills)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid User ID",
+        message: "Invalid skills format",
         result: {},
       });
     }
 
-    const userExists = await User.findById(userId);
-    if (!userExists) {
+    // Ensure only users with Technician role can update skills
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Only users with Technician role can update skills",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findByIdAndUpdate(
+      technicianProfileId,
+      { skills },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!technician) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Technician profile not found",
         result: {},
       });
     }
 
-    const existing = await Technician.findOne({ userId });
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: "Technician already exists for this user",
-        result: {},
-      });
-    }
-
-    const technician = await Technician.create({
-      userId,
-      skills,
-    });
-
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: "Technician created successfully",
+      message: "Skills updated successfully",
       result: technician,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -63,20 +76,31 @@ export const createTechnician = async (req, res) => {
 /* ================= GET ALL TECHNICIANS ================= */
 export const getAllTechnicians = async (req, res) => {
   try {
-    const { status, search } = req.query;
-    let query = {};
+    const { workStatus, search } = req.query;
+    const query = {};
 
-    if (status) {
-      query.status = status;
+    if (workStatus) {
+      if (!TECHNICIAN_STATUSES.includes(workStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid workStatus filter",
+          result: {},
+        });
+      }
+      query.workStatus = workStatus;
     }
 
     if (search) {
-      query.$or = [{ status: { $regex: search, $options: "i" } }];
+      query.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { workStatus: { $regex: search, $options: "i" } },
+      ];
     }
 
-    const technicians = await Technician.find(query)
-      .populate("userId", "name email phone")
-      .populate("skills.serviceId", "serviceName");
+    const technicians = await TechnicianProfile.find(query)
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
 
     return res.status(200).json({
       success: true,
@@ -87,7 +111,7 @@ export const getAllTechnicians = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -97,7 +121,7 @@ export const getTechnicianById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
@@ -105,9 +129,9 @@ export const getTechnicianById = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findById(id)
-      .populate("userId", "name email phone")
-      .populate("skills.serviceId", "serviceName");
+    const technician = await TechnicianProfile.findById(id)
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
 
     if (!technician) {
       return res.status(404).json({
@@ -126,7 +150,46 @@ export const getTechnicianById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= GET MY TECHNICIAN (FROM TOKEN) ================= */
+export const getMyTechnician = async (req, res) => {
+  try {
+    const technicianProfileId = req.user?.profileId;
+
+    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findById(technicianProfileId)
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
+
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Technician fetched successfully",
+      result: technician,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: { error: error.message },
     });
   }
 };
@@ -134,18 +197,26 @@ export const getTechnicianById = async (req, res) => {
 /* ================= UPDATE TECHNICIAN ================= */
 export const updateTechnician = async (req, res) => {
   try {
-    const { id } = req.params;
     const { skills, availability } = req.body;
+    const technicianProfileId = req.user?.profileId;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
+    if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
+      return res.status(401).json({
         success: false,
-        message: "Invalid Technician ID",
+        message: "Unauthorized",
         result: {},
       });
     }
 
-    const technician = await Technician.findById(id);
+    if (!validateSkills(skills)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid skills format",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findById(technicianProfileId);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -154,46 +225,104 @@ export const updateTechnician = async (req, res) => {
       });
     }
 
-    // 🔐 Only technician himself
-    // if (
-    //   req.user.role !== "Technician" ||
-    //   technician.userId.toString() !== req.user.userId.toString()
-    // ) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Access denied",
-    //   });
-    // }
-
-    // ✅ Update skills
-    if (skills) {
+    if (skills !== undefined) {
       technician.skills = skills;
     }
 
-    // ✅ Update availability
     if (availability?.isOnline !== undefined) {
-      if (technician.status !== "approved") {
+      // 🔒 Check if training is completed
+      if (!technician.trainingCompleted) {
         return res.status(403).json({
           success: false,
-          message: "Only approved technicians can go online",
-          result: {},
+          message: "Training must be completed before going online. Contact admin to complete your training.",
+          result: { trainingCompleted: false },
         });
       }
-      technician.availability.isOnline = availability.isOnline;
+
+      // Check if technician is approved before allowing online status
+      if (technician.workStatus !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: "Only approved technicians can go online. Current status: " + technician.workStatus,
+          result: { currentStatus: technician.workStatus },
+        });
+      }
+
+      // Check if KYC is approved
+      const kyc = await mongoose.model('TechnicianKyc').findOne({ technicianId: technicianProfileId });
+      if (!kyc || kyc.verificationStatus !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: "Your KYC must be approved by owner before going online",
+          result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+        });
+      }
+
+      const isGoingOnline = Boolean(availability.isOnline) && !technician.availability.isOnline;
+      technician.availability.isOnline = Boolean(availability.isOnline);
+
+      // 🔥 When technician goes online, broadcast existing unassigned jobs
+      if (isGoingOnline && technician.skills.length > 0) {
+        try {
+          const technicianServiceIds = technician.skills
+            .map(s => s.serviceId)
+            .filter(Boolean)
+            .map(id => new mongoose.Types.ObjectId(id));
+
+          if (technicianServiceIds.length > 0) {
+            // Find unassigned bookings matching technician's skills
+            const unassignedBookings = await ServiceBooking.find({
+              serviceId: { $in: technicianServiceIds },
+              technicianId: null, // No technician assigned yet
+              status: "broadcasted",
+            }).select("_id serviceId");
+
+            // Check which bookings this technician hasn't received yet
+            const existingBroadcasts = await JobBroadcast.find({
+              technicianId: technicianProfileId,
+              bookingId: { $in: unassignedBookings.map(b => b._id) },
+            }).select("bookingId");
+
+            const existingBookingIds = new Set(
+              existingBroadcasts.map(b => b.bookingId.toString())
+            );
+
+            // Create broadcasts for new jobs
+            const newBroadcasts = unassignedBookings
+              .filter(booking => !existingBookingIds.has(booking._id.toString()))
+              .map(booking => ({
+                bookingId: booking._id,
+                technicianId: technicianProfileId,
+                status: "sent",
+              }));
+
+            if (newBroadcasts.length > 0) {
+              await JobBroadcast.insertMany(newBroadcasts);
+              console.log(`✅ Broadcasted ${newBroadcasts.length} existing jobs to technician ${technicianProfileId}`);
+            }
+          }
+        } catch (broadcastError) {
+          console.error("⚠️ Error broadcasting existing jobs:", broadcastError.message);
+          // Don't fail the online status update if broadcast fails
+        }
+      }
     }
 
     await technician.save();
 
+    const result = technician.toObject();
+    delete result.password;
+
     return res.status(200).json({
       success: true,
       message: "Technician updated successfully",
-      result: technician,
+      result,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -201,25 +330,24 @@ export const updateTechnician = async (req, res) => {
 /* ================= UPDATE TECHNICIAN STATUS (ADMIN) ================= */
 export const updateTechnicianStatus = async (req, res) => {
   try {
-    const { technicianId, trainingCompleted, status } = req.body;
+    const { technicianId, trainingCompleted, workStatus } = req.body;
 
-    if (!technicianId) {
+    if (!isValidObjectId(technicianId)) {
       return res.status(400).json({
         success: false,
-        message: "Technician ID is required",
+        message: "Invalid Technician ID",
         result: {},
       });
     }
 
-    // 🔐 Admin only
-    // if (req.user.role !== "Owner") {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Owner access only",
-    //   });
-    // }
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Owner access only",
+      });
+    }
 
-    const technician = await Technician.findById(technicianId);
+    const technician = await TechnicianProfile.findById(technicianId);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -228,44 +356,44 @@ export const updateTechnicianStatus = async (req, res) => {
       });
     }
 
-    // ✅ Training update
     if (trainingCompleted !== undefined) {
-      technician.trainingCompleted = trainingCompleted;
-
+      technician.trainingCompleted = Boolean(trainingCompleted);
       if (trainingCompleted === true) {
-        technician.status = "trained";
+        technician.workStatus = "trained";
       }
     }
 
-    // ✅ Status update
-    if (status) {
-      if (!["approved", "suspended"].includes(status)) {
+    if (workStatus !== undefined) {
+      if (!TECHNICIAN_STATUSES.includes(workStatus)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid status value",
+          message: "Invalid workStatus value. Must be: pending, trained, approved, or suspended",
           result: {},
         });
       }
 
-      technician.status = status;
+      technician.workStatus = workStatus;
 
-      if (status === "suspended") {
+      if (workStatus === "suspended") {
         technician.availability.isOnline = false;
       }
     }
 
     await technician.save();
 
+    const result = technician.toObject();
+    delete result.password;
+
     return res.status(200).json({
       success: true,
-      message: "Technician admin update successful",
-      result: technician,
+      message: "Technician status updated successfully",
+      result,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -275,7 +403,7 @@ export const deleteTechnician = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Technician ID",
@@ -283,8 +411,7 @@ export const deleteTechnician = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findByIdAndDelete(id);
-
+    const technician = await TechnicianProfile.findById(id);
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -292,6 +419,17 @@ export const deleteTechnician = async (req, res) => {
         result: {},
       });
     }
+
+    const technicianProfileId = req.user?.profileId;
+    const isOwner = req.user?.role === "Owner";
+    if (!isOwner && (!technicianProfileId || technician._id.toString() !== technicianProfileId.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    await technician.deleteOne();
 
     return res.status(200).json({
       success: true,
@@ -302,7 +440,138 @@ export const deleteTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {},
+      result: {error: error.message},
+    });
+  }
+};
+
+/* ================= UPDATE TECHNICIAN TRAINING STATUS (OWNER ONLY) ================= */
+export const updateTechnicianTraining = async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    const { trainingCompleted } = req.body;
+
+    // 🛡️ Owner access only
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({
+        success: false,
+        message: "Owner access only",
+        result: {},
+      });
+    }
+
+    if (!isValidObjectId(technicianId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Technician ID",
+        result: {},
+      });
+    }
+
+    if (typeof trainingCompleted !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "trainingCompleted must be a boolean value",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findById(technicianId).select("-password");
+    
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician not found",
+        result: {},
+      });
+    }
+
+    // Update training status
+    technician.trainingCompleted = trainingCompleted;
+    
+    // If training is being set to false, force offline
+    if (!trainingCompleted && technician.availability?.isOnline) {
+      technician.availability.isOnline = false;
+      console.log(`⚠️ Technician ${technicianId} forced offline due to incomplete training`);
+    }
+
+    await technician.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Training status updated to ${trainingCompleted ? 'completed' : 'incomplete'}`,
+      result: {
+        technicianId: technician._id,
+        trainingCompleted: technician.trainingCompleted,
+        workStatus: technician.workStatus,
+        isOnline: technician.availability?.isOnline || false,
+      },
+    });
+  } catch (error) {
+    console.error("Update training error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
+    });
+  }
+};
+/* ================= UPLOAD TECHNICIAN PROFILE IMAGE ================= */
+export const uploadProfileImage = async (req, res) => {
+  try {
+    const technicianProfileId = req.user?.profileId;
+
+    if (!technicianProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Only technicians can upload profile image",
+        result: {},
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided",
+        result: {},
+      });
+    }
+
+    const technician = await TechnicianProfile.findByIdAndUpdate(
+      technicianProfileId,
+      { profileImage: req.file.path },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile image uploaded successfully",
+      result: {
+        profileImage: technician.profileImage,
+      },
+    });
+  } catch (error) {
+    console.error("Upload profile image error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      result: {error: error.message},
     });
   }
 };

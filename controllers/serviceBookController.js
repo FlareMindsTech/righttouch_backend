@@ -1,14 +1,59 @@
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import Technician from "../Schemas/Technician.js";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import Service from "../Schemas/Service.js";
+import Address from "../Schemas/Address.js";
 import mongoose from "mongoose";
+import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
+import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
+import { settleBookingEarningsIfEligible } from "../utils/settlement.js";
+
+const toNumber = value => {
+  const num = Number(value);
+  return Number.isNaN(num) ? NaN : num;
+};
+
+const toFiniteNumber = (v) => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 
 
 export const createBooking = async (req, res) => {
   try {
-    const { serviceId, baseAmount, address, scheduledAt } = req.body;
+    if (!req.user?.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
+    }
+    if (req.user?.role !== "Customer") {
+      return res.status(403).json({ success: false, message: "Customer access only", result: {} });
+    }
+    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    }
+    const customerProfileId = req.user.profileId;
 
-    if (!serviceId || baseAmount == null || !address) {
+    const { serviceId, baseAmount, address, scheduledAt } = req.body;
+    const addressId = typeof req.body?.addressId === "string" ? req.body.addressId.trim() : req.body?.addressId;
+
+    const addressLineInput = typeof req.body?.addressLine === "string" ? req.body.addressLine.trim() : "";
+    const cityInput = typeof req.body?.city === "string" ? req.body.city.trim() : undefined;
+    const stateInput = typeof req.body?.state === "string" ? req.body.state.trim() : undefined;
+    const pincodeInput = typeof req.body?.pincode === "string" ? req.body.pincode.trim() : undefined;
+
+    const latInput =
+      req.body?.latitude !== undefined
+        ? toFiniteNumber(req.body.latitude)
+        : toFiniteNumber(req.body?.location?.latitude);
+    const lngInput =
+      req.body?.longitude !== undefined
+        ? toFiniteNumber(req.body.longitude)
+        : toFiniteNumber(req.body?.location?.longitude);
+
+    const hasCoords = latInput !== null && lngInput !== null;
+
+    if (!serviceId || baseAmount == null || (!address && !addressId && !addressLineInput && !hasCoords)) {
       return res.status(400).json({
         success: false,
         message: "All fields required",
@@ -16,48 +61,142 @@ export const createBooking = async (req, res) => {
       });
     }
 
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceId format", result: {} });
+    }
+
+    const baseAmountNum = toNumber(baseAmount);
+    if (Number.isNaN(baseAmountNum) || baseAmountNum < 0) {
+      return res.status(400).json({ success: false, message: "baseAmount must be a non-negative number", result: {} });
+    }
+
+    const service = await Service.findById(serviceId);
+    if (!service || !service.isActive) {
+      return res.status(404).json({ success: false, message: "Service not found or inactive", result: {} });
+    }
+
+    // Optional: if addressId is provided, use Address collection (supports nearby matching)
+    let addressForBooking = address || addressLineInput || (hasCoords ? "Pinned Location" : undefined);
+    let addressForMatching = {
+      city: cityInput,
+      state: stateInput,
+      pincode: pincodeInput,
+      latitude: hasCoords ? latInput : undefined,
+      longitude: hasCoords ? lngInput : undefined,
+    };
+
+    if (addressId) {
+      if (!mongoose.Types.ObjectId.isValid(addressId)) {
+        return res.status(400).json({ success: false, message: "Invalid addressId format", result: {} });
+      }
+
+      const addressDoc = await Address.findOne({
+        _id: addressId,
+        customerProfileId,
+      });
+
+      if (!addressDoc) {
+        return res.status(404).json({ success: false, message: "Address not found", result: {} });
+      }
+
+      addressForBooking = addressDoc.addressLine;
+      addressForMatching = {
+        city: addressDoc.city,
+        state: addressDoc.state,
+        pincode: addressDoc.pincode,
+        latitude: addressDoc.latitude,
+        longitude: addressDoc.longitude,
+      };
+    }
+
+    if (!addressForBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "addressLine or addressId is required",
+        result: {},
+      });
+    }
+
     // 1️⃣ Create booking
-    const booking = await ServiceBooking.create({
-      customerId: req.user.userId,
+    const bookingDoc = {
+      customerProfileId,
       serviceId,
-      baseAmount,
-      address,
+      baseAmount: baseAmountNum,
+      address: addressForBooking,
       scheduledAt,
       status: "broadcasted",
-    });
+    };
 
-    // 2️⃣ Find technicians (FIXED)
-    const technicians = await Technician.find({
-      status: "approved",
-      // "availability.isOnline": true,
-      // "skills.serviceId": new mongoose.Types.ObjectId(serviceId),
-    }).select("_id");
+    const hasCoordsForBooking =
+      typeof addressForMatching?.latitude === "number" &&
+      Number.isFinite(addressForMatching.latitude) &&
+      typeof addressForMatching?.longitude === "number" &&
+      Number.isFinite(addressForMatching.longitude);
+
+    if (hasCoordsForBooking) {
+      bookingDoc.location = {
+        type: "Point",
+        coordinates: [addressForMatching.longitude, addressForMatching.latitude],
+      };
+    }
+
+    const booking = await ServiceBooking.create(bookingDoc);
+
+    // 2️⃣ Find eligible technicians (KYC approved + profileComplete + workStatus approved + online + skill match + nearby/area match)
+    const technicians = await findEligibleTechniciansForService({
+      serviceId,
+      address: addressForMatching,
+      radiusMeters: 5000,
+      limit: 50,
+      enableGeo: true,
+    });
 
     // 3️⃣ Create broadcast records
     if (technicians.length > 0) {
-      
-      // console.log(technicians)
-      let hel = await JobBroadcast.insertMany(
+      // Create JobBroadcast documents
+      await JobBroadcast.insertMany(
         technicians.map((t) => ({
           bookingId: booking._id,
           technicianId: t._id,
           status: "sent",
         }))
       );
-      console.log(hel);
 
+      // 4️⃣ Send notifications to all eligible technicians
+      const technicianIds = technicians.map((t) => t._id.toString());
+      await broadcastJobToTechnicians(
+        req.io, // Socket.io instance (pass from index.js)
+        technicianIds,
+        {
+          bookingId: booking._id,
+          serviceId: service._id,
+          serviceName: service.serviceName,
+          baseAmount: baseAmountNum,
+          address: addressForBooking,
+          scheduledAt,
+        }
+      );
+
+      console.log(`✅ Broadcasted to ${technicians.length} matching, online technicians`);
+    } else {
+      console.log("⚠️ No matching, online technicians found for this service");
     }
 
     return res.status(201).json({
       success: true,
       message: "Booking created & broadcasted",
-      result: booking,
+      result: {
+        booking,
+        broadcastCount: technicians.length,
+        status: technicians.length > 0 ? "broadcasted" : "no_technicians_available",
+      },
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -71,16 +210,23 @@ export const getBookings = async (req, res) => {
     let filter = {};
 
     if (req.user.role === "Customer") {
-      filter.customerId = req.user.userId;
+      if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+        return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+      }
+      filter.customerProfileId = req.user.profileId;
     }
 
     if (req.user.role === "Technician") {
-      filter.technicianId = req.user.technicianId;
+      const technicianProfileId = req.user?.profileId;
+      if (!technicianProfileId || !mongoose.Types.ObjectId.isValid(technicianProfileId)) {
+        return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+      }
+      filter.technicianId = technicianProfileId;
     }
 
     const bookings = await ServiceBooking.find(filter)
       .populate("serviceId", "serviceName")
-      .populate("customerId", "firstName lastName phone")
+      .populate("customerProfileId", "firstName lastName mobileNumber")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -93,7 +239,7 @@ export const getBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -104,8 +250,14 @@ export const getBookings = async (req, res) => {
 
 export const getCustomerBookings = async (req, res) => {
   try {
+    if (req.user?.role !== "Customer") {
+      return res.status(403).json({ success: false, message: "Customer access only", result: {} });
+    }
+    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    }
     const bookings = await ServiceBooking.find({
-      customerId: req.user.userId,
+      customerProfileId: req.user.profileId,
     })
       .populate("serviceId", "serviceName")
       .sort({ createdAt: -1 });
@@ -119,7 +271,7 @@ export const getCustomerBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -130,13 +282,26 @@ export const getCustomerBookings = async (req, res) => {
 
 export const getTechnicianJobHistory = async (req, res) => {
   try {
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    });
+    if (req.user?.role !== "Technician") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+        result: {},
+      });
+    }
+
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
 
     const jobs = await ServiceBooking.find({
-      technicianId: technician._id,
-      status: { $in: ["accepted", "rejected", "complete"] },
+      technicianId: technicianProfileId,
+      status: { $in: ["completed", "cancelled"] },
     })
       // .populate("bookingId")
       .sort({ updatedAt: -1 });
@@ -150,7 +315,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -169,19 +334,32 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       });
     }
 
-    const technician = await Technician.findOne({
-      userId: req.user.userId,
-    });
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+        result: {},
+      });
+    }
+
     const jobs = await ServiceBooking.find({
-      technicianId: technician._id,
+      technicianId: technicianProfileId,
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
-    // .populate({
-    //   path: "bookingId",
-    //   populate: { path: "serviceId", select: "serviceName" },
-    // })
+    .populate({
+      path: "customerProfileId",
+      select: "firstName lastName mobileNumber",
+    })
+    .populate({
+      path: "addressId",
+      select: "name phone addressLine city state pincode latitude longitude",
+    })
+    .populate({
+      path: "serviceId",
+      select: "serviceName",
+    })
     .sort({ createdAt: -1 });
-    console.log(technician._id)
       
 
     return res.status(200).json({
@@ -193,7 +371,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {},
+      result: {error: err.message},
     });
   }
 };
@@ -204,8 +382,19 @@ export const getTechnicianCurrentJobs = async (req, res) => {
 ===================================================== */
 export const updateBookingStatus = async (req, res) => {
   try {
+    const userRole = req.user?.role;
+
     const bookingId = req.params.id;
     const { status } = req.body;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
+      });
+    }
 
     const allowedStatus = [
       "on_the_way",
@@ -232,18 +421,60 @@ export const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // if (
-    //   req.user.role !== "Technician" ||
-    //   booking.technicianId?.toString() !== req.user.technicianId
-    // ) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Access denied",
-    //   });
-    // }
+    if (userRole !== "Technician") {
+      return res.status(403).json({ success: false, message: "Only technician can update status", result: {} });
+    }
+
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId || !booking.technicianId || booking.technicianId.toString() !== technicianProfileId.toString()) {
+      return res.status(403).json({ success: false, message: "Access denied for this booking", result: {} });
+    }
+
+    // Check technician approval status
+    const technician = await TechnicianProfile.findById(technicianProfileId);
+    if (!technician) {
+      return res.status(404).json({
+        success: false,
+        message: "Technician profile not found",
+        result: {},
+      });
+    }
+
+    if (!technician.profileComplete) {
+      return res.status(403).json({
+        success: false,
+        message: "Please complete your profile first",
+        result: { profileComplete: false },
+      });
+    }
+
+    // Check KYC status
+    const TechnicianKyc = mongoose.model('TechnicianKyc');
+    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId });
+    if (!kyc || kyc.verificationStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Your KYC must be approved before updating job status. Status: " + (kyc?.verificationStatus || "not_submitted"),
+        result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+      });
+    }
+
+    // Check workStatus
+    if (technician.workStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account must be approved by owner before working. Status: " + technician.workStatus,
+        result: { workStatus: technician.workStatus },
+      });
+    }
 
     booking.status = status;
     await booking.save();
+
+    if (status === "completed") {
+      // If payment is already verified, credit technician wallet (idempotent)
+      await settleBookingEarningsIfEligible(booking._id);
+    }
 
     return res.status(200).json({
       success: true,
@@ -255,7 +486,7 @@ export const updateBookingStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
@@ -267,6 +498,15 @@ export const updateBookingStatus = async (req, res) => {
 export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 🔒 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID format",
+        result: {},
+      });
+    }
 
     // 1️⃣ Find booking
     const booking = await ServiceBooking.findById(id);
@@ -288,7 +528,11 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    if (booking.customerId.toString() !== req.user.userId.toString()) {
+    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
+      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    }
+
+    if (booking.customerProfileId.toString() !== req.user.profileId.toString()) {
       return res.status(403).json({
         success: false,
         message: "Access denied",
@@ -338,7 +582,7 @@ export const cancelBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {},
+      result: {error: error.message},
     });
   }
 };
