@@ -305,7 +305,7 @@
         return fail(res, 500, "Failed to verify user status", "TEMPUSER_STATUS_UPDATE_FAILED");
       }
 
-      return ok(res, 200, "OTP verified", {
+      return ok(res, 200, "OTP verified successfully", {
         mobileNumber: identifier,
         role: normalizedRole,
         nextStep: "set-password",
