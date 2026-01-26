@@ -1,4 +1,4 @@
-﻿  import bcrypt from "bcryptjs";
+﻿﻿  import bcrypt from "bcryptjs";
   import jwt from "jsonwebtoken";
   import mongoose from "mongoose";
 
@@ -482,6 +482,7 @@
         token,
         role: normalizedRole,
         result: {
+          token: token,
           role: normalizedRole,
           profileId: user._id,
           userId: user.userId || user._id,
