@@ -8,9 +8,6 @@ import {
   verifyOtp,
   setPassword,
   login,
-  requestPasswordResetOtp,
-  verifyPasswordResetOtp,
-  resetPassword,
   getMyProfile,
   completeProfile,
   updateMyProfile,
@@ -110,7 +107,7 @@ const getClientIp = (req) => {
 
 // 🔒 Strict Rate Limiters for Authentication
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 60 * 1000, // 15 minutes
   //max: 50, // 50 attempts per window (increased for testing)
   message: {
     success: false,
@@ -126,7 +123,7 @@ const authLimiter = rateLimit({
 });
 
 const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 60 * 1000, // 60 Seconds
   // max: 3, // 3 OTP requests per window
   message: {
     success: false,
@@ -143,17 +140,7 @@ router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
 router.post("/set-password", authLimiter, setPassword);
 router.post("/login", authLimiter, login);
-router.post(
-  "/request-password-reset-otp",
-  otpLimiter,
-  requestPasswordResetOtp
-);
-router.post(
-  "/verify-password-reset-otp",
-  authLimiter,
-  verifyPasswordResetOtp
-);
-router.post("/reset-password", authLimiter, resetPassword);
+
 router.get("/me", Auth, getMyProfile);
 router.post("/complete-profile", Auth, completeProfile);
 router.put("/me", Auth, updateMyProfile);

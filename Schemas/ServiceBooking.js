@@ -178,6 +178,13 @@ const serviceBookingSchema = new mongoose.Schema(
       type: geoPointSchema,
       default: null,
     },
+
+    // Search radius in meters (for technician matching)
+    radius: {
+      type: Number,
+      default: 500,
+      min: 0,
+    },
   },
   { timestamps: true }
 );

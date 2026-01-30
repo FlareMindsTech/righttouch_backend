@@ -6,6 +6,7 @@ import Address from "../Schemas/Address.js";
 import mongoose from "mongoose";
 import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
 import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
+import { findNearbyTechnicians } from "../utils/findNearbyTechnicians.js";
 import { settleBookingEarningsIfEligible } from "../utils/settlement.js";
 
 const toNumber = value => {
@@ -143,30 +144,37 @@ export const createBooking = async (req, res) => {
 
     const booking = await ServiceBooking.create(bookingDoc);
 
-    // 2️⃣ Find eligible technicians (KYC approved + profileComplete + workStatus approved + online + skill match + nearby/area match)
-    const technicians = await findEligibleTechniciansForService({
-      serviceId,
-      address: addressForMatching,
-      radiusMeters: 5000,
-      limit: 50,
-      enableGeo: true,
-    });
+    // 2️⃣ Find nearby online technicians (geo query, online, radius, limit)
+    let latitude = null, longitude = null;
+    if (addressForMatching && typeof addressForMatching.latitude === "number" && typeof addressForMatching.longitude === "number") {
+      latitude = addressForMatching.latitude;
+      longitude = addressForMatching.longitude;
+    } else if (addressForMatching && typeof addressForMatching.latitude === "string" && typeof addressForMatching.longitude === "string") {
+      latitude = parseFloat(addressForMatching.latitude);
+      longitude = parseFloat(addressForMatching.longitude);
+    }
 
-    // 3️⃣ Create broadcast records
-    if (technicians.length > 0) {
-      // Create JobBroadcast documents
+    let nearbyTechnicians = [];
+    if (typeof latitude === "number" && typeof longitude === "number" && !isNaN(latitude) && !isNaN(longitude)) {
+      nearbyTechnicians = await findNearbyTechnicians({
+        latitude,
+        longitude,
+        radiusMeters: 5000,
+        limit: 20,
+      });
+    }
+
+    if (nearbyTechnicians.length > 0) {
+      const technicianIds = nearbyTechnicians.map(t => t._id.toString());
       await JobBroadcast.insertMany(
-        technicians.map((t) => ({
+        technicianIds.map(technicianId => ({
           bookingId: booking._id,
-          technicianId: t._id,
+          technicianId,
           status: "sent",
         }))
       );
-
-      // 4️⃣ Send notifications to all eligible technicians
-      const technicianIds = technicians.map((t) => t._id.toString());
       await broadcastJobToTechnicians(
-        req.io, // Socket.io instance (pass from index.js)
+        req.io,
         technicianIds,
         {
           bookingId: booking._id,
@@ -177,8 +185,7 @@ export const createBooking = async (req, res) => {
           scheduledAt,
         }
       );
-
-      console.log(`✅ Broadcasted to ${technicians.length} matching, online technicians`);
+      console.log(`✅ Broadcasted to ${nearbyTechnicians.length} matching, online technicians`);
     } else {
       console.log("⚠️ No matching, online technicians found for this service");
     }
@@ -186,13 +193,13 @@ export const createBooking = async (req, res) => {
     return res.status(201).json({
       success: true,
       message:
-        technicians.length > 0
+        nearbyTechnicians.length > 0
           ? "Booking created & broadcasted"
           : "Booking created (no technicians available for this service)",
       result: {
         booking,
-        broadcastCount: technicians.length,
-        status: technicians.length > 0 ? "broadcasted" : "no_technicians_available",
+        broadcastCount: nearbyTechnicians.length,
+        status: nearbyTechnicians.length > 0 ? "broadcasted" : "no_technicians_available",
       },
     });
   } catch (error) {

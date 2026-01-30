@@ -45,7 +45,7 @@
   };
 
   const generateOtp = () =>
-    Math.floor(1000 + Math.random() * 9999).toString();
+    Math.floor(1000 + Math.random() * 9000).toString();
 
   const toFiniteNumber = (v) => {
     const n = Number(v);
@@ -278,6 +278,11 @@
         return fail(res, 400, "OTP expired or invalid", "OTP_INVALID_OR_EXPIRED");
       }
 
+      // 🔴 1️⃣ OTP REUSE BUG (CRITICAL)
+      if (record.isVerified) {
+        return fail(res, 400, "OTP already used", "OTP_ALREADY_USED");
+      }
+
       if (record.attempts >= 5) {
         return fail(res, 429, "Too many attempts. Request new OTP.", "OTP_TOO_MANY_ATTEMPTS");
       }
@@ -437,227 +442,87 @@
     }
   };
 
-  /* ======================================================
-    5️⃣ LOGIN
-  ====================================================== */
-  export const login = async (req, res) => {
-    try {
-      const { mobileNumber, password, role } = req.body;
-      const identifier = mobileNumber?.trim();
-      const normalizedRole = normalizeRole(role);
-      const Profile = normalizedRole ? roleModelMap[normalizedRole] : null;
+/* ======================================================
+   5️⃣ LOGIN (Role-specific)
+====================================================== */
 
-      if (!Profile) return fail(res, 400, "Invalid role", "INVALID_ROLE");
+const loginHandler = async (req, res, roleKey) => {
+  try {
+    const { mobileNumber, password } = req.body;
+    const identifier = mobileNumber?.trim();
+    const Profile = roleModelMap[roleKey];
 
-      if (!identifier || !password) {
-        return fail(res, 400, "Mobile number and password required", "VALIDATION_ERROR", {
-          required: ["mobileNumber", "password"],
-        });
-      }
-
-      const user = await Profile.findOne({ mobileNumber: identifier }).select("+password");
-      if (!user) return fail(res, 404, "Invalid credentials", "INVALID_CREDENTIALS");
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return fail(res, 401, "Invalid credentials", "INVALID_CREDENTIALS");
-
-      const token = jwt.sign(
-        {
-          userId: user.userId || user._id,
-          profileId: user._id,
-          role: normalizedRole,
-          mobileNumber: user.mobileNumber,
-        },
-        process.env.JWT_SECRET
-      );
-
-      // Return populated profile data (safe fields only)
-      const profileQuery = Profile.findById(user._id).select("-password");
-      const profile = await applyRolePopulates(profileQuery, normalizedRole);
-
-      // Keep backward compatibility: top-level token exists, AND result.token exists
-      return res.status(200).json({
-        success: true,
-        message: "Login successful",
-        token,
-        role: normalizedRole,
-        result: {
-          role: normalizedRole,
-          profileId: user._id,
-          userId: user.userId || user._id,
-          mobileNumber: user.mobileNumber,
-          profileComplete: user.profileComplete,
-          profile: profile || {},
-        },
+    if (!Profile) return fail(res, 400, "Invalid role", "INVALID_ROLE");
+    if (!identifier || !password) {
+      return fail(res, 400, "Mobile number and password required", "VALIDATION_ERROR", {
+        required: ["mobileNumber", "password"],
       });
-    } catch (err) {
-      return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
     }
-  };
+
+    const user = await Profile.findOne({ mobileNumber: identifier }).select("+password");
+    if (!user) return fail(res, 404, "Invalid credentials", "INVALID_CREDENTIALS");
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return fail(res, 401, "Invalid credentials", "INVALID_CREDENTIALS");
+
+    const token = jwt.sign(
+      {
+        userId: user.userId || user._id,
+        profileId: user._id,
+        role: roleKey,
+        mobileNumber: user.mobileNumber,
+      },
+      process.env.JWT_SECRET
+    );
+
+    // Return populated profile data (safe fields only)
+    const profileQuery = Profile.findById(user._id).select("-password");
+    const profile = await applyRolePopulates(profileQuery, roleKey);
+
+    return res.status(200).json({
+      success: true,
+      message: `${roleKey} login successful`,
+      token,
+      role: roleKey,
+      result: {
+        role: roleKey,
+        profileId: user._id,
+        userId: user.userId || user._id,
+        mobileNumber: user.mobileNumber,
+        profileComplete: user.profileComplete,
+        profile: profile || {},
+      },
+    });
+  } catch (err) {
+    return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
+  }
+};
+
+export const loginOwner = async (req, res) => {
+  return loginHandler(req, res, "Owner");
+};
+
+export const loginTechnician = async (req, res) => {
+  return loginHandler(req, res, "Technician");
+};
+
+export const loginCustomer = async (req, res) => {
+  return loginHandler(req, res, "Customer");
+};
+
+// Optionally, keep a generic login for Admin or fallback
+export const login = async (req, res) => {
+  const { role } = req.body;
+  const normalizedRole = normalizeRole(role);
+  if (!normalizedRole) {
+    return fail(res, 400, "Role required for login", "ROLE_REQUIRED");
+  }
+  return loginHandler(req, res, normalizedRole);
+};
 
   /* ======================================================
     6️⃣ PASSWORD RESET FLOW
   ====================================================== */
-  export const requestPasswordResetOtp = async (req, res) => {
-    try {
-      const { mobileNumber, role } = req.body;
-      const identifier = mobileNumber?.trim();
-      const normalizedRole = normalizeRole(role);
-
-      if (!identifier || !normalizedRole) {
-        return fail(res, 400, "Mobile number and role required", "VALIDATION_ERROR", {
-          required: ["mobileNumber", "role"],
-        });
-      }
-
-      const Profile = roleModelMap[normalizedRole];
-      if (!Profile) {
-        return fail(res, 400, "Invalid role", "INVALID_ROLE");
-      }
-
-      const user = await Profile.findOne({ mobileNumber: identifier });
-      if (!user) {
-        return fail(res, 404, "User not found", "USER_NOT_FOUND");
-      }
-
-      // Remove old OTPs
-      await Otp.deleteMany({ identifier, role: normalizedRole, purpose: "RESET_PASSWORD" });
-
-      // Generate and hash OTP
-      const otp = generateOtp();
-      const hashedOtp = await bcrypt.hash(otp, 10);
-
-      // Store OTP
-      await Otp.create({
-        identifier,
-        role: normalizedRole,
-        purpose: "RESET_PASSWORD",
-        otp: hashedOtp,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-      });
-
-      // Send SMS (AFTER storing in database)
-      try {
-        await sendSms(identifier, otp);
-      } catch (smsErr) {
-        console.error("SMS sending failed:", smsErr.message);
-        return fail(res, 500, "Failed to send OTP. Please try again.", "SMS_SEND_FAILED");
-      }
-
-      return ok(res, 200, "OTP sent successfully", {
-        mobileNumber: identifier,
-        role: normalizedRole,
-        purpose: "RESET_PASSWORD",
-        expiresInSeconds: 300,
-      });
-    } catch (err) {
-      return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
-    }
-  };
-
-  export const verifyPasswordResetOtp = async (req, res) => {
-    try {
-      const { mobileNumber, role, otp } = req.body;
-      const identifier = mobileNumber?.trim();
-      const normalizedRole = normalizeRole(role);
-
-      if (!identifier || !normalizedRole || !otp) {
-        return fail(res, 400, "Mobile number, role and otp required", "VALIDATION_ERROR", {
-          required: ["mobileNumber", "role", "otp"],
-        });
-      }
-
-      const record = await Otp.findOne({
-        identifier,
-        role: normalizedRole,
-        purpose: "RESET_PASSWORD",
-        expiresAt: { $gt: Date.now() },
-      }).sort({ createdAt: -1 });
-
-      if (!record) return fail(res, 400, "OTP expired or invalid", "OTP_INVALID_OR_EXPIRED");
-
-      const isMatch = await bcrypt.compare(otp, record.otp);
-      if (!isMatch) return fail(res, 400, "Invalid OTP", "OTP_INVALID");
-
-      record.isVerified = true;
-      await record.save();
-
-      return ok(res, 200, "OTP verified", {
-        mobileNumber: identifier,
-        role: normalizedRole,
-        nextStep: "reset-password",
-      });
-    } catch (err) {
-      return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
-    }
-  };
-
-  export const resetPassword = async (req, res) => {
-    try {
-      const { mobileNumber, role, newPassword } = req.body;
-      const identifier = mobileNumber?.trim();
-      const normalizedRole = normalizeRole(role);
-
-      if (!identifier || !normalizedRole || !newPassword) {
-        return fail(res, 400, "Mobile number, role and newPassword required", "VALIDATION_ERROR", {
-          required: ["mobileNumber", "role", "newPassword"],
-        });
-      }
-
-      if (!passwordRegex.test(newPassword)) {
-        return fail(
-          res,
-          400,
-          "Password must be at least 8 characters with letters, numbers, and special characters",
-          "WEAK_PASSWORD"
-        );
-      }
-
-      const Profile = roleModelMap[normalizedRole];
-      if (!Profile) {
-        return fail(res, 400, "Invalid role", "INVALID_ROLE");
-      }
-
-      // Check if OTP is verified
-      const record = await Otp.findOne({
-        identifier,
-        role: normalizedRole,
-        purpose: "RESET_PASSWORD",
-        isVerified: true,
-      });
-
-      if (!record) {
-        return fail(
-          res,
-          403,
-          "OTP not verified. Please complete OTP verification first.",
-          "OTP_NOT_VERIFIED"
-        );
-      }
-
-      // Update password
-      const hashed = await bcrypt.hash(newPassword, 10);
-      const updatedUser = await Profile.findOneAndUpdate(
-        { mobileNumber: identifier },
-        { password: hashed },
-        { new: true }
-      );
-
-      if (!updatedUser) {
-        return fail(res, 404, "User not found", "USER_NOT_FOUND");
-      }
-
-      // Cleanup OTP records
-      await Otp.deleteMany({ identifier, role: normalizedRole, purpose: "RESET_PASSWORD" });
-
-      return ok(res, 200, "Password reset successful", {
-        mobileNumber: identifier,
-        role: normalizedRole,
-      });
-    } catch (err) {
-      return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
-    }
-  };
 
   /* ======================================================
     7️⃣ PROFILE APIs
@@ -671,6 +536,12 @@
     }
 
     const profile = await Profile.findById(profileId).select("-password");
+
+    // 🟠 5️⃣ getMyProfile SAFETY CHECK (SMALL)
+    if (!profile) {
+      return fail(res, 404, "Profile not found", "PROFILE_NOT_FOUND");
+    }
+
     const result = profile ? profile.toObject() : {};
 
     // For Technician, also fetch bank details from TechnicianKyc
@@ -697,7 +568,7 @@
     let allowedFields = [];
 
     if (role === "Customer") {
-      allowedFields = ["firstName", "lastName", "gender", "mobileNumber"];
+      allowedFields = ["firstName", "lastName", "gender"];
     }
 
     if (role === "Technician") {
@@ -705,7 +576,6 @@
         "firstName",
         "lastName",
         "gender",
-        "mobileNumber",
         "address",
         "city",
         "state",
@@ -723,7 +593,6 @@
         "firstName",
         "lastName",
         "gender",
-        "mobileNumber",
         "companyName",
         "businessType",
         "address",
@@ -739,7 +608,6 @@
         "firstName",
         "lastName",
         "gender",
-        "mobileNumber",
         "designation",
         "department",
         "address",
