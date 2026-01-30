@@ -32,48 +32,12 @@ const technicianProfileSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
       unique: true,
       index: true,
     },
-    email: {
-      type: String,
-      unique: true,
-      sparse: true,
-      lowercase: true,
-      trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Invalid email"],
-    },
-
-    password: {
-      type: String,
-      required: true,
-      minlength: 8,
-      select: false,
-    },
-
-    firstName: {
-      type: String,
-      trim: true,
-    },
-
-    lastName: {
-      type: String,
-      trim: true,
-    },
-
-    gender: {
-      type: String,
-      enum: ["Male", "Female", "Other"],
-    },
-
-    mobileNumber: {
-      type: String,
-      unique: true,
-      sparse: true,
-      match: [/^[0-9]{10}$/, "Invalid mobile number"],
-    },
-
+   
     /* ==========================
        � PROFILE IMAGE
     ========================== */
@@ -85,27 +49,7 @@ const technicianProfileSchema = new mongoose.Schema(
     /* ==========================
        �📍 FIXED OFFICIAL ADDRESS
     ========================== */
-    address: {
-      type: String,
-      trim: true,
-    },
-
-    city: {
-      type: String,
-      trim: true,
-    },
-
-    state: {
-      type: String,
-      trim: true,
-    },
-
-    pincode: {
-      type: String,
-      match: [/^[0-9]{6}$/, "Invalid pincode"],
-    },
-
-    // 🌍 Optional geo location (for nearby technician matching)
+      // 🌍 Optional geo location (for nearby technician matching)
     // Stored as GeoJSON Point: [longitude, latitude]
     location: {
       type: {
