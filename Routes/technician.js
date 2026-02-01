@@ -1,62 +1,17 @@
-import { updateTechnicianLocation } from "../controllers/technician.js";
-// Technician live location update
-router.put("/technician/location", Auth, isTechnician, updateTechnicianLocation);
-import { technicianLogin } from "../controllers/User.js";
-// Technician-only login route
-router.post("/login", technicianLogin);
+
 import express from "express";
 import { Auth, authorizeRoles } from "../middleware/Auth.js";
 import isTechnician from "../middleware/isTechnician.js";
 import { upload } from "../utils/cloudinaryUpload.js";
+import { updateTechnicianLocation, createTechnician, getAllTechnicians, getTechnicianById, getMyTechnician, updateTechnician, addTechnicianSkills, removeTechnicianSkills, updateTechnicianStatus, deleteTechnician, updateTechnicianTraining, uploadProfileImage } from "../controllers/technician.js";
+import { technicianLogin } from "../controllers/User.js";
+import { respondToJob, getMyJobs } from "../controllers/technicianBroadcastController.js";
+import { submitTechnicianKyc, uploadTechnicianKycDocuments, getTechnicianKyc, getMyTechnicianKyc, getAllTechnicianKyc, verifyTechnicianKyc, verifyBankDetails, deleteTechnicianKyc, getOrphanedKyc, deleteOrphanedKyc, deleteAllOrphanedKyc } from "../controllers/technicianKycController.js";
+import { updateBookingStatus, getTechnicianJobHistory, getTechnicianCurrentJobs } from "../controllers/serviceBookController.js";
+import { createWalletTransaction, getWalletHistory, requestWithdrawal, getMyWithdrawals, cancelMyWithdrawal, ownerListWithdrawals, ownerDecideWithdrawal } from "../controllers/technicianWalletController.js";
 
-import {
-  respondToJob,
-  getMyJobs,
-} from "../controllers/technicianBroadcastController.js";
 
-import {
-  createTechnician,
-  getAllTechnicians,
-  getTechnicianById,
-  getMyTechnician,
-  updateTechnician,
-  addTechnicianSkills,
-  removeTechnicianSkills,
-  updateTechnicianStatus,
-  deleteTechnician,
-  updateTechnicianTraining,
-  uploadProfileImage,
-} from "../controllers/technician.js";
 
-import {
-  submitTechnicianKyc,
-  uploadTechnicianKycDocuments,
-  getTechnicianKyc,
-  getMyTechnicianKyc,
-  getAllTechnicianKyc,
-  verifyTechnicianKyc,
-  verifyBankDetails,
-  deleteTechnicianKyc,
-  getOrphanedKyc,
-  deleteOrphanedKyc,
-  deleteAllOrphanedKyc,
-} from "../controllers/technicianKycController.js";
-
-import {
-  updateBookingStatus,
-  getTechnicianJobHistory,
-  getTechnicianCurrentJobs
-} from "../controllers/serviceBookController.js";
-
-import {
-  createWalletTransaction,
-  getWalletHistory,
-  requestWithdrawal,
-  getMyWithdrawals,
-  cancelMyWithdrawal,
-  ownerListWithdrawals,
-  ownerDecideWithdrawal,
-} from "../controllers/technicianWalletController.js";
 
 const router = express.Router();
 

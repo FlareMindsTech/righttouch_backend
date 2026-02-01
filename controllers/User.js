@@ -1,4 +1,34 @@
-﻿    // Owner-only login
+﻿    // Get all users by role
+    export const getAllUsers = async (req, res) => {
+      try {
+        const { role } = req.params;
+        if (!role) {
+          return res.status(400).json({ success: false, message: "Role is required", result: {} });
+        }
+        const users = await User.find({ role });
+        return res.status(200).json({ success: true, message: "Users fetched", result: users });
+      } catch (err) {
+        return res.status(500).json({ success: false, message: err.message, result: {} });
+      }
+    };
+
+    // Get user by id and role
+    export const getUserById = async (req, res) => {
+      try {
+        const { role, id } = req.params;
+        if (!role || !id) {
+          return res.status(400).json({ success: false, message: "Role and id are required", result: {} });
+        }
+        const user = await User.findOne({ _id: id, role });
+        if (!user) {
+          return res.status(404).json({ success: false, message: "User not found", result: {} });
+        }
+        return res.status(200).json({ success: true, message: "User fetched", result: user });
+      } catch (err) {
+        return res.status(500).json({ success: false, message: err.message, result: {} });
+      }
+    };
+    // Owner-only login
     export const ownerLogin = async (req, res) => {
       try {
         const { identifier, password } = req.body;
@@ -618,7 +648,7 @@
         ).select("-password");
         return ok(res, 200, "Profile completed successfully", updated || {});
       } else {
-        allowedFields = ["firstName", "lastName", "gender", "email"];
+        allowedFields = ["fname", "lname", "gender", "email"];
         const updateData = {};
         allowedFields.forEach((field) => {
           if (req.body[field] !== undefined) {
@@ -749,7 +779,7 @@
         ).select("-password");
         return ok(res, 200, "Profile updated successfully", updated || {});
       } else {
-        let allowedFields = ["firstName", "lastName", "gender", "email"];
+        let allowedFields = ["fname", "lname", "gender", "email"];
         const forbidden = new Set(["password", "status", "userId", "profileComplete"]);
         const updateData = {};
         Object.keys(req.body || {}).forEach((k) => {
