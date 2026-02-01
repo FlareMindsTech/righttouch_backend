@@ -1,5 +1,11 @@
+import { updateTechnicianLocation } from "../controllers/technician.js";
+// Technician live location update
+router.put("/technician/location", Auth, isTechnician, updateTechnicianLocation);
+import { technicianLogin } from "../controllers/User.js";
+// Technician-only login route
+router.post("/login", technicianLogin);
 import express from "express";
-import { Auth } from "../middleware/Auth.js";
+import { Auth, authorizeRoles } from "../middleware/Auth.js";
 import isTechnician from "../middleware/isTechnician.js";
 import { upload } from "../utils/cloudinaryUpload.js";
 
@@ -120,7 +126,7 @@ router.get("/wallet/withdrawals/me", Auth, isTechnician, getMyWithdrawals);
 router.put("/wallet/withdrawals/:id/cancel", Auth, isTechnician, cancelMyWithdrawal);
 
 // Owner payout queue (approve/reject/mark-paid)
-router.get("/wallet/withdrawals", Auth, ownerListWithdrawals);
-router.put("/wallet/withdrawals/:id/decision", Auth, ownerDecideWithdrawal);
+router.get("/wallet/withdrawals", Auth, authorizeRoles("Owner"), ownerListWithdrawals);
+router.put("/wallet/withdrawals/:id/decision", Auth, authorizeRoles("Owner"), ownerDecideWithdrawal);
 
 export default router;
