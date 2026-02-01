@@ -1,5 +1,4 @@
-// Index for cleanup/expiry
-jobBroadcastSchema.index({ sentAt: 1 });
+
 // Schemas/JobBroadcast.js
 import mongoose from "mongoose";
 
@@ -36,12 +35,9 @@ const jobBroadcastSchema = new mongoose.Schema(
 );
 
 
-// 🚨 Prevent duplicate job sends
-jobBroadcastSchema.index(
-  { bookingId: 1, technicianId: 1 },
-  { unique: true }
-);
 
+// 🚨 Prevent duplicate job sends
+jobBroadcastSchema.index({ bookingId: 1, technicianId: 1 }, { unique: true });
 // Index for sentAt (for querying/cleanup/analytics)
 jobBroadcastSchema.index({ sentAt: 1 });
 

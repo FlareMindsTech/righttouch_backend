@@ -82,6 +82,7 @@ import {
   razorpayWebhook,
   updatePaymentStatus,
   retryPaymentSettlement,
+  createPayment,
 } from "../controllers/paymentController.js";
 
 import {
