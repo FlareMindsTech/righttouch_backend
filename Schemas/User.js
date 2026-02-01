@@ -9,36 +9,35 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Optional email (unique if present)
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+      match: [/^\S+@\S+\.\S+$/, "Invalid email"],
+    },
+
     fname: {
       type: String,
-      lowercase: true,
       trim: true,
-      sparse: true,
-      unique: true,
-      match: [/^\S+@\S+\.\S+$/, "Invalid email"],
     },
 
     lname: {
       type: String,
-      lowercase: true,
       trim: true,
-      sparse: true,
-      unique: true,
-      match: [/^\S+@\S+\.\S+$/, "Invalid email"],
     },
+
     gender: {
       type: String,
-      lowercase: true,
-      trim: true,
-      sparse: true,
-      unique: true,
-      match: [/^\S+@\S+\.\S+$/, "Invalid email"],
+      enum: ["Male", "Female", "Other"],
     },
 
     mobileNumber: {
       type: String,
       unique: true,
-      sparse: true,
+      required: true,
       match: [/^[0-9]{10}$/, "Invalid mobile number"],
     },
 
@@ -48,7 +47,6 @@ const userSchema = new mongoose.Schema(
       minlength: 8,
       select: false,
     },
-    
 
     status: {
       type: String,

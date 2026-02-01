@@ -7,6 +7,8 @@ import {
   verifyOtp,
   setPassword,
   login,
+  technicianLogin,
+  ownerLogin,
   getMyProfile,
   completeProfile,
   updateMyProfile,
@@ -75,11 +77,11 @@ import {
 } from "../controllers/productBooking.js";
 
 import {
-  createPayment,
   createPaymentOrder,
   verifyPayment,
   razorpayWebhook,
   updatePaymentStatus,
+  retryPaymentSettlement,
 } from "../controllers/paymentController.js";
 
 import {
@@ -138,6 +140,17 @@ router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
 router.post("/set-password", authLimiter, setPassword);
 router.post("/login", authLimiter, login);
+
+/* ================= USER LOGIN ROUTES (Role-specific) ================= */
+// Customer login (default, only allows Customer role)
+router.post("/login/customer", authLimiter, async (req, res, next) => {
+  req.body.role = "Customer";
+  return login(req, res, next);
+});
+
+
+// Owner login (only allows Owner role)
+router.post("/login/owner", authLimiter, ownerLogin);
 
 router.get("/me", Auth, getMyProfile);
 router.post("/complete-profile", Auth, completeProfile);
@@ -232,6 +245,9 @@ router.post("/payment/order", Auth, createPaymentOrder);
 router.post("/payment/verify", Auth, verifyPayment);
 router.post("/payment/webhook/razorpay", razorpayWebhook);
 router.put("/payment/:id/status", Auth, updatePaymentStatus);
+
+// ✅ New: Manual retry for stuck settlements (Admin/Owner)
+router.post("/payment/retry-settlement", Auth, retryPaymentSettlement);
 
 /* ================= CART ================= */
 router.post("/cart/add", Auth, addToCart);

@@ -48,12 +48,6 @@ const toFiniteNumber = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-const normalizeAddressId = (v) => {
-  if (typeof v !== "string") return v || null;
-  const trimmed = v.trim();
-  return trimmed ? trimmed : null;
-};
-
 /* ================= ADD TO CART ================= */
 export const addToCart = async (req, res) => {
   try {
@@ -99,10 +93,9 @@ export const addToCart = async (req, res) => {
     }
 
     // Check if item exists
-    const item =
-      itemType === "product"
-        ? await Product.findById(itemId)
-        : await Service.findById(itemId);
+    const item = itemType === "product"
+      ? await Product.findById(itemId)
+      : await Service.findById(itemId);
 
     if (!item) {
       return res.status(404).json({
@@ -114,7 +107,7 @@ export const addToCart = async (req, res) => {
 
     // Add or update cart item
     const cartItem = await Cart.findOneAndUpdate(
-      { customerProfileId, itemType, itemId },
+      { customerId, itemType, itemId },
       { quantity },
       { upsert: true, new: true, runValidators: true }
     );
@@ -138,9 +131,9 @@ export const addToCart = async (req, res) => {
 export const getMyCart = async (req, res) => {
   try {
     ensureCustomer(req);
-    const customerProfileId = req.user.profileId;
+    const customerId = req.user.userId;
 
-    const cartItems = await Cart.find({ customerProfileId });
+    const cartItems = await Cart.find({ customerId });
 
     // Populate items based on type (uses populate; keeps response shape the same)
     await Promise.all(
@@ -402,7 +395,7 @@ export const checkout = async (req, res) => {
     const customerProfileId = req.user.profileId;
 
     // Optional safety: ensure profile still exists
-    const customerProfile = await CustomerProfile.findById(customerProfileId).session(session);
+    // Removed CustomerProfile usage. Use User if needed.
     if (!customerProfile) {
       await session.abortTransaction();
       return res.status(404).json({
@@ -476,7 +469,7 @@ export const checkout = async (req, res) => {
         });
       }
 
-      address = await Address.findOne({ _id: addressId, customerProfileId }).session(session);
+      address = await Address.findOne({ _id: addressId, customerId }).session(session);
       if (!address) {
         await session.abortTransaction();
         return res.status(404).json({
@@ -542,7 +535,7 @@ export const checkout = async (req, res) => {
     }
 
     // Get all cart items for the user
-    const cartItems = await Cart.find({ customerProfileId }).session(session);
+    const cartItems = await Cart.find({ customerId }).session(session);
 
     if (cartItems.length === 0) {
       await session.abortTransaction();
@@ -631,7 +624,7 @@ export const checkout = async (req, res) => {
         Number.isFinite(addressSnapshot.longitude);
 
       const serviceBookingDoc = {
-        customerProfileId,
+        customerId,
         serviceId: cartItem.itemId,
         baseAmount,
         address: addressSnapshot.addressLine,
@@ -692,7 +685,7 @@ export const checkout = async (req, res) => {
 
       const productBooking = await ProductBooking.create([{
         productId: cartItem.itemId,
-        customerProfileId,
+        customerId,
         amount: finalAmount,
         paymentStatus: paymentMode === "online" ? "pending" : "pending",
         status: "active",
@@ -714,7 +707,7 @@ export const checkout = async (req, res) => {
     }
 
     // Clear the cart only after all bookings are created successfully
-    await Cart.deleteMany({ customerProfileId }).session(session);
+    await Cart.deleteMany({ customerId }).session(session);
 
     await session.commitTransaction();
 
