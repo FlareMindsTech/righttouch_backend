@@ -261,13 +261,12 @@
     ====================================================== */
     export const resendOtp = async (req, res) => {
       try {
-        const { mobileNumber, role } = req.body;
+        const { mobileNumber } = req.body;
         const identifier = mobileNumber?.trim();
-        const normalizedRole = normalizeRole(role);
 
-        if (!identifier || !normalizedRole) {
-          return fail(res, 400, "Mobile number and role required", "VALIDATION_ERROR", {
-            required: ["mobileNumber", "role"],
+        if (!identifier) {
+          return fail(res, 400, "Mobile number required", "VALIDATION_ERROR", {
+            required: ["mobileNumber"],
           });
         }
 
@@ -283,14 +282,13 @@
           );
         }
 
-        const tempUser = await TempUser.findOne({
-          identifier,
-          role: normalizedRole,
-        });
+        const tempUser = await TempUser.findOne({ identifier });
 
         if (!tempUser) {
           return fail(res, 404, "Signup not found", "SIGNUP_NOT_FOUND");
         }
+        
+        const normalizedRole = tempUser.role;
 
         const lastOtp = await Otp.findOne({
           identifier,
@@ -349,28 +347,33 @@
     ====================================================== */
     export const verifyOtp = async (req, res) => {
       try {
-        const { mobileNumber, role, otp } = req.body;
+        const { mobileNumber, otp } = req.body;
         const identifier = mobileNumber?.trim();
-        const normalizedRole = normalizeRole(role);
 
-        if (!identifier || !normalizedRole || !otp) {
-          return fail(res, 400, "Mobile number, role and otp required", "VALIDATION_ERROR", {
-            required: ["mobileNumber", "role", "otp"],
+        if (!identifier || !otp) {
+          return fail(res, 400, "Mobile number and OTP required", "VALIDATION_ERROR", {
+            required: ["mobileNumber", "otp"],
           });
         }
 
-        // ATOMIC OTP verification
-          const record = await Otp.findOneAndUpdate(
-            {
-              identifier,
-              role: normalizedRole,
-              verified: false,
-              otp: { $exists: true },
-              createdAt: { $gte: Date.now() - 10 * 60 * 1000 }
-            },
-            { $set: { verified: true } },
-            { new: true }
-          );
+        // Find TempUser to get role
+        const tempUser = await TempUser.findOne({ identifier });
+        if (!tempUser) {
+          return fail(res, 404, "No signup request found. Please signup first.", "TEMPUSER_NOT_FOUND");
+        }
+
+        const normalizedRole = tempUser.role;
+
+        // Find OTP record (NOT verified yet) - check expiresAt for expiry
+        const record = await Otp.findOne(
+          {
+            identifier,
+            role: normalizedRole,
+            verified: false,
+            otp: { $exists: true },
+            expiresAt: { $gte: Date.now() }
+          }
+        );
 
         if (!record) {
           return fail(res, 400, "OTP expired, invalid, or already used", "OTP_INVALID_OR_EXPIRED");
@@ -380,18 +383,18 @@
           return fail(res, 429, "Too many attempts. Request new OTP.", "OTP_TOO_MANY_ATTEMPTS");
         }
 
+        // Verify OTP BEFORE marking as verified
         const isMatch = await bcrypt.compare(otp, record.otp);
         if (!isMatch) {
-          record.attempts++;
-          await record.save();
-          return fail(res, 400, "Invalid OTP", "OTP_INVALID", {
-            attemptsRemaining: Math.max(0, 5 - record.attempts),
+          await Otp.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
+          const remainingAttempts = Math.max(0, 5 - (record.attempts + 1));
+          return fail(res, 400, `Invalid OTP. ${remainingAttempts} attempts remaining`, "OTP_INVALID", {
+            attemptsRemaining: remainingAttempts,
           });
         }
 
-        // Mark OTP as verified
-        record.isVerified = true;
-        await record.save();
+        // Mark OTP as verified ONLY after successful verification
+        await Otp.updateOne({ _id: record._id }, { $set: { verified: true } });
 
         // Update TempUser status
         const tempUserUpdate = await TempUser.updateOne(
@@ -418,11 +421,11 @@
     ====================================================== */
     export const setPassword = async (req, res) => {
       try {
-        const { password, confirmPassword, mobileNumber, role } = req.body;
+        const { password, confirmPassword, mobileNumber } = req.body;
 
-        if (!password || !confirmPassword) {
-          return fail(res, 400, "Password and confirm password required", "VALIDATION_ERROR", {
-            required: ["password", "confirmPassword"],
+        if (!mobileNumber || !password || !confirmPassword) {
+          return fail(res, 400, "Mobile number, password and confirm password required", "VALIDATION_ERROR", {
+            required: ["mobileNumber", "password", "confirmPassword"],
           });
         }
 
@@ -439,11 +442,32 @@
           );
         }
 
-        // Find verified TempUser for this identifier and role
+        // Find verified TempUser for this identifier
         const identifier = mobileNumber?.trim();
-        const normalizedRole = normalizeRole(role);
-        const tempUser = await TempUser.findOne({ identifier, role: normalizedRole, tempstatus: "Verified" });
+        let tempUser = await TempUser.findOne({ identifier, tempstatus: "Verified" });
+        let normalizedRole = tempUser?.role;
+
         if (!tempUser) {
+          const pendingTemp = await TempUser.findOne({ identifier });
+          const verifiedOtp = await Otp.findOne({
+            identifier,
+            purpose: "SIGNUP",
+            verified: true,
+          });
+
+          if (pendingTemp && verifiedOtp) {
+            normalizedRole = pendingTemp.role;
+            tempUser = await TempUser.findOneAndUpdate(
+              { identifier, role: pendingTemp.role },
+              { tempstatus: "Verified" },
+              { new: true }
+            );
+          } else if (verifiedOtp) {
+            normalizedRole = verifiedOtp.role;
+          }
+        }
+
+        if (!normalizedRole) {
           return fail(
             res,
             403,
@@ -485,7 +509,11 @@
             ], { session });
           }
 
-          await TempUser.deleteOne({ _id: tempUser._id }, { session });
+          if (tempUser?._id) {
+            await TempUser.deleteOne({ _id: tempUser._id }, { session });
+          } else {
+            await TempUser.deleteOne({ identifier, role: normalizedRole }, { session });
+          }
           await Otp.deleteMany({ identifier, role: normalizedRole }, { session });
 
           await session.commitTransaction();
