@@ -1,61 +1,23 @@
+
 import express from "express";
-import { Auth } from "../middleware/Auth.js";
+import { Auth, authorizeRoles } from "../middleware/Auth.js";
 import isTechnician from "../middleware/isTechnician.js";
 import { upload } from "../utils/cloudinaryUpload.js";
+import { updateTechnicianLocation, createTechnician, getAllTechnicians, getTechnicianById, getMyTechnician, updateTechnician, addTechnicianSkills, removeTechnicianSkills, updateTechnicianStatus, deleteTechnician, updateTechnicianTraining, uploadProfileImage } from "../controllers/technician.js";
+import { technicianLogin } from "../controllers/User.js";
+import { respondToJob, getMyJobs } from "../controllers/technicianBroadcastController.js";
+import { submitTechnicianKyc, uploadTechnicianKycDocuments, getTechnicianKyc, getMyTechnicianKyc, getAllTechnicianKyc, verifyTechnicianKyc, verifyBankDetails, deleteTechnicianKyc, getOrphanedKyc, deleteOrphanedKyc, deleteAllOrphanedKyc } from "../controllers/technicianKycController.js";
+import { updateBookingStatus, getTechnicianJobHistory, getTechnicianCurrentJobs } from "../controllers/serviceBookController.js";
+import { createWalletTransaction, getWalletHistory, requestWithdrawal, getMyWithdrawals, cancelMyWithdrawal, ownerListWithdrawals, ownerDecideWithdrawal } from "../controllers/technicianWalletController.js";
 
-import {
-  respondToJob,
-  getMyJobs,
-} from "../controllers/technicianBroadcastController.js";
 
-import {
-  createTechnician,
-  getAllTechnicians,
-  getTechnicianById,
-  getMyTechnician,
-  updateTechnician,
-  addTechnicianSkills,
-  removeTechnicianSkills,
-  updateTechnicianStatus,
-  deleteTechnician,
-  updateTechnicianTraining,
-  uploadProfileImage,
-} from "../controllers/technician.js";
 
-import {
-  submitTechnicianKyc,
-  uploadTechnicianKycDocuments,
-  getTechnicianKyc,
-  getMyTechnicianKyc,
-  getAllTechnicianKyc,
-  verifyTechnicianKyc,
-  verifyBankDetails,
-  deleteTechnicianKyc,
-  getOrphanedKyc,
-  deleteOrphanedKyc,
-  deleteAllOrphanedKyc,
-} from "../controllers/technicianKycController.js";
-
-import {
-  updateBookingStatus,
-  getTechnicianJobHistory,
-  getTechnicianCurrentJobs
-} from "../controllers/serviceBookController.js";
-
-import {
-  createWalletTransaction,
-  getWalletHistory,
-  requestWithdrawal,
-  getMyWithdrawals,
-  cancelMyWithdrawal,
-  ownerListWithdrawals,
-  ownerDecideWithdrawal,
-} from "../controllers/technicianWalletController.js";
 
 const router = express.Router();
 
 /* ================= TECHNICIAN DATA ================= */
 
+router.post("/login", technicianLogin);
 router.post("/technicianData", Auth, createTechnician);
 router.get("/technicianAll", Auth, getAllTechnicians);
 router.get("/technicianById/:id", Auth, getTechnicianById);
@@ -120,7 +82,7 @@ router.get("/wallet/withdrawals/me", Auth, isTechnician, getMyWithdrawals);
 router.put("/wallet/withdrawals/:id/cancel", Auth, isTechnician, cancelMyWithdrawal);
 
 // Owner payout queue (approve/reject/mark-paid)
-router.get("/wallet/withdrawals", Auth, ownerListWithdrawals);
-router.put("/wallet/withdrawals/:id/decision", Auth, ownerDecideWithdrawal);
+router.get("/wallet/withdrawals", Auth, authorizeRoles("Owner"), ownerListWithdrawals);
+router.put("/wallet/withdrawals/:id/decision", Auth, authorizeRoles("Owner"), ownerDecideWithdrawal);
 
 export default router;

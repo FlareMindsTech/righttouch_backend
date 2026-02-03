@@ -5,6 +5,7 @@ const geoPointSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["Point"],
+      default: "Point",
       required: true,
     },
     coordinates: {
@@ -37,41 +38,17 @@ const technicianProfileSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
-   
-    /* ==========================
-       � PROFILE IMAGE
-    ========================== */
+
+    // Profile image (optional, not in User)
     profileImage: {
       type: String,
       trim: true,
     },
 
-    /* ==========================
-       �📍 FIXED OFFICIAL ADDRESS
-    ========================== */
-      // 🌍 Optional geo location (for nearby technician matching)
-    // Stored as GeoJSON Point: [longitude, latitude]
+    // Geo location for technician matching
     location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        // ❌ Removed default to prevent partial GeoJSON objects
-      },
-      coordinates: {
-        type: [Number],
-        default: undefined,
-      },
-    },
-
-    // 📍 Display-friendly lat/long strings
-    latitude: {
-      type: String,
-      trim: true,
-    },
-
-    longitude: {
-      type: String,
-      trim: true,
+      type: geoPointSchema,
+      default: null,
     },
 
     /* ==========================
@@ -104,13 +81,15 @@ const technicianProfileSchema = new mongoose.Schema(
     /* ==========================
        🔧 TECHNICIAN OPERATIONAL DATA
     ========================== */
-    
+
     skills: [
       {
         serviceId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Service",
+          required: true,
         },
+        experienceYears: { type: Number, default: 0 },
       },
     ],
 

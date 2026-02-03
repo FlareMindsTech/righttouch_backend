@@ -8,9 +8,9 @@ const ProductBookingSchema = new mongoose.Schema(
       required: true,
     },
 
-    customerProfileId: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "CustomerProfile",
+      ref: "User",
       required: true,
     },
 
@@ -18,6 +18,36 @@ const ProductBookingSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+
+    // 📍 LOCATION FOR DELIVERY
+    locationType: {
+      type: String,
+      enum: ["GPS", "ADDRESS"],
+      required: true,
+    },
+
+    addressSnapshot: {
+      addressLine: String,
+      city: String,
+      state: String,
+      pincode: String,
+      name: String,
+      phone: String,
+      latitude: Number,
+      longitude: Number,
+    },
+
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        index: "2dsphere",
+      },
     },
 
     quantity: {
