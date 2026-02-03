@@ -1,19 +1,20 @@
 import express from "express";
 import { upload } from "../utils/cloudinaryUpload.js";
-import rateLimit from "express-rate-limit";
-
+import rateLimit from 'express-rate-limit';
 import {
   signupAndSendOtp,
   resendOtp,
   verifyOtp,
   setPassword,
   login,
+  technicianLogin,
   ownerLogin,
   getMyProfile,
   completeProfile,
   updateMyProfile,
   getUserById,
   getAllUsers,
+  checkUserByMobile,
 } from "../controllers/User.js";
 
 import {
@@ -58,7 +59,6 @@ import {
   cancelBooking,
 } from "../controllers/serviceBookController.js";
 
-
 import {
   createProduct,
   getProduct,
@@ -96,7 +96,7 @@ import {
   checkout,
 } from "../controllers/cartController.js";
 
-import { Auth, authorizeRoles } from "../middleware/Auth.js";
+import { Auth } from "../middleware/Auth.js";
 
 const router = express.Router();
 
@@ -154,15 +154,16 @@ router.post("/login/customer", authLimiter, async (req, res, next) => {
 // Owner login (only allows Owner role)
 router.post("/login/owner", authLimiter, ownerLogin);
 
+// 🔍 DEBUG: Check user by mobile number
+router.get("/debug/check-user/:mobileNumber", checkUserByMobile);
+
 router.get("/me", Auth, getMyProfile);
 router.post("/complete-profile", Auth, completeProfile);
 router.put("/me", Auth, updateMyProfile);
 router.get("/users/:role/:id", Auth, getUserById);
 router.get("/users/:role", Auth, getAllUsers);
 
-
 /* ================= CATEGORY ================= */
-
 router.post("/category", Auth, serviceCategory);
 router.post(
   "/category/upload-image",
@@ -177,13 +178,11 @@ router.put("/updatecategory/:id", Auth, updateCategory);
 router.delete("/deletecategory/:id", Auth, deleteCategory);
 
 /* ================= REPORT ================= */
-
 router.post("/report", Auth, userReport);
 router.get("/getAllReports", getAllReports);
 router.get("/getReportById/:id", Auth, getReportById);
 
 /* ================= SERVICE ================= */
-
 router.post("/service", Auth, createService);
 router.post(
   "/services/upload-images",
@@ -204,21 +203,11 @@ router.put("/updateService/:id", Auth, updateService);
 router.delete("/services/:id", Auth, deleteService);
 
 /* ================= SERVICE BOOKING ================= */
-
-// Booking creation happens via /checkout (cart)
-// router.post("/serviceBook", Auth, createBooking);
-
-// Admin / Technician / Customer view bookings
-router.get("/service/booking", Auth,
-  getBookings);
-
-// Customer / Admin cancels booking
+router.get("/service/booking", Auth, getBookings);
 router.put("/booking/cancel/:id", Auth, cancelBooking);
-
 router.get("/booking/getCustomerBookings", Auth, getCustomerBookings);
 
 /* ================= RATING ================= */
-
 router.post("/rating", Auth, userRating);
 router.get("/getAllRatings", getAllRatings);
 router.get("/getRatingById/:id", getRatingById);
@@ -226,7 +215,6 @@ router.put("/updateRating/:id", Auth, updateRating);
 router.delete("/deleteRating/:id", Auth, deleteRating);
 
 /* ================= PRODUCT ================= */
-
 router.post("/product", Auth, createProduct);
 router.post(
   "/product/upload-images",
@@ -252,28 +240,15 @@ router.put(
 router.delete("/deleteProduct/:id", Auth, deleteProduct);
 
 /* ================= PRODUCT BOOKING ================= */
-
-// Booking creation happens via /checkout (cart)
-// router.post("/productBooking", Auth, productBooking);
 router.get("/getAllProductBooking", Auth, getAllProductBooking);
 router.put("/productBookingUpdate/:id", Auth, productBookingUpdate);
 router.put("/productBookingCancel/:id", Auth, productBookingCancel);
 
 /* ================= PAYMENT ================= */
-
-// Create online payment (Customer)
 router.post("/payment", Auth, createPayment);
-
-// ✅ New: Create gateway order (Customer)
 router.post("/payment/order", Auth, createPaymentOrder);
-
-// ✅ New: Verify signature (Customer)
 router.post("/payment/verify", Auth, verifyPayment);
-
-// ✅ New: Webhook (no Auth) - requires raw body capture in index.js
 router.post("/payment/webhook/razorpay", razorpayWebhook);
-
-// Update payment status (System/Admin/Webhook)
 router.put("/payment/:id/status", Auth, updatePaymentStatus);
 
 // ✅ New: Manual retry for stuck settlements (Admin/Owner)
