@@ -9,6 +9,8 @@ import { findEligibleTechniciansForService } from "../utils/technicianMatching.j
 import { findNearbyTechnicians } from "../utils/findNearbyTechnicians.js";
 import { settleBookingEarningsIfEligible } from "../utils/settlement.js";
 
+import { matchAndBroadcastBooking } from "../utils/technicianMatching.js";
+
 const toNumber = value => {
   const num = Number(value);
   return Number.isNaN(num) ? NaN : num;
@@ -75,44 +77,19 @@ export const createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: "Service not found or inactive", result: {} });
     }
 
-    // Optional: if addressId is provided, use Address collection (supports nearby matching)
-    let addressForBooking = address || addressLineInput || (hasCoords ? "Pinned Location" : undefined);
-    let addressForMatching = {
-      city: cityInput,
-      state: stateInput,
-      pincode: pincodeInput,
-      latitude: hasCoords ? latInput : undefined,
-      longitude: hasCoords ? lngInput : undefined,
-    };
+    // 🔁 Decision Logic: Address ID vs Current Location
+    const resolvedLocation = await resolveUserLocation({
+      locationType: req.body.locationType,
+      addressId: req.body.addressId,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      userId: customerId,
+    });
 
-    if (addressId) {
-      if (!mongoose.Types.ObjectId.isValid(addressId)) {
-        return res.status(400).json({ success: false, message: "Invalid addressId format", result: {} });
-      }
-
-      const addressDoc = await Address.findOne({
-        _id: addressId,
-        customerId,
-      });
-
-      if (!addressDoc) {
-        return res.status(404).json({ success: false, message: "Address not found", result: {} });
-      }
-
-      addressForBooking = addressDoc.addressLine;
-      addressForMatching = {
-        city: addressDoc.city,
-        state: addressDoc.state,
-        pincode: addressDoc.pincode,
-        latitude: addressDoc.latitude,
-        longitude: addressDoc.longitude,
-      };
-    }
-
-    if (!addressForBooking) {
-      return res.status(400).json({
+    if (!resolvedLocation.success) {
+      return res.status(resolvedLocation.statusCode).json({
         success: false,
-        message: "addressLine or addressId is required",
+        message: resolvedLocation.message,
         result: {},
       });
     }
@@ -122,113 +99,53 @@ export const createBooking = async (req, res) => {
       customerId,
       serviceId,
       baseAmount: baseAmountNum,
-      address: addressForBooking,
+
+      // ✅ Swiggy-Style Location Snapshot
+      locationType: resolvedLocation.locationType,
+      addressSnapshot: resolvedLocation.addressSnapshot,
+
+      // Legacy/Display address string
+      address: resolvedLocation.addressSnapshot.addressLine || "Pinned Location",
+
       scheduledAt,
       status: "requested",
       radius: radiusInput ?? 500,
     };
-    if (addressId) {
-      bookingDoc.addressId = addressId;
+
+    // Only save addressId if we actually used a saved address
+    if (resolvedLocation.addressId) {
+      bookingDoc.addressId = resolvedLocation.addressId;
     }
 
-    const hasCoordsForBooking =
-      typeof addressForMatching?.latitude === "number" &&
-      Number.isFinite(addressForMatching.latitude) &&
-      typeof addressForMatching?.longitude === "number" &&
-      Number.isFinite(addressForMatching.longitude);
+    // GeoJSON point for geospatial queries
+    bookingDoc.location = {
+      type: "Point",
+      coordinates: [resolvedLocation.longitude, resolvedLocation.latitude],
+    };
 
-    if (hasCoordsForBooking) {
-      bookingDoc.location = {
-        type: "Point",
-        coordinates: [addressForMatching.longitude, addressForMatching.latitude],
-      };
-    }
+    const hasCoordsForBooking = true; // Always true with new utility
 
     const booking = await ServiceBooking.create(bookingDoc);
 
-    // 2️⃣ Skill-based + geo technician matching with progressive radius
-    let latitude = null, longitude = null;
-    if (addressForMatching && typeof addressForMatching.latitude === "number" && typeof addressForMatching.longitude === "number") {
-      latitude = addressForMatching.latitude;
-      longitude = addressForMatching.longitude;
-    } else if (addressForMatching && typeof addressForMatching.latitude === "string" && typeof addressForMatching.longitude === "string") {
-      latitude = parseFloat(addressForMatching.latitude);
-      longitude = parseFloat(addressForMatching.longitude);
-    }
-
-    let nearbyTechnicians = [];
-    if (typeof latitude === "number" && typeof longitude === "number" && !isNaN(latitude) && !isNaN(longitude)) {
-      // 1. Find eligible technicians by skill
-      const eligibleTechnicians = await findEligibleTechniciansForService({
-        serviceId,
-        address: { latitude, longitude },
-        enableGeo: false, // We'll do geo below
-      });
-      const eligibleIds = eligibleTechnicians.map(t => t._id);
-      // 2. Progressive radius using booking.radius
-      const baseRadius = booking.radius || 3000;
-      const radiusSteps = [baseRadius, baseRadius * 2, baseRadius * 4];
-      for (const radius of radiusSteps) {
-        nearbyTechnicians = await findNearbyTechnicians({
-          latitude,
-          longitude,
-          radiusMeters: radius,
-          limit: 20,
-          technicianIds: eligibleIds,
-        });
-        if (nearbyTechnicians.length > 0) break;
-      }
-    }
-
-    if (nearbyTechnicians.length > 0) {
-      const technicianIds = nearbyTechnicians.map(t => t._id.toString());
-      const jobBroadcastDocs = technicianIds.map(technicianId => ({
-        bookingId: booking._id,
-        technicianId,
-        status: "sent",
-      }));
-      try {
-        await JobBroadcast.insertMany(jobBroadcastDocs, { ordered: false });
-      } catch (e) {
-        // Ignore duplicate key errors
-      }
-      await ServiceBooking.updateOne({ _id: booking._id }, { status: "broadcasted", broadcastedAt: new Date() });
-      await broadcastJobToTechnicians(
-        req.io,
-        technicianIds,
-        {
-          bookingId: booking._id,
-          serviceId: service._id,
-          serviceName: service.serviceName,
-          baseAmount: baseAmountNum,
-          address: addressForBooking,
-          scheduledAt,
-        }
-      );
-      console.log(`✅ Broadcasted to ${nearbyTechnicians.length} matching, online, skilled technicians`);
-    } else {
-      // Optionally, set an expiry time for unbroadcasted jobs
-      await ServiceBooking.updateOne({ _id: booking._id }, { broadcastedAt: null });
-      console.log("⚠️ No matching, online, skilled technicians found for this service");
-    }
+    // 2️⃣ Smart matching & broadcast (Unified Logic)
+    const broadcastResult = await matchAndBroadcastBooking(booking._id, req.io);
 
     return res.status(201).json({
       success: true,
-      message:
-        nearbyTechnicians.length > 0
-          ? "Booking created & broadcasted"
-          : "Booking created (no technicians available for this service)",
+      message: broadcastResult.count > 0
+        ? "Booking created & broadcasted"
+        : "Booking created (no technicians available yet)",
       result: {
         booking,
-        broadcastCount: nearbyTechnicians.length,
-        status: nearbyTechnicians.length > 0 ? "broadcasted" : "no_technicians_available",
+        broadcastCount: broadcastResult.count || 0,
+        status: broadcastResult.count > 0 ? "broadcasted" : "no_technicians_available",
       },
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -249,7 +166,7 @@ export const getBookings = async (req, res) => {
     }
 
     if (req.user.role === "Technician") {
-      const technicianProfileId = req.user?.profileId;
+      const technicianProfileId = req.user?.technicianProfileId;
       if (!technicianProfileId || !mongoose.Types.ObjectId.isValid(technicianProfileId)) {
         return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
       }
@@ -271,7 +188,7 @@ export const getBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -303,7 +220,7 @@ export const getCustomerBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {error: err.message},
+      result: { error: err.message },
     });
   }
 };
@@ -347,7 +264,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {error: err.message},
+      result: { error: err.message },
     });
   }
 };
@@ -379,20 +296,20 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       technicianId: technicianProfileId,
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
-    .populate({
-      path: "customerId",
-      select: "firstName lastName mobileNumber",
-    })
-    .populate({
-      path: "addressId",
-      select: "name phone addressLine city state pincode latitude longitude",
-    })
-    .populate({
-      path: "serviceId",
-      select: "serviceName",
-    })
-    .sort({ createdAt: -1 });
-      
+      .populate({
+        path: "customerId",
+        select: "firstName lastName mobileNumber",
+      })
+      .populate({
+        path: "addressId",
+        select: "name phone addressLine city state pincode latitude longitude",
+      })
+      .populate({
+        path: "serviceId",
+        select: "serviceName",
+      })
+      .sort({ createdAt: -1 });
+
 
     return res.status(200).json({
       success: true,
@@ -403,7 +320,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {error: err.message},
+      result: { error: err.message },
     });
   }
 };
@@ -443,7 +360,7 @@ export const updateBookingStatus = async (req, res) => {
       });
     }
 
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
     let booking = await ServiceBooking.findById(bookingId);
     if (!booking) {
       return res.status(404).json({
@@ -508,7 +425,7 @@ export const updateBookingStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -604,7 +521,7 @@ export const cancelBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };

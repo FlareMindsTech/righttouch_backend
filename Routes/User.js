@@ -8,7 +8,6 @@ import {
   verifyOtp,
   setPassword,
   login,
-  technicianLogin,
   ownerLogin,
   getMyProfile,
   completeProfile,

@@ -17,6 +17,7 @@ const router = express.Router();
 
 /* ================= TECHNICIAN DATA ================= */
 
+router.post("/login", technicianLogin);
 router.post("/technicianData", Auth, createTechnician);
 router.get("/technicianAll", Auth, getAllTechnicians);
 router.get("/technicianById/:id", Auth, getTechnicianById);
