@@ -15,6 +15,9 @@ import { createWalletTransaction, getWalletHistory, requestWithdrawal, getMyWith
 
 const router = express.Router();
 
+/* ================= TECHNICIAN AUTH ================= */
+router.post("/login", technicianLogin);
+
 /* ================= TECHNICIAN DATA ================= */
 
 router.post("/technicianData", Auth, createTechnician);
@@ -67,7 +70,7 @@ router.put("/job-broadcast/respond/:id", Auth, respondToJob);
 // Technician updates job status
 
 router.put("/status/:id", Auth, isTechnician, updateBookingStatus);
-router.get("/jobs/current", Auth, isTechnician, getTechnicianCurrentJobs);
+router.get("/jobs/current", Auth, getTechnicianCurrentJobs); // Supports both Technician and Owner roles
 router.get("/jobs/history", Auth, isTechnician, getTechnicianJobHistory);
 
 /* ================= TECHNICIAN WALLET ================= */
