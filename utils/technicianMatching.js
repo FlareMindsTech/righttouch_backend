@@ -61,9 +61,6 @@ export const findEligibleTechniciansForService = async ({
       { "skills.serviceId": serviceObjectId },
       // legacy/dirty data: string stored instead of ObjectId
       { "skills.serviceId": serviceIdString },
-      // extra tolerance (in case skills stored as raw array of ids)
-      { skills: serviceObjectId },
-      { skills: serviceIdString },
     ],
   };
 
