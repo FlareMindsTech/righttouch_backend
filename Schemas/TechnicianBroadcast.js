@@ -21,7 +21,6 @@ const jobBroadcastSchema = new mongoose.Schema(
     sentAt: {
       type: Date,
       default: Date.now,
-      index: true,
     },
 
     status: {

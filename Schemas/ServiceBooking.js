@@ -65,7 +65,7 @@ const serviceBookingSchema = new mongoose.Schema(
     // 📍 ADDRESS SNAPSHOT
     locationType: {
       type: String,
-      enum: ["GPS", "ADDRESS"],
+      enum: ["saved", "gps"],
       required: true,
     },
 
