@@ -1,0 +1,1386 @@
+{
+  "info": {
+    "_postman_id": "righttouch-role-based-v2",
+    "name": "RightTouch (Role-Based Structure)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "RightTouch API organized by ROLE: Owner, Technician, Customer. Each folder uses its own token variable."
+  },
+  "item": [
+    {
+      "name": "00 - LOGIN (Get Tokens)",
+      "description": "📌 START HERE: Generate tokens for each role. Tokens are saved automatically.",
+      "item": [
+        {
+          "name": "Login - Owner",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/user/login/owner", "host": ["{{baseUrl}}"], "path": ["api", "user", "login", "owner"] },
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{ownerMobile}}\",\n  \"password\": \"{{testPassword}}\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const token = j?.result?.token || j?.token || '';",
+                  "pm.environment.set('owner_token', token);",
+                  "pm.test('Owner token saved to {{owner_token}}', () => pm.expect(pm.environment.get('owner_token')).to.not.equal(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Technician",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/technician/login", "host": ["{{baseUrl}}"], "path": ["api", "technician", "login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{technicianMobile}}\",\n  \"password\": \"{{testPassword}}\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const token = j?.result?.token || j?.token || '';",
+                  "const techProfileId = j?.result?.technicianProfileId || '';",
+                  "pm.environment.set('technician_token', token);",
+                  "if (techProfileId) pm.environment.set('technicianProfileId', techProfileId);",
+                  "pm.test('Technician token saved to {{technician_token}}', () => pm.expect(pm.environment.get('technician_token')).to.not.equal(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/user/login", "host": ["{{baseUrl}}"], "path": ["api", "user", "login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{customerMobile}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"Customer\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const token = j?.result?.token || j?.token || '';",
+                  "pm.environment.set('customer_token', token);",
+                  "pm.test('Customer token saved to {{customer_token}}', () => pm.expect(pm.environment.get('customer_token')).to.not.equal(''));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "01 - OWNER APIs",
+      "description": "Owner/Admin only. Uses {{owner_token}}",
+      "item": [
+        {
+          "name": "01A - User Management",
+          "item": [
+            {
+              "name": "Get All Users By Role",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/users/Customer", "host": ["{{baseUrl}}"], "path": ["api", "user", "users", "Customer"] }
+              }
+            },
+            {
+              "name": "Get User By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/users/Customer/{{customerProfileId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "users", "Customer", "{{customerProfileId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01B - Category Management",
+          "item": [
+            {
+              "name": "Create Category",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/category", "host": ["{{baseUrl}}"], "path": ["api", "user", "category"] },
+                "body": { "mode": "raw", "raw": "{\n  \"category\": \"Air Conditioner\",\n  \"description\": \"AC services\",\n  \"categoryType\": \"service\"\n}" }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('categoryId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Upload Category Image",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/category/upload-image", "host": ["{{baseUrl}}"], "path": ["api", "user", "category", "upload-image"] },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "categoryId", "value": "{{categoryId}}", "type": "text" },
+                    { "key": "image", "type": "file", "src": "" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Remove Category Image",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/category/remove-image", "host": ["{{baseUrl}}"], "path": ["api", "user", "category", "remove-image"] },
+                "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\"\n}" }
+              }
+            },
+            {
+              "name": "Get All Categories",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getAllcategory", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllcategory"] }
+              }
+            },
+            {
+              "name": "Get Category By Id",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getByIdcategory/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getByIdcategory", "{{categoryId}}"] }
+              }
+            },
+            {
+              "name": "Update Category",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/updatecategory/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "updatecategory", "{{categoryId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated description\"\n}" }
+              }
+            },
+            {
+              "name": "Delete Category",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/deletecategory/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "deletecategory", "{{categoryId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01C - Service Management",
+          "item": [
+            {
+              "name": "Create Service",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/service", "host": ["{{baseUrl}}"], "path": ["api", "user", "service"] },
+                "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"serviceName\": \"AC Repair\",\n  \"description\": \"Repair AC issues\",\n  \"serviceType\": \"Repair\",\n  \"pricingType\": \"fixed\",\n  \"serviceCost\": 499\n}" }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('serviceId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Upload Service Images",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/services/upload-images", "host": ["{{baseUrl}}"], "path": ["api", "user", "services", "upload-images"] },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "serviceId", "value": "{{serviceId}}", "type": "text" },
+                    { "key": "serviceImages", "type": "file", "src": "" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Remove Service Image",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/services/remove-image", "host": ["{{baseUrl}}"], "path": ["api", "user", "services", "remove-image"] },
+                "body": { "mode": "raw", "raw": "{\n  \"serviceId\": \"{{serviceId}}\",\n  \"imageUrl\": \"PASTE_IMAGE_URL_HERE\"\n}" }
+              }
+            },
+            {
+              "name": "Replace Service Images",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/services/replace-images", "host": ["{{baseUrl}}"], "path": ["api", "user", "services", "replace-images"] },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "serviceId", "value": "{{serviceId}}", "type": "text" },
+                    { "key": "serviceImages", "type": "file", "src": "" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get All Services",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getAllServices", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllServices"] }
+              }
+            },
+            {
+              "name": "Get Service By Id",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getServiceById/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getServiceById", "{{serviceId}}"] }
+              }
+            },
+            {
+              "name": "Update Service",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/updateService/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "updateService", "{{serviceId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"serviceCost\": 599\n}" }
+              }
+            },
+            {
+              "name": "Delete Service",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/services/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "services", "{{serviceId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01D - Product Management",
+          "item": [
+            {
+              "name": "Create Product",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/product", "host": ["{{baseUrl}}"], "path": ["api", "user", "product"] },
+                "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"productName\": \"Water Purifier\",\n  \"productType\": \"RO\",\n  \"description\": \"RO purifier\",\n  \"pricingModel\": \"starting_from\",\n  \"estimatedPriceFrom\": 5999\n}" }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('productId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Upload Product Images",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/product/upload-images", "host": ["{{baseUrl}}"], "path": ["api", "user", "product", "upload-images"] },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "productId", "value": "{{productId}}", "type": "text" },
+                    { "key": "productImages", "type": "file", "src": "" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Products",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getProduct", "host": ["{{baseUrl}}"], "path": ["api", "user", "getProduct"] }
+              }
+            },
+            {
+              "name": "Get One Product",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getOneProduct/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getOneProduct", "{{productId}}"] }
+              }
+            },
+            {
+              "name": "Update Product",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/updateProduct/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "updateProduct", "{{productId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"estimatedPriceFrom\": 6999\n}" }
+              }
+            },
+            {
+              "name": "Delete Product",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/deleteProduct/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "deleteProduct", "{{productId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01E - Technician Management",
+          "item": [
+            {
+              "name": "Get All Technicians",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technicianAll", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technicianAll"] }
+              }
+            },
+            {
+              "name": "Get Technician By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technicianById/{{technicianProfileId}}", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technicianById", "{{technicianProfileId}}"] }
+              }
+            },
+            {
+              "name": "Update Technician Status",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/status", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "status"] },
+                "body": { "mode": "raw", "raw": "{\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"workStatus\": \"approved\"\n}" }
+              }
+            },
+            {
+              "name": "Delete Technician",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technicianDelete/{{technicianProfileId}}", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technicianDelete", "{{technicianProfileId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01F - Technician KYC & Bank",
+          "item": [
+            {
+              "name": "Get All KYC Records",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc"] }
+              }
+            },
+            {
+              "name": "Get KYC By Technician Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc/{{technicianProfileId}}", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc", "{{technicianProfileId}}"] }
+              }
+            },
+            {
+              "name": "Verify KYC",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc/verify", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc", "verify"] },
+                "body": { "mode": "raw", "raw": "{\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"status\": \"approved\"\n}" }
+              }
+            },
+            {
+              "name": "Verify Bank Details",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc/bank/verify", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc", "bank", "verify"] },
+                "body": { "mode": "raw", "raw": "{\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"status\": \"approved\"\n}" }
+              }
+            },
+            {
+              "name": "Delete KYC",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/deletekyc/{{technicianProfileId}}", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "deletekyc", "{{technicianProfileId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01G - Service Bookings (Owner View)",
+          "item": [
+            {
+              "name": "Get All Bookings",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/service/booking", "host": ["{{baseUrl}}"], "path": ["api", "user", "service", "booking"] }
+              }
+            },
+            {
+              "name": "Get All Product Bookings",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/getAllProductBooking", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllProductBooking"] }
+              }
+            },
+            {
+              "name": "Update Product Booking Status",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/productBookingUpdate/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "productBookingUpdate", "{{bookingId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"completed\"\n}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01H - Payments & Settlements",
+          "item": [
+            {
+              "name": "Update Payment Status",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/payment/{{paymentId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "user", "payment", "{{paymentId}}", "status"] },
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"success\"\n}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01I - Wallet & Withdrawals",
+          "item": [
+            {
+              "name": "Create Wallet Transaction",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/transaction", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "transaction"] },
+                "body": { "mode": "raw", "raw": "{\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"bookingId\": \"{{bookingId}}\",\n  \"amount\": 100,\n  \"type\": \"credit\",\n  \"source\": \"job\"\n}" }
+              }
+            },
+            {
+              "name": "List Withdrawal Requests",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/withdrawals", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "withdrawals"] }
+              }
+            },
+            {
+              "name": "Approve/Reject Withdrawal",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{owner_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/withdrawals/{{withdrawalId}}/decision", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "withdrawals", "{{withdrawalId}}", "decision"] },
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01J - Reports & Issues",
+          "item": [
+            {
+              "name": "Get All Reports",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/getAllReports", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllReports"] }
+              }
+            },
+            {
+              "name": "Get Report By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/getReportById/{{reportId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getReportById", "{{reportId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "01K - Address Management",
+          "item": [
+            {
+              "name": "Get All Addresses",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/addresses/admin/all", "host": ["{{baseUrl}}"], "path": ["api", "addresses", "admin", "all"] }
+              }
+            },
+            {
+              "name": "Get Address By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{owner_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/addresses/admin/{{addressId}}", "host": ["{{baseUrl}}"], "path": ["api", "addresses", "admin", "{{addressId}}"] }
+              }
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "02 - TECHNICIAN APIs",
+      "description": "Technician only. Uses {{technician_token}}",
+      "item": [
+        {
+          "name": "02A - Profile & Skills",
+          "item": [
+            {
+              "name": "Get My Profile",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/me", "host": ["{{baseUrl}}"], "path": ["api", "user", "me"] }
+              }
+            },
+            {
+              "name": "Complete Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/complete-profile", "host": ["{{baseUrl}}"], "path": ["api", "user", "complete-profile"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Tech\",\n  \"lastName\": \"One\",\n  \"gender\": \"Male\",\n  \"mobileNumber\": \"{{technicianMobile}}\",\n  \"address\": \"12 Street\",\n  \"city\": \"Chennai\",\n  \"state\": \"TN\",\n  \"pincode\": \"600001\",\n  \"latitude\": {{technicianLat}},\n  \"longitude\": {{technicianLng}},\n  \"locality\": \"T Nagar\",\n  \"experienceYears\": 2,\n  \"specialization\": \"AC\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Get My Technician Profile",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/me", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "me"] }
+              }
+            },
+            {
+              "name": "Create/Update Skills",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technicianData", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technicianData"] },
+                "body": { "mode": "raw", "raw": "{\n  \"skills\": [\n    { \"serviceId\": \"{{serviceId}}\" }\n  ]\n}" }
+              }
+            },
+            {
+              "name": "Add Skill",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/skills/add", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "skills", "add"] },
+                "body": { "mode": "raw", "raw": "{\n  \"serviceId\": \"{{serviceId}}\"\n}" }
+              }
+            },
+            {
+              "name": "Remove Skill",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/skills/remove", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "skills", "remove"] },
+                "body": { "mode": "raw", "raw": "{\n  \"serviceId\": \"{{serviceId}}\"\n}" }
+              }
+            },
+            {
+              "name": "Update Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/me", "host": ["{{baseUrl}}"], "path": ["api", "user", "me"] },
+                "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Tech\",\n  \"lastName\": \"Updated\"\n}" }
+              }
+            },
+            {
+              "name": "Update Technician Data",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/updateTechnician", "host": ["{{baseUrl}}"], "path": ["api", "technician", "updateTechnician"] },
+                "body": { "mode": "raw", "raw": "{\n  \"availability\": { \"isOnline\": true }\n}" }
+              }
+            },
+            {
+              "name": "Upload Profile Image",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/profile-image", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "profile-image"] },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [{ "key": "profileImage", "type": "file", "src": "" }]
+                }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "02B - KYC & Bank Details",
+          "item": [
+            {
+              "name": "Submit KYC",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"aadhaarNumber\": \"123412341234\",\n  \"panNumber\": \"ABCDE1234F\",\n  \"drivingLicenseNumber\": \"TN0120060000000\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Upload KYC Documents",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc/upload", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc", "upload"] },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "aadhaarImage", "type": "file", "src": "" },
+                    { "key": "panImage", "type": "file", "src": "" },
+                    { "key": "dlImage", "type": "file", "src": "" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get My KYC",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/technician/kyc/me", "host": ["{{baseUrl}}"], "path": ["api", "technician", "technician", "kyc", "me"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "02C - Job Management",
+          "item": [
+            {
+              "name": "Get My Broadcast Jobs",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/job-broadcast/my-jobs", "host": ["{{baseUrl}}"], "path": ["api", "technician", "job-broadcast", "my-jobs"] }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const first = Array.isArray(j?.result) ? j.result[0] : null;",
+                      "if (first?._id) pm.environment.set('jobBroadcastId', first._id);",
+                      "if (first?.bookingId?._id) pm.environment.set('bookingId', first.bookingId._id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Accept Job",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/job-broadcast/respond/{{jobBroadcastId}}", "host": ["{{baseUrl}}"], "path": ["api", "technician", "job-broadcast", "respond", "{{jobBroadcastId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"accepted\"\n}" }
+              }
+            },
+            {
+              "name": "Get Current Jobs",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/jobs/current", "host": ["{{baseUrl}}"], "path": ["api", "technician", "jobs", "current"] }
+              }
+            },
+            {
+              "name": "Get Job History",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/jobs/history", "host": ["{{baseUrl}}"], "path": ["api", "technician", "jobs", "history"] }
+              }
+            },
+            {
+              "name": "Update Job Status (on_the_way/reached/in_progress/completed)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/status/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api", "technician", "status", "{{bookingId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"on_the_way\"\n}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "02D - Wallet & Withdrawals",
+          "item": [
+            {
+              "name": "Get Wallet History",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/history", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "history"] }
+              }
+            },
+            {
+              "name": "Request Withdrawal",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/withdrawals/request", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "withdrawals", "request"] },
+                "body": { "mode": "raw", "raw": "{\n  \"amount\": 500\n}" }
+              }
+            },
+            {
+              "name": "Get My Withdrawals",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{technician_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/withdrawals/me", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "withdrawals", "me"] }
+              }
+            },
+            {
+              "name": "Cancel Withdrawal Request",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{technician_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/technician/wallet/withdrawals/{{withdrawalId}}/cancel", "host": ["{{baseUrl}}"], "path": ["api", "technician", "wallet", "withdrawals", "{{withdrawalId}}", "cancel"] },
+                "body": { "mode": "raw", "raw": "{}" }
+              }
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "03 - CUSTOMER APIs",
+      "description": "Customer only. Uses {{customer_token}}",
+      "item": [
+        {
+          "name": "03A - Profile & Addresses",
+          "item": [
+            {
+              "name": "Get My Profile",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/me", "host": ["{{baseUrl}}"], "path": ["api", "user", "me"] }
+              }
+            },
+            {
+              "name": "Update My Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/me", "host": ["{{baseUrl}}"], "path": ["api", "user", "me"] },
+                "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Customer\",\n  \"lastName\": \"Updated\"\n}" }
+              }
+            },
+            {
+              "name": "Create Address",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/addresses", "host": ["{{baseUrl}}"], "path": ["api", "addresses"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"label\": \"home\",\n  \"addressLine\": \"123 Main Street\",\n  \"city\": \"Chennai\",\n  \"state\": \"TN\",\n  \"pincode\": \"600001\",\n  \"latitude\": {{customerLat}},\n  \"longitude\": {{customerLng}},\n  \"isDefault\": true\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('addressId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get My Addresses",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/addresses", "host": ["{{baseUrl}}"], "path": ["api", "addresses"] }
+              }
+            },
+            {
+              "name": "Get Default Address",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/addresses/default", "host": ["{{baseUrl}}"], "path": ["api", "addresses", "default"] }
+              }
+            },
+            {
+              "name": "Set Default Address",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/addresses/default", "host": ["{{baseUrl}}"], "path": ["api", "addresses", "default"] },
+                "body": { "mode": "raw", "raw": "{\n  \"addressId\": \"{{addressId}}\"\n}" }
+              }
+            },
+            {
+              "name": "Update Address",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/addresses", "host": ["{{baseUrl}}"], "path": ["api", "addresses"] },
+                "body": { "mode": "raw", "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"city\": \"Bangalore\"\n}" }
+              }
+            },
+            {
+              "name": "Delete Address",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/addresses", "host": ["{{baseUrl}}"], "path": ["api", "addresses"] },
+                "body": { "mode": "raw", "raw": "{\n  \"addressId\": \"{{addressId}}\"\n}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03B - Browse Services & Products",
+          "item": [
+            {
+              "name": "Get All Categories",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getAllcategory", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllcategory"] }
+              }
+            },
+            {
+              "name": "Get Category By Id",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getByIdcategory/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getByIdcategory", "{{categoryId}}"] }
+              }
+            },
+            {
+              "name": "Get All Services",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getAllServices", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllServices"] }
+              }
+            },
+            {
+              "name": "Get Service By Id",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getServiceById/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getServiceById", "{{serviceId}}"] }
+              }
+            },
+            {
+              "name": "Get All Products",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getProduct", "host": ["{{baseUrl}}"], "path": ["api", "user", "getProduct"] }
+              }
+            },
+            {
+              "name": "Get Product By Id",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getOneProduct/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getOneProduct", "{{productId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03C - Cart & Checkout",
+          "item": [
+            {
+              "name": "Add Service to Cart",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/cart/add", "host": ["{{baseUrl}}"], "path": ["api", "user", "cart", "add"] },
+                "body": { "mode": "raw", "raw": "{\n  \"itemType\": \"service\",\n  \"itemId\": \"{{serviceId}}\",\n  \"quantity\": 1\n}" }
+              }
+            },
+            {
+              "name": "Add Product to Cart",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/cart/add", "host": ["{{baseUrl}}"], "path": ["api", "user", "cart", "add"] },
+                "body": { "mode": "raw", "raw": "{\n  \"itemType\": \"product\",\n  \"itemId\": \"{{productId}}\",\n  \"quantity\": 1\n}" }
+              }
+            },
+            {
+              "name": "Get My Cart",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/cart/my-cart", "host": ["{{baseUrl}}"], "path": ["api", "user", "cart", "my-cart"] }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const cart = j?.result || j;",
+                      "const cartId = cart?._id;",
+                      "if (cartId) pm.environment.set('cartId', cartId);",
+                      "const items = cart?.items || cart?.cartItems || [];",
+                      "const firstItem = Array.isArray(items) ? items[0] : null;",
+                      "if (firstItem?._id) pm.environment.set('cartItemId', firstItem._id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Cart Item Quantity",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/cart/update", "host": ["{{baseUrl}}"], "path": ["api", "user", "cart", "update"] },
+                "body": { "mode": "raw", "raw": "{\n  \"itemType\": \"service\",\n  \"itemId\": \"{{serviceId}}\",\n  \"quantity\": 2\n}" }
+              }
+            },
+            {
+              "name": "Remove Cart Item",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/cart/remove/{{cartItemId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "cart", "remove", "{{cartItemId}}"] }
+              }
+            },
+            {
+              "name": "Checkout",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/checkout", "host": ["{{baseUrl}}"], "path": ["api", "user", "checkout"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"paymentMode\": \"online\",\n  \"scheduledAt\": \"2026-01-15T10:00:00.000Z\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const booking = j?.result?.booking || j?.result?.serviceBooking || j?.result || j;",
+                      "const bookingId = booking?._id || j?.result?.bookingId;",
+                      "if (bookingId) pm.environment.set('bookingId', bookingId);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          "name": "03D - Service Bookings",
+          "item": [
+            {
+              "name": "Get My Bookings",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/booking/getCustomerBookings", "host": ["{{baseUrl}}"], "path": ["api", "user", "booking", "getCustomerBookings"] }
+              }
+            },
+            {
+              "name": "Cancel Booking",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/booking/cancel/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "booking", "cancel", "{{bookingId}}"] },
+                "body": { "mode": "raw", "raw": "{}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03E - Product Bookings",
+          "item": [
+            {
+              "name": "Cancel Product Booking",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/productBookingCancel/{{bookingId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "productBookingCancel", "{{bookingId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03F - Payments",
+          "item": [
+            {
+              "name": "Create Payment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/payment", "host": ["{{baseUrl}}"], "path": ["api", "user", "payment"] },
+                "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"baseAmount\": 499\n}" }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('paymentId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create Payment Order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/payment/order", "host": ["{{baseUrl}}"], "path": ["api", "user", "payment", "order"] },
+                "body": { "mode": "raw", "raw": "{\n  \"paymentId\": \"{{paymentId}}\"\n}" }
+              }
+            },
+            {
+              "name": "Verify Payment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/payment/verify", "host": ["{{baseUrl}}"], "path": ["api", "user", "payment", "verify"] },
+                "body": { "mode": "raw", "raw": "{\n  \"paymentId\": \"{{paymentId}}\",\n  \"razorpayPaymentId\": \"pay_xxx\",\n  \"razorpayOrderId\": \"order_xxx\",\n  \"razorpaySignature\": \"signature_xxx\"\n}" }
+              }
+            },
+            {
+              "name": "Retry Payment Settlement",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/payment/retry-settlement", "host": ["{{baseUrl}}"], "path": ["api", "user", "payment", "retry-settlement"] },
+                "body": { "mode": "raw", "raw": "{\n  \"paymentId\": \"{{paymentId}}\"\n}" }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03G - Ratings",
+          "item": [
+            {
+              "name": "Create Rating",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/rating", "host": ["{{baseUrl}}"], "path": ["api", "user", "rating"] },
+                "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"bookingType\": \"service\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"rates\": 5,\n  \"comment\": \"Great service\"\n}" }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('ratingId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get All Ratings",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getAllRatings", "host": ["{{baseUrl}}"], "path": ["api", "user", "getAllRatings"] }
+              }
+            },
+            {
+              "name": "Get Rating By Id",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/user/getRatingById/{{ratingId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getRatingById", "{{ratingId}}"] }
+              }
+            },
+            {
+              "name": "Update Rating",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/updateRating/{{ratingId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "updateRating", "{{ratingId}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"rates\": 4,\n  \"comment\": \"Updated comment\"\n}" }
+              }
+            },
+            {
+              "name": "Delete Rating",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/deleteRating/{{ratingId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "deleteRating", "{{ratingId}}"] }
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03H - Reports & Complaints",
+          "item": [
+            {
+              "name": "Create Report",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{customer_token}}" }
+                ],
+                "url": { "raw": "{{baseUrl}}/api/user/report", "host": ["{{baseUrl}}"], "path": ["api", "user", "report"] },
+                "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"bookingType\": \"service\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"technicianId\": \"{{technicianProfileId}}\",\n  \"complaint\": \"Technician delayed\"\n}" }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const id = j?.result?._id || j?._id;",
+                      "if (id) pm.environment.set('reportId', id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get My Report",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+                "url": { "raw": "{{baseUrl}}/api/user/getReportById/{{reportId}}", "host": ["{{baseUrl}}"], "path": ["api", "user", "getReportById", "{{reportId}}"] }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "ownerMobile", "value": "7000000001" },
+    { "key": "technicianMobile", "value": "9876543210" },
+    { "key": "customerMobile", "value": "9123456789" },
+    { "key": "testPassword", "value": "Test@123456" },
+    { "key": "owner_token", "value": "" },
+    { "key": "technician_token", "value": "" },
+    { "key": "customer_token", "value": "" },
+    { "key": "ownerProfileId", "value": "" },
+    { "key": "technicianProfileId", "value": "" },
+    { "key": "customerProfileId", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "serviceId", "value": "" },
+    { "key": "productId", "value": "" },
+    { "key": "addressId", "value": "" },
+    { "key": "bookingId", "value": "" },
+    { "key": "paymentId", "value": "" },
+    { "key": "ratingId", "value": "" },
+    { "key": "reportId", "value": "" },
+    { "key": "withdrawalId", "value": "" },
+    { "key": "technicianLat", "value": "13.0827" },
+    { "key": "technicianLng", "value": "80.2707" },
+    { "key": "customerLat", "value": "13.0827" },
+    { "key": "customerLng", "value": "80.2707" }
+  ]
+}

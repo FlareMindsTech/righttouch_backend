@@ -1,6 +1,7 @@
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import TechnicianKyc from "../Schemas/TechnicianKYC.js";
 import Service from "../Schemas/Service.js";
 import Address from "../Schemas/Address.js";
 import mongoose from "mongoose";
@@ -8,8 +9,8 @@ import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
 import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
 import { findNearbyTechnicians } from "../utils/findNearbyTechnicians.js";
 import { settleBookingEarningsIfEligible } from "../utils/settlement.js";
-
 import { matchAndBroadcastBooking } from "../utils/technicianMatching.js";
+import { resolveUserLocation } from "../utils/resolveUserLocation.js";
 
 const toNumber = value => {
   const num = Number(value);
@@ -21,6 +22,54 @@ const toFiniteNumber = (v) => {
   if (typeof v === "string" && v.trim() === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+};
+
+/* ================= TECHNICIAN ACTIVATION CHECK ================= */
+const checkTechnicianActivation = async (technicianProfileId) => {
+  try {
+    // Fetch KYC data
+    const kyc = await TechnicianKyc.findOne({
+      technicianId: technicianProfileId,
+    }).select("verificationStatus bankVerified");
+
+    // Check KYC approval
+    if (!kyc || kyc.verificationStatus !== "approved") {
+      return {
+        isActive: false,
+        message: "Complete KYC, bank verification, and training to activate technician account",
+      };
+    }
+
+    // Check bank verification
+    if (!kyc.bankVerified) {
+      return {
+        isActive: false,
+        message: "Complete KYC, bank verification, and training to activate technician account",
+      };
+    }
+
+    // Fetch technician profile
+    const profile = await TechnicianProfile.findById(technicianProfileId).select("trainingCompleted");
+
+    // Check training completion
+    if (!profile || !profile.trainingCompleted) {
+      return {
+        isActive: false,
+        message: "Complete KYC, bank verification, and training to activate technician account",
+      };
+    }
+
+    // All conditions met
+    return {
+      isActive: true,
+      message: "Technician account is active",
+    };
+  } catch (error) {
+    return {
+      isActive: false,
+      message: error.message,
+    };
+  }
 };
 
 
@@ -267,6 +316,16 @@ export const getTechnicianJobHistory = async (req, res) => {
       });
     }
 
+    // Check technician activation status
+    const activation = await checkTechnicianActivation(technicianProfileId);
+    if (!activation.isActive) {
+      return res.status(200).json({
+        success: true,
+        message: activation.message,
+        result: [],
+      });
+    }
+
     const jobs = await ServiceBooking.find({
       technicianId: technicianProfileId,
       status: { $in: ["completed", "cancelled"] },
@@ -321,6 +380,17 @@ export const getTechnicianCurrentJobs = async (req, res) => {
           result: {},
         });
       }
+
+      // Check technician activation status
+      const activation = await checkTechnicianActivation(technicianProfileId);
+      if (!activation.isActive) {
+        return res.status(200).json({
+          success: true,
+          message: activation.message,
+          result: [],
+        });
+      }
+
       query.technicianId = technicianProfileId;
     }
     // If role is Owner: no additional filter, get all current jobs
@@ -336,7 +406,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
           path: "userId",
           select: "fname lname mobileNumber email",
         },
-        select: "userId profileImage locality",
+        select: "userId profileImage locality workStatus",
       })
       .populate({
         path: "addressId",
@@ -344,7 +414,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       })
       .populate({
         path: "serviceId",
-        select: "serviceName",
+        select: "serviceName serviceType",
       })
       .sort({ createdAt: -1 });
 
@@ -355,22 +425,43 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       // Format customer details
       const customer = jobObj.customerId
         ? {
-            name: `${jobObj.customerId.fname || ""} ${jobObj.customerId.lname || ""}`.trim() || "N/A",
-            email: jobObj.customerId.email || "N/A",
-            phone: jobObj.customerId.mobileNumber || "N/A",
+            firstName: jobObj.customerId.fname || "",
+            lastName: jobObj.customerId.lname || "",
+            mobileNumber: jobObj.customerId.mobileNumber || "",
+            email: jobObj.customerId.email || "",
           }
         : null;
 
       // Format technician details
       const technician = jobObj.technicianId
         ? {
-            name: jobObj.technicianId.userId
-              ? `${jobObj.technicianId.userId.fname || ""} ${jobObj.technicianId.userId.lname || ""}`.trim() || "N/A"
-              : "N/A",
-            email: jobObj.technicianId.userId?.email || "N/A",
-            phone: jobObj.technicianId.userId?.mobileNumber || "N/A",
+            firstName: jobObj.technicianId.userId?.fname || "",
+            lastName: jobObj.technicianId.userId?.lname || "",
+            mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
+            email: jobObj.technicianId.userId?.email || "",
             profileImage: jobObj.technicianId.profileImage || null,
-            locality: jobObj.technicianId.locality || "N/A",
+            locality: jobObj.technicianId.locality || "",
+            workStatus: jobObj.technicianId.workStatus || "",
+          }
+        : null;
+
+      // Format service details
+      const service = jobObj.serviceId
+        ? {
+            serviceName: jobObj.serviceId.serviceName || "",
+            serviceType: jobObj.serviceId.serviceType || "",
+          }
+        : null;
+
+      // Format address details
+      const address = jobObj.addressId
+        ? {
+            name: jobObj.addressId.name || "",
+            phone: jobObj.addressId.phone || "",
+            addressLine: jobObj.addressId.addressLine || "",
+            city: jobObj.addressId.city || "",
+            state: jobObj.addressId.state || "",
+            pincode: jobObj.addressId.pincode || "",
           }
         : null;
 
@@ -379,8 +470,8 @@ export const getTechnicianCurrentJobs = async (req, res) => {
         status: jobObj.status,
         customer,
         technician,
-        service: jobObj.serviceId,
-        address: jobObj.addressId,
+        service,
+        address,
         baseAmount: jobObj.baseAmount,
         scheduledAt: jobObj.scheduledAt,
         createdAt: jobObj.createdAt,
@@ -469,16 +560,17 @@ export const updateBookingStatus = async (req, res) => {
         result: { profileComplete: false },
       });
     }
-    // Check KYC status
-    const TechnicianKyc = mongoose.model('TechnicianKyc');
-    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId });
-    if (!kyc || kyc.verificationStatus !== "approved") {
+
+    // Check technician activation status (KYC + Bank + Training)
+    const activation = await checkTechnicianActivation(technicianProfileId);
+    if (!activation.isActive) {
       return res.status(403).json({
         success: false,
-        message: "Your KYC must be approved before updating job status. Status: " + (kyc?.verificationStatus || "not_submitted"),
-        result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+        message: activation.message,
+        result: {},
       });
     }
+
     // Check workStatus
     if (technician.workStatus !== "approved") {
       return res.status(403).json({

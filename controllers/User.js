@@ -5,7 +5,316 @@ export const getAllUsers = async (req, res) => {
     if (!role) {
       return res.status(400).json({ success: false, message: "Role is required", result: {} });
     }
-    const users = await User.find({ role });
+
+    let users;
+
+    if (role === "Customer") {
+      // Enhanced Customer aggregation with booking stats and addresses
+      users = await User.aggregate([
+        {
+          $match: { role: "Customer" }
+        },
+        {
+          $lookup: {
+            from: "servicebookings",
+            localField: "_id",
+            foreignField: "customerId",
+            as: "serviceBookings"
+          }
+        },
+        {
+          $lookup: {
+            from: "productbookings",
+            localField: "_id",
+            foreignField: "userId",
+            as: "productBookings"
+          }
+        },
+        {
+          $lookup: {
+            from: "addresses",
+            localField: "_id",
+            foreignField: "customerId",
+            as: "customerAddresses"
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            mobileNumber: 1,
+            email: 1,
+            status: 1,
+            createdAt: 1,
+            lastLoginAt: 1,
+            profile: {
+              firstName: { $ifNull: ["$fname", ""] },
+              lastName: { $ifNull: ["$lname", ""] },
+              gender: { $ifNull: ["$gender", ""] },
+              profileComplete: { $ifNull: ["$profileComplete", false] }
+            },
+            addresses: {
+              $map: {
+                input: "$customerAddresses",
+                as: "addr",
+                in: {
+                  _id: "$$addr._id",
+                  label: "$$addr.label",
+                  name: "$$addr.name",
+                  phone: "$$addr.phone",
+                  addressLine: "$$addr.addressLine",
+                  city: "$$addr.city",
+                  state: "$$addr.state",
+                  pincode: "$$addr.pincode",
+                  latitude: "$$addr.latitude",
+                  longitude: "$$addr.longitude",
+                  isDefault: "$$addr.isDefault",
+                  createdAt: "$$addr.createdAt"
+                }
+              }
+            },
+            jobStats: {
+              service: {
+                total: { $size: "$serviceBookings" },
+                completed: {
+                  $size: {
+                    $filter: {
+                      input: "$serviceBookings",
+                      as: "booking",
+                      cond: { $eq: ["$$booking.status", "completed"] }
+                    }
+                  }
+                },
+                cancelled: {
+                  $size: {
+                    $filter: {
+                      input: "$serviceBookings",
+                      as: "booking",
+                      cond: { $eq: ["$$booking.status", "cancelled"] }
+                    }
+                  }
+                }
+              },
+              product: {
+                total: { $size: "$productBookings" }
+              }
+            }
+          }
+        },
+        {
+          $sort: { createdAt: -1 }
+        }
+      ]);
+
+    } else if (role === "Technician") {
+      // Enhanced Technician aggregation with full profile, KYC, and job stats
+      users = await User.aggregate([
+        {
+          $match: { role: "Technician" }
+        },
+        {
+          $lookup: {
+            from: "technicianprofiles",
+            localField: "_id",
+            foreignField: "userId",
+            as: "techProfile"
+          }
+        },
+        {
+          $unwind: {
+            path: "$techProfile",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $lookup: {
+            from: "techniciankycs",
+            localField: "techProfile._id",
+            foreignField: "technicianId",
+            as: "kycData"
+          }
+        },
+        {
+          $unwind: {
+            path: "$kycData",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $lookup: {
+            from: "servicebookings",
+            localField: "techProfile._id",
+            foreignField: "technicianId",
+            as: "jobs"
+          }
+        },
+        {
+          $lookup: {
+            from: "services",
+            localField: "techProfile.skills.serviceId",
+            foreignField: "_id",
+            as: "skillsData"
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            mobileNumber: 1,
+            email: 1,
+            createdAt: 1,
+            lastLoginAt: 1,
+            profile: {
+              firstName: { $ifNull: ["$fname", ""] },
+              lastName: { $ifNull: ["$lname", ""] },
+              experienceYears: { $ifNull: ["$techProfile.experienceYears", 0] },
+              specialization: { $ifNull: ["$techProfile.specialization", ""] },
+              profileComplete: { $ifNull: ["$techProfile.profileComplete", false] },
+              skills: {
+                $ifNull: [
+                  {
+                    $map: {
+                      input: "$techProfile.skills",
+                      as: "skill",
+                      in: {
+                        serviceId: "$$skill.serviceId",
+                        experienceYears: "$$skill.experienceYears",
+                        serviceName: {
+                          $let: {
+                            vars: {
+                              matchedService: {
+                                $arrayElemAt: [
+                                  {
+                                    $filter: {
+                                      input: "$skillsData",
+                                      as: "svc",
+                                      cond: { $eq: ["$$svc._id", "$$skill.serviceId"] }
+                                    }
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            in: { $ifNull: ["$$matchedService.name", ""] }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  []
+                ]
+              }
+            },
+            kyc: {
+              $cond: {
+                if: { $ne: ["$kycData", null] },
+                then: {
+                  aadhaarNumber: {
+                    $cond: {
+                      if: { $ne: ["$kycData.aadhaarNumber", null] },
+                      then: {
+                        $concat: [
+                          "XXXX-XXXX-",
+                          { $substr: ["$kycData.aadhaarNumber", 8, 4] }
+                        ]
+                      },
+                      else: null
+                    }
+                  },
+                  panNumber: {
+                    $cond: {
+                      if: { $ne: ["$kycData.panNumber", null] },
+                      then: {
+                        $concat: [
+                          { $substr: ["$kycData.panNumber", 0, 3] },
+                          "XX",
+                          { $substr: ["$kycData.panNumber", 5, 5] }
+                        ]
+                      },
+                      else: null
+                    }
+                  },
+                  drivingLicenseNumber: { $ifNull: ["$kycData.drivingLicenseNumber", null] },
+                  verificationStatus: { $ifNull: ["$kycData.verificationStatus", "pending"] },
+                  kycVerified: { $ifNull: ["$kycData.kycVerified", false] },
+                  rejectionReason: { $ifNull: ["$kycData.rejectionReason", null] },
+                  documents: {
+                    aadhaarUrl: { $ifNull: ["$kycData.documents.aadhaarUrl", null] },
+                    panUrl: { $ifNull: ["$kycData.documents.panUrl", null] },
+                    dlUrl: { $ifNull: ["$kycData.documents.dlUrl", null] }
+                  }
+                },
+                else: null
+              }
+            },
+            bankDetails: {
+              $cond: {
+                if: { $ne: ["$kycData.bankDetails", null] },
+                then: {
+                  accountHolderName: { $ifNull: ["$kycData.bankDetails.accountHolderName", null] },
+                  bankName: { $ifNull: ["$kycData.bankDetails.bankName", null] },
+                  ifscCode: { $ifNull: ["$kycData.bankDetails.ifscCode", null] },
+                  upiId: { $ifNull: ["$kycData.bankDetails.upiId", null] },
+                  bankVerified: { $ifNull: ["$kycData.bankVerified", false] },
+                  bankUpdateRequired: { $ifNull: ["$kycData.bankUpdateRequired", false] }
+                },
+                else: null
+              }
+            },
+            training: {
+              trainingCompleted: { $ifNull: ["$techProfile.trainingCompleted", false] },
+              workStatus: { $ifNull: ["$techProfile.workStatus", "pending"] },
+              approvedAt: { $ifNull: ["$techProfile.approvedAt", null] }
+            },
+            availability: {
+              isOnline: { $ifNull: ["$techProfile.availability.isOnline", false] },
+              lastSeen: { $ifNull: ["$techProfile.lastSeen", null] }
+            },
+            rating: {
+              avg: { $ifNull: ["$techProfile.rating.avg", 0] },
+              count: { $ifNull: ["$techProfile.rating.count", 0] }
+            },
+            jobStats: {
+              accepted: {
+                $size: {
+                  $filter: {
+                    input: "$jobs",
+                    as: "job",
+                    cond: { 
+                      $in: ["$$job.status", ["accepted", "on_the_way", "reached", "in_progress", "completed"]]
+                    }
+                  }
+                }
+              },
+              completed: {
+                $size: {
+                  $filter: {
+                    input: "$jobs",
+                    as: "job",
+                    cond: { $eq: ["$$job.status", "completed"] }
+                  }
+                }
+              },
+              cancelled: {
+                $size: {
+                  $filter: {
+                    input: "$jobs",
+                    as: "job",
+                    cond: { $eq: ["$$job.status", "cancelled"] }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          $sort: { createdAt: -1 }
+        }
+      ]);
+
+    } else {
+      // For other roles (Owner, Admin), return basic info
+      users = await User.find({ role }).select("-password");
+    }
+
     return res.status(200).json({ success: true, message: "Users fetched", result: users });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message, result: {} });
@@ -153,6 +462,9 @@ import TempUser from "../Schemas/TempUser.js";
 import User from "../Schemas/User.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import TechnicianKyc from "../Schemas/TechnicianKYC.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
+import ProductBooking from "../Schemas/ProductBooking.js";
+import Address from "../Schemas/Address.js";
 import crypto from "crypto";
 
 import sendSms from "../utils/sendSMS.js";
