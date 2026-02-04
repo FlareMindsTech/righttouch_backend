@@ -34,6 +34,71 @@ const normalizeAddressId = (v) => {
   return trimmed === "" || trimmed === "null" || trimmed === "undefined" ? null : trimmed;
 };
 
+/* ================= RESOLVE USER LOCATION (ADDRESS ID OR GPS) ================= */
+const resolveUserLocation = async ({ locationType, addressId, latitude, longitude, userId }) => {
+  const lat = toFiniteNumber(latitude);
+  const lng = toFiniteNumber(longitude);
+
+  // Priority 1: Use saved address by ID
+  if (addressId && mongoose.Types.ObjectId.isValid(addressId)) {
+    const address = await Address.findOne({
+      _id: addressId,
+      customerId: userId,
+    });
+
+    if (!address) {
+      throw new Error("Address not found");
+    }
+
+    return {
+      locationType: "saved",
+      addressId: address._id,
+      latitude: address.latitude,
+      longitude: address.longitude,
+      addressSnapshot: {
+        _id: address._id,
+        name: address.name,
+        phone: address.phone,
+        addressLine: address.addressLine,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        latitude: address.latitude,
+        longitude: address.longitude,
+        label: address.label,
+      },
+    };
+  }
+
+  // Priority 2: Use GPS coordinates
+  if (lat !== null && lng !== null) {
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw new Error("Invalid coordinates");
+    }
+
+    return {
+      locationType: "gps",
+      addressId: null,
+      latitude: lat,
+      longitude: lng,
+      addressSnapshot: {
+        _id: null,
+        name: null,
+        phone: null,
+        addressLine: null, // Will be filled in checkout as "Pinned Location"
+        city: null,
+        state: null,
+        pincode: null,
+        latitude: lat,
+        longitude: lng,
+        label: null,
+      },
+    };
+  }
+
+  throw new Error("Either addressId or latitude/longitude must be provided");
+};
+
 /* ================= ADD TO CART ================= */
 export const addToCart = async (req, res) => {
   try {
