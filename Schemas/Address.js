@@ -17,13 +17,13 @@ const addressSchema = new mongoose.Schema(
 
     name: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
 
     phone: {
       type: String,
-      required: true,
+      required: false,
       match: [/^[0-9]{10}$/, "Phone must be 10 digits"],
     },
 

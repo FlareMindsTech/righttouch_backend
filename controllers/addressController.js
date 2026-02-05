@@ -26,6 +26,8 @@ export const createAddress = async (req, res) => {
 
     const {
       label,
+      name,
+      phone,
       addressLine,
       city,
       state,
@@ -39,8 +41,20 @@ export const createAddress = async (req, res) => {
 
     // Clean inputs
     const cleanAddressLine = typeof addressLine === 'string' ? addressLine.trim() : "";
-    const cleanLat = latitude !== undefined && latitude !== null ? Number(latitude) : undefined;
-    const cleanLng = longitude !== undefined && longitude !== null ? Number(longitude) : undefined;
+    
+    // Convert latitude and longitude from string to number
+    let cleanLat = undefined;
+    let cleanLng = undefined;
+    
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      const latNum = Number(latitude);
+      cleanLat = Number.isFinite(latNum) ? latNum : undefined;
+    }
+    
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      const lngNum = Number(longitude);
+      cleanLng = Number.isFinite(lngNum) ? lngNum : undefined;
+    }
 
     if (!cleanAddressLine && (cleanLat === undefined || cleanLng === undefined)) {
       return res.status(400).json({
@@ -70,7 +84,7 @@ export const createAddress = async (req, res) => {
       );
     }
 
-    // ✅ Take name + phone from User (not from request body)
+    // ✅ Get user profile for fallback name and phone
     const customer = await User.findById(customerId).select(
       "fname lname mobileNumber email"
     );
@@ -83,14 +97,16 @@ export const createAddress = async (req, res) => {
       });
     }
 
-    const derivedName = [customer.fname, customer.lname]
+    // Derive name and phone from user profile if not complete
+    const profileName = [customer.fname, customer.lname]
       .filter(Boolean)
       .join(" ")
       .trim();
 
-    const derivedPhone = customer.mobileNumber;
+    const profilePhone = customer.mobileNumber;
 
-    if (!derivedName || !derivedPhone) {
+    // Check if profile is complete
+    if (!profileName || !profilePhone) {
       return res.status(400).json({
         success: false,
         message: "Please complete your profile (firstName, mobileNumber) before adding an address",
@@ -98,11 +114,24 @@ export const createAddress = async (req, res) => {
       });
     }
 
+    // Use provided name/phone or fallback to profile data
+    const finalName = (name && name.trim()) || profileName;
+    const finalPhone = (phone && phone.trim()) || profilePhone;
+
+    // Validate phone format if provided
+    if (finalPhone && !/^[0-9]{10}$/.test(finalPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits",
+        result: {},
+      });
+    }
+
     const address = await Address.create({
       customerId,
       label: label || "home",
-      name: derivedName,
-      phone: derivedPhone,
+      name: finalName,
+      phone: finalPhone,
       addressLine: finalAddressLine,
       city,
       state,
@@ -243,6 +272,8 @@ export const updateAddress = async (req, res) => {
     // Only allow safe updates
     const allowed = [
       "label",
+      "name",
+      "phone",
       "addressLine",
       "city",
       "state",
@@ -253,7 +284,30 @@ export const updateAddress = async (req, res) => {
     ];
 
     for (const key of allowed) {
-      if (req.body[key] !== undefined) address[key] = req.body[key];
+      if (req.body[key] !== undefined) {
+        // Validate phone format if being updated
+        if (key === "phone" && req.body[key]) {
+          const phoneStr = String(req.body[key]).trim();
+          if (!/^[0-9]{10}$/.test(phoneStr)) {
+            return res.status(400).json({
+              success: false,
+              message: "Phone must be 10 digits",
+              result: {},
+            });
+          }
+          address[key] = phoneStr;
+        } else if (key === "latitude" || key === "longitude") {
+          // Convert latitude/longitude to number if provided as string
+          if (req.body[key] !== null && req.body[key] !== '') {
+            const coordNum = Number(req.body[key]);
+            address[key] = Number.isFinite(coordNum) ? coordNum : undefined;
+          } else {
+            address[key] = req.body[key];
+          }
+        } else {
+          address[key] = req.body[key];
+        }
+      }
     }
 
     await address.save();

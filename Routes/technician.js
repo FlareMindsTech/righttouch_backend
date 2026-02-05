@@ -21,6 +21,7 @@ router.post("/login", technicianLogin);
 /* ================= TECHNICIAN DATA ================= */
 
 router.post("/login", technicianLogin);
+router.put("/location", Auth, isTechnician, updateTechnicianLocation);
 router.post("/technicianData", Auth, createTechnician);
 router.get("/technicianAll", Auth, getAllTechnicians);
 router.get("/technicianById/:id", Auth, getTechnicianById);
