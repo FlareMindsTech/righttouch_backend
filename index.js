@@ -11,6 +11,9 @@ import { Server } from "socket.io";
 import UserRoutes from "./routes/User.js";
 import TechnicianRoutes from "./routes/technician.js";
 import AddressRoutes from "./routes/address.js";
+import technicianWalletRoutes from "./routes/technicianWalletRoutes.js";
+import adminWalletRoutes from "./routes/adminWalletRoutes.js";
+
 
 dotenv.config();
 
@@ -31,6 +34,15 @@ const trustProxy =
     ? trustProxyEnv === "true" || trustProxyEnv === "1"
     : process.env.NODE_ENV === "production";
 App.set("trust proxy", trustProxy);
+
+// REQUIRED FOR RAZORPAY WEBHOOK
+App.use(
+  bodyParser.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
 
 // 🔌 Initialize Socket.IO
 const io = new Server(httpServer, {
@@ -141,6 +153,7 @@ App.get("/", (req, res) => {
 App.use("/api/user", UserRoutes);
 App.use("/api/technician", TechnicianRoutes);
 App.use("/api/addresses", AddressRoutes);
+App.use("/api/admin", adminWalletRoutes);
 
 
 // ❗ GLOBAL ERROR HANDLER (MUST BE LAST)
@@ -164,7 +177,8 @@ App.use((err, req, res, next) => {
     });
   }
 
-  return res.status(500).json({
+  const statusCode = err.statusCode || err.status || 500;
+  return res.status(statusCode).json({
     success: false,
     message: err.message || "Internal server error",
   });

@@ -118,11 +118,19 @@ export const createBooking = async (req, res) => {
       });
     }
 
+    // Calculate split
+    const commissionPct = typeof service.commissionPercentage === "number" ? service.commissionPercentage : 0;
+    const commissionAmt = Math.round((baseAmountNum * commissionPct) / 100);
+    const techAmt = baseAmountNum - commissionAmt;
+
     // 1️⃣ Create booking
     const bookingDoc = {
       customerProfileId,
       serviceId,
       baseAmount: baseAmountNum,
+      commissionPercentage: commissionPct,
+      commissionAmount: commissionAmt,
+      technicianAmount: techAmt,
       address: addressForBooking,
       scheduledAt,
       status: "broadcasted",
@@ -199,7 +207,7 @@ export const createBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -242,7 +250,7 @@ export const getBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -274,7 +282,7 @@ export const getCustomerBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {error: err.message},
+      result: { error: err.message },
     });
   }
 };
@@ -302,8 +310,11 @@ export const getTechnicianJobHistory = async (req, res) => {
       });
     }
 
+    const technicianId = req.technician._id;
+    const userId = req.technician.userId;
+
     const jobs = await ServiceBooking.find({
-      technicianId: technicianProfileId,
+      technicianId: { $in: [technicianId, userId] },
       status: { $in: ["completed", "cancelled"] },
     })
       // .populate("bookingId")
@@ -318,7 +329,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {error: err.message},
+      result: { error: err.message },
     });
   }
 };
@@ -346,24 +357,35 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       });
     }
 
+    const technicianId = req.technician._id;
+    const userId = req.technician.userId;
+
+    // Search by both ObjectId and String versions to be safe
+    const idList = [
+      technicianId,
+      userId,
+      technicianId.toString(),
+      userId ? userId.toString() : null
+    ].filter(Boolean);
+
     const jobs = await ServiceBooking.find({
-      technicianId: technicianProfileId,
+      technicianId: { $in: idList },
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
-    .populate({
-      path: "customerProfileId",
-      select: "firstName lastName mobileNumber",
-    })
-    .populate({
-      path: "addressId",
-      select: "name phone addressLine city state pincode latitude longitude",
-    })
-    .populate({
-      path: "serviceId",
-      select: "serviceName",
-    })
-    .sort({ createdAt: -1 });
-      
+      .populate({
+        path: "customerProfileId",
+        select: "firstName lastName mobileNumber",
+      })
+      .populate({
+        path: "addressId",
+        select: "name phone addressLine city state pincode latitude longitude",
+      })
+      .populate({
+        path: "serviceId",
+        select: "serviceName",
+      })
+      .sort({ createdAt: -1 });
+
 
     return res.status(200).json({
       success: true,
@@ -374,7 +396,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: err.message,
-      result: {error: err.message},
+      result: { error: err.message },
     });
   }
 };
@@ -489,7 +511,7 @@ export const updateBookingStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -585,7 +607,7 @@ export const cancelBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message,
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };

@@ -48,7 +48,8 @@ export const respondToJob = async (req, res) => {
   session.startTransaction();
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, response } = req.body;
+    const finalStatus = (status || response || "").toLowerCase();
     const technicianProfileId = req.user?.profileId;
     if (!technicianProfileId) {
       await session.abortTransaction();
@@ -58,7 +59,7 @@ export const respondToJob = async (req, res) => {
       await session.abortTransaction();
       return res.status(400).json({ success: false, message: "Invalid booking ID", result: {} });
     }
-    if (status !== "accepted") {
+    if (finalStatus !== "accepted" && finalStatus !== "accept") {
       await session.abortTransaction();
       return res.status(400).json({ success: false, message: "Invalid status", result: {} });
     }

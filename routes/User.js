@@ -78,7 +78,6 @@ import {
 } from "../controllers/productBooking.js";
 
 import {
-  createPayment,
   createPaymentOrder,
   verifyPayment,
   razorpayWebhook,
@@ -197,11 +196,10 @@ router.put("/productBookingUpdate/:id", Auth, productBookingUpdate);
 router.put("/productBookingCancel/:id", Auth, productBookingCancel);
 
 /* ================= PAYMENT ================= */
-router.post("/payment", Auth, createPayment);
 router.post("/payment/order", Auth, createPaymentOrder);
 router.post("/payment/verify", Auth, verifyPayment);
 router.post("/payment/webhook/razorpay", razorpayWebhook);
-router.put("/payment/:id/status", Auth, updatePaymentStatus);
+router.put("/payment/:id/status", Auth, updatePaymentStatus); // optional admin
 
 /* ================= CART ================= */
 router.post("/cart/add", Auth, addToCart);
