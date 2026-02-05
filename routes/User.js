@@ -78,7 +78,7 @@ import {
 } from "../controllers/productBooking.js";
 
 import {
-
+  createPayment,
   createPaymentOrder,
   verifyPayment,
   razorpayWebhook,
@@ -197,7 +197,7 @@ router.put("/productBookingUpdate/:id", Auth, productBookingUpdate);
 router.put("/productBookingCancel/:id", Auth, productBookingCancel);
 
 /* ================= PAYMENT ================= */
-// router.post("/payment", Auth, createPaymentOrder);
+router.post("/payment", Auth, createPayment);
 router.post("/payment/order", Auth, createPaymentOrder);
 router.post("/payment/verify", Auth, verifyPayment);
 router.post("/payment/webhook/razorpay", razorpayWebhook);
