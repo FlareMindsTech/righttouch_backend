@@ -16,26 +16,20 @@ const isTechnician = async (req, res, next) => {
     if (!profileId) {
       return res.status(403).json({
         success: false,
-        message: "Technician profile not found (No Profile ID in token)",
+        message: "Technician profile not found",
       });
     }
 
-    // Try finding by _id first, then by userId (token might have userId as profileId)
-    let technician = await TechnicianProfile.findById(profileId).select("-password");
-    if (!technician) {
-      technician = await TechnicianProfile.findOne({ userId: profileId }).select("-password");
-    }
-
+    const technician = await TechnicianProfile.findById(profileId).select("-password");
     if (!technician) {
       return res.status(403).json({
         success: false,
-        message: "Technician profile not found in database",
+        message: "Technician profile not found",
       });
     }
 
-    // 3️⃣ Attach technician to request and NORMALIZE profileId
+    // 3️⃣ Attach technician to request
     req.technician = technician;
-    req.user.profileId = technician._id; // Ensure consistent use of _id for profileId
 
     next();
   } catch (error) {
