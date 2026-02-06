@@ -30,10 +30,11 @@ const geoPointSchema = new mongoose.Schema(
 
 const serviceBookingSchema = new mongoose.Schema(
   {
-    // 👤 CUSTOMER
-    customerProfileId: {
+
+    // 👤 CUSTOMER PROFILE
+    customerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "CustomerProfile",
+      ref: "User",
       required: true,
       index: true,
     },
@@ -61,7 +62,25 @@ const serviceBookingSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // 📍 ADDRESS
+    // 📍 ADDRESS SNAPSHOT
+    locationType: {
+      type: String,
+      enum: ["saved", "gps"],
+      required: true,
+    },
+
+    addressSnapshot: {
+      addressLine: String,
+      city: String,
+      state: String,
+      pincode: String,
+      name: String,
+      phone: String,
+      latitude: Number,
+      longitude: Number,
+    },
+
+    // 📍 ADDRESS (Legacy / Display String)
     address: {
       type: String,
       required: true,
@@ -177,6 +196,20 @@ const serviceBookingSchema = new mongoose.Schema(
     location: {
       type: geoPointSchema,
       default: null,
+    },
+
+    // Broadcasted timestamp for expiry/cleanup
+    broadcastedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
+    // Search radius in meters (for technician matching)
+    radius: {
+      type: Number,
+      default: 500,
+      min: 0,
     },
   },
   { timestamps: true }

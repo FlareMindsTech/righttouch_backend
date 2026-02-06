@@ -1,61 +1,27 @@
+
 import express from "express";
-import { Auth } from "../middleware/Auth.js";
-import isTechnician from "../middleware/isTechnician.js";
-import { upload } from "../utils/cloudinaryUpload.js";
+import { Auth, authorizeRoles } from "../Middleware/Auth.js";
+import isTechnician from "../Middleware/isTechnician.js";
+import { upload } from "../Utils/cloudinaryUpload.js";
+import { updateTechnicianLocation, createTechnician, getAllTechnicians, getTechnicianById, getMyTechnician, updateTechnician, addTechnicianSkills, removeTechnicianSkills, updateTechnicianStatus, deleteTechnician, updateTechnicianTraining, uploadProfileImage } from "../Controllers/technician.js";
+import { technicianLogin } from "../Controllers/User.js";
+import { respondToJob, getMyJobs, getNearbyJobs } from "../Controllers/technicianBroadcastController.js";
+import { submitTechnicianKyc, uploadTechnicianKycDocuments, getTechnicianKyc, getMyTechnicianKyc, getAllTechnicianKyc, verifyTechnicianKyc, verifyBankDetails, deleteTechnicianKyc, getOrphanedKyc, deleteOrphanedKyc, deleteAllOrphanedKyc } from "../Controllers/technicianKycController.js";
+import { updateBookingStatus, getTechnicianJobHistory, getTechnicianCurrentJobs } from "../Controllers/serviceBookController.js";
+import { createWalletTransaction, getWalletHistory, requestWithdrawal, getMyWithdrawals, cancelMyWithdrawal, ownerListWithdrawals, ownerDecideWithdrawal } from "../Controllers/technicianWalletController.js";
 
-import {
-  respondToJob,
-  getMyJobs,
-} from "../controllers/technicianBroadcastController.js";
 
-import {
-  createTechnician,
-  getAllTechnicians,
-  getTechnicianById,
-  getMyTechnician,
-  updateTechnician,
-  addTechnicianSkills,
-  removeTechnicianSkills,
-  updateTechnicianStatus,
-  deleteTechnician,
-  updateTechnicianTraining,
-  uploadProfileImage,
-} from "../controllers/technician.js";
 
-import {
-  submitTechnicianKyc,
-  uploadTechnicianKycDocuments,
-  getTechnicianKyc,
-  getMyTechnicianKyc,
-  getAllTechnicianKyc,
-  verifyTechnicianKyc,
-  verifyBankDetails,
-  deleteTechnicianKyc,
-  getOrphanedKyc,
-  deleteOrphanedKyc,
-  deleteAllOrphanedKyc,
-} from "../controllers/technicianKycController.js";
-
-import {
-  updateBookingStatus,
-  getTechnicianJobHistory,
-  getTechnicianCurrentJobs
-} from "../controllers/serviceBookController.js";
-
-import {
-  createWalletTransaction,
-  getWalletHistory,
-  requestWithdrawal,
-  getMyWithdrawals,
-  cancelMyWithdrawal,
-  ownerListWithdrawals,
-  ownerDecideWithdrawal,
-} from "../controllers/technicianWalletController.js";
 
 const router = express.Router();
 
+/* ================= TECHNICIAN AUTH ================= */
+router.post("/login", technicianLogin);
+
 /* ================= TECHNICIAN DATA ================= */
 
+router.post("/login", technicianLogin);
+router.put("/location", Auth, isTechnician, updateTechnicianLocation);
 router.post("/technicianData", Auth, createTechnician);
 router.get("/technicianAll", Auth, getAllTechnicians);
 router.get("/technicianById/:id", Auth, getTechnicianById);
@@ -98,7 +64,8 @@ router.delete("/technician/kyc/orphaned/cleanup/all", Auth, deleteAllOrphanedKyc
 /* ================= JOB BROADCAST ================= */
 
 router.get("/job-broadcast/my-jobs", Auth, isTechnician, getMyJobs);
-router.get("/job-broadcast/my-jobs", Auth, getMyJobs);
+router.get("/job-broadcast/nearby-jobs", Auth, isTechnician, getNearbyJobs);
+
 router.put("/job-broadcast/respond/:id", Auth, respondToJob);
 
 /* ================= JOB UPDATE ================= */
@@ -106,7 +73,7 @@ router.put("/job-broadcast/respond/:id", Auth, respondToJob);
 // Technician updates job status
 
 router.put("/status/:id", Auth, isTechnician, updateBookingStatus);
-router.get("/jobs/current", Auth, isTechnician, getTechnicianCurrentJobs);
+router.get("/jobs/current", Auth, getTechnicianCurrentJobs); // Supports both Technician and Owner roles
 router.get("/jobs/history", Auth, isTechnician, getTechnicianJobHistory);
 
 /* ================= TECHNICIAN WALLET ================= */
@@ -120,7 +87,7 @@ router.get("/wallet/withdrawals/me", Auth, isTechnician, getMyWithdrawals);
 router.put("/wallet/withdrawals/:id/cancel", Auth, isTechnician, cancelMyWithdrawal);
 
 // Owner payout queue (approve/reject/mark-paid)
-router.get("/wallet/withdrawals", Auth, ownerListWithdrawals);
-router.put("/wallet/withdrawals/:id/decision", Auth, ownerDecideWithdrawal);
+router.get("/wallet/withdrawals", Auth, authorizeRoles("Owner"), ownerListWithdrawals);
+router.put("/wallet/withdrawals/:id/decision", Auth, authorizeRoles("Owner"), ownerDecideWithdrawal);
 
 export default router;

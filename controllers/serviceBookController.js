@@ -1,12 +1,16 @@
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import TechnicianKyc from "../Schemas/TechnicianKYC.js";
 import Service from "../Schemas/Service.js";
 import Address from "../Schemas/Address.js";
 import mongoose from "mongoose";
-import { broadcastJobToTechnicians } from "../utils/sendNotification.js";
-import { findEligibleTechniciansForService } from "../utils/technicianMatching.js";
-import { settleBookingEarningsIfEligible } from "../utils/settlement.js";
+import { broadcastJobToTechnicians } from "../Utils/sendNotification.js";
+import { findEligibleTechniciansForService } from "../Utils/technicianMatching.js";
+import { findNearbyTechnicians } from "../Utils/findNearbyTechnicians.js";
+import { settleBookingEarningsIfEligible } from "../Utils/settlement.js";
+import { matchAndBroadcastBooking } from "../Utils/technicianMatching.js";
+import { resolveUserLocation } from "../Utils/resolveUserLocation.js";
 
 const toNumber = value => {
   const num = Number(value);
@@ -20,21 +24,67 @@ const toFiniteNumber = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
+/* ================= TECHNICIAN ACTIVATION CHECK ================= */
+const checkTechnicianActivation = async (technicianProfileId) => {
+  try {
+    // Fetch KYC data
+    const kyc = await TechnicianKyc.findOne({
+      technicianId: technicianProfileId,
+    }).select("verificationStatus bankVerified");
+
+    // Check KYC approval
+    if (!kyc || kyc.verificationStatus !== "approved") {
+      return {
+        isActive: false,
+        message: "Complete KYC, bank verification, and training to activate technician account",
+      };
+    }
+
+    // Check bank verification
+    if (!kyc.bankVerified) {
+      return {
+        isActive: false,
+        message: "Complete KYC, bank verification, and training to activate technician account",
+      };
+    }
+
+    // Fetch technician profile
+    const profile = await TechnicianProfile.findById(technicianProfileId).select("trainingCompleted");
+
+    // Check training completion
+    if (!profile || !profile.trainingCompleted) {
+      return {
+        isActive: false,
+        message: "Complete KYC, bank verification, and training to activate technician account",
+      };
+    }
+
+    // All conditions met
+    return {
+      isActive: true,
+      message: "Technician account is active",
+    };
+  } catch (error) {
+    return {
+      isActive: false,
+      message: error.message,
+    };
+  }
+};
+
 
 export const createBooking = async (req, res) => {
   try {
-    if (!req.user?.userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
-    }
     if (req.user?.role !== "Customer") {
       return res.status(403).json({ success: false, message: "Customer access only", result: {} });
     }
-    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
-      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    if (!req.user.userId || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      return res.status(401).json({ success: false, message: "Invalid token user", result: {} });
     }
-    const customerProfileId = req.user.profileId;
+    const customerId = req.user.userId;
 
     const { serviceId, baseAmount, address, scheduledAt } = req.body;
+    const radiusInput = toFiniteNumber(req.body?.radius);
     const addressId = typeof req.body?.addressId === "string" ? req.body.addressId.trim() : req.body?.addressId;
 
     const addressLineInput = typeof req.body?.addressLine === "string" ? req.body.addressLine.trim() : "";
@@ -76,44 +126,19 @@ export const createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: "Service not found or inactive", result: {} });
     }
 
-    // Optional: if addressId is provided, use Address collection (supports nearby matching)
-    let addressForBooking = address || addressLineInput || (hasCoords ? "Pinned Location" : undefined);
-    let addressForMatching = {
-      city: cityInput,
-      state: stateInput,
-      pincode: pincodeInput,
-      latitude: hasCoords ? latInput : undefined,
-      longitude: hasCoords ? lngInput : undefined,
-    };
+    // 🔁 Decision Logic: Address ID vs Current Location
+    const resolvedLocation = await resolveUserLocation({
+      locationType: req.body.locationType,
+      addressId: req.body.addressId,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      userId: customerId,
+    });
 
-    if (addressId) {
-      if (!mongoose.Types.ObjectId.isValid(addressId)) {
-        return res.status(400).json({ success: false, message: "Invalid addressId format", result: {} });
-      }
-
-      const addressDoc = await Address.findOne({
-        _id: addressId,
-        customerProfileId,
-      });
-
-      if (!addressDoc) {
-        return res.status(404).json({ success: false, message: "Address not found", result: {} });
-      }
-
-      addressForBooking = addressDoc.addressLine;
-      addressForMatching = {
-        city: addressDoc.city,
-        state: addressDoc.state,
-        pincode: addressDoc.pincode,
-        latitude: addressDoc.latitude,
-        longitude: addressDoc.longitude,
-      };
-    }
-
-    if (!addressForBooking) {
-      return res.status(400).json({
+    if (!resolvedLocation.success) {
+      return res.status(resolvedLocation.statusCode).json({
         success: false,
-        message: "addressLine or addressId is required",
+        message: resolvedLocation.message,
         result: {},
       });
     }
@@ -125,82 +150,52 @@ export const createBooking = async (req, res) => {
 
     // 1️⃣ Create booking
     const bookingDoc = {
-      customerProfileId,
+      customerId,
       serviceId,
       baseAmount: baseAmountNum,
+       // ✅ Swiggy-Style Location Snapshot
+      locationType: resolvedLocation.locationType,
+      addressSnapshot: resolvedLocation.addressSnapshot,
+
+      // Legacy/Display address string
+      address: resolvedLocation.addressSnapshot.addressLine || "Pinned Location",
       commissionPercentage: commissionPct,
       commissionAmount: commissionAmt,
       technicianAmount: techAmt,
       address: addressForBooking,
       scheduledAt,
-      status: "broadcasted",
+      status: "requested",
+      radius: radiusInput ?? 500,
     };
 
-    const hasCoordsForBooking =
-      typeof addressForMatching?.latitude === "number" &&
-      Number.isFinite(addressForMatching.latitude) &&
-      typeof addressForMatching?.longitude === "number" &&
-      Number.isFinite(addressForMatching.longitude);
 
-    if (hasCoordsForBooking) {
-      bookingDoc.location = {
-        type: "Point",
-        coordinates: [addressForMatching.longitude, addressForMatching.latitude],
-      };
+    // Only save addressId if we actually used a saved address
+    if (resolvedLocation.addressId) {
+      bookingDoc.addressId = resolvedLocation.addressId;
     }
+
+    // GeoJSON point for geospatial queries
+    bookingDoc.location = {
+      type: "Point",
+      coordinates: [resolvedLocation.longitude, resolvedLocation.latitude],
+    };
+
+    const hasCoordsForBooking = true; // Always true with new utility
 
     const booking = await ServiceBooking.create(bookingDoc);
 
-    // 2️⃣ Find eligible technicians (KYC approved + profileComplete + workStatus approved + online + skill match + nearby/area match)
-    const technicians = await findEligibleTechniciansForService({
-      serviceId,
-      address: addressForMatching,
-      radiusMeters: 5000,
-      limit: 50,
-      enableGeo: true,
-    });
-
-    // 3️⃣ Create broadcast records
-    if (technicians.length > 0) {
-      // Create JobBroadcast documents
-      await JobBroadcast.insertMany(
-        technicians.map((t) => ({
-          bookingId: booking._id,
-          technicianId: t._id,
-          status: "sent",
-        }))
-      );
-
-      // 4️⃣ Send notifications to all eligible technicians
-      const technicianIds = technicians.map((t) => t._id.toString());
-      await broadcastJobToTechnicians(
-        req.io, // Socket.io instance (pass from index.js)
-        technicianIds,
-        {
-          bookingId: booking._id,
-          serviceId: service._id,
-          serviceName: service.serviceName,
-          baseAmount: baseAmountNum,
-          address: addressForBooking,
-          scheduledAt,
-        }
-      );
-
-      console.log(`✅ Broadcasted to ${technicians.length} matching, online technicians`);
-    } else {
-      console.log("⚠️ No matching, online technicians found for this service");
-    }
+    // 2️⃣ Smart matching & broadcast (Unified Logic)
+    const broadcastResult = await matchAndBroadcastBooking(booking._id, req.io);
 
     return res.status(201).json({
       success: true,
-      message:
-        technicians.length > 0
-          ? "Booking created & broadcasted"
-          : "Booking created (no technicians available for this service)",
+      message: broadcastResult.count > 0
+        ? "Booking created & broadcasted"
+        : "Booking created (no technicians available yet)",
       result: {
         booking,
-        broadcastCount: technicians.length,
-        status: technicians.length > 0 ? "broadcasted" : "no_technicians_available",
+        broadcastCount: broadcastResult.count || 0,
+        status: broadcastResult.count > 0 ? "broadcasted" : "no_technicians_available",
       },
     });
   } catch (error) {
@@ -221,23 +216,34 @@ export const getBookings = async (req, res) => {
     let filter = {};
 
     if (req.user.role === "Customer") {
-      if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
-        return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+      if (!req.user.userId || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
+        return res.status(401).json({ success: false, message: "Invalid token user", result: {} });
       }
-      filter.customerProfileId = req.user.profileId;
+      filter.customerId = req.user.userId;
     }
 
     if (req.user.role === "Technician") {
-      const technicianProfileId = req.user?.profileId;
+      const technicianProfileId = req.user?.technicianProfileId;
       if (!technicianProfileId || !mongoose.Types.ObjectId.isValid(technicianProfileId)) {
         return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
       }
       filter.technicianId = technicianProfileId;
     }
 
+    // For Admin: no filter, shows all bookings
+    // For Customer/Technician: filtered by their ID
+
     const bookings = await ServiceBooking.find(filter)
-      .populate("serviceId", "serviceName")
-      .populate("customerProfileId", "firstName lastName mobileNumber")
+      .populate("customerId", "fname lname mobileNumber email")
+      .populate("serviceId", "serviceName serviceType serviceCost")
+      .populate({
+        path: "technicianId",
+        select: "userId workStatus",
+        populate: {
+          path: "userId",
+          select: "fname lname mobileNumber"
+        }
+      })
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -264,13 +270,21 @@ export const getCustomerBookings = async (req, res) => {
     if (req.user?.role !== "Customer") {
       return res.status(403).json({ success: false, message: "Customer access only", result: {} });
     }
-    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
-      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    if (!req.user.userId || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      return res.status(401).json({ success: false, message: "Invalid token user", result: {} });
     }
     const bookings = await ServiceBooking.find({
-      customerProfileId: req.user.profileId,
+      customerId: req.user.userId,
     })
-      .populate("serviceId", "serviceName")
+      .populate("serviceId", "serviceName serviceType serviceCost")
+      .populate({
+        path: "technicianId",
+        select: "userId workStatus",
+        populate: {
+          path: "userId",
+          select: "fname lname mobileNumber"
+        }
+      })
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -301,7 +315,7 @@ export const getTechnicianJobHistory = async (req, res) => {
       });
     }
 
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
     if (!technicianProfileId) {
       return res.status(401).json({
         success: false,
@@ -312,12 +326,22 @@ export const getTechnicianJobHistory = async (req, res) => {
 
     const technicianId = req.technician._id;
     const userId = req.technician.userId;
+    // Check technician activation status
+    const activation = await checkTechnicianActivation(technicianProfileId);
+    if (!activation.isActive) {
+      return res.status(200).json({
+        success: true,
+        message: activation.message,
+        result: [],
+      });
+    }
 
     const jobs = await ServiceBooking.find({
       technicianId: { $in: [technicianId, userId] },
       status: { $in: ["completed", "cancelled"] },
     })
-      // .populate("bookingId")
+      .populate("customerId", "fname lname mobileNumber email")
+      .populate("serviceId", "serviceName serviceType serviceCost")
       .sort({ updatedAt: -1 });
 
     return res.status(200).json({
@@ -336,26 +360,22 @@ export const getTechnicianJobHistory = async (req, res) => {
 
 
 /* =====================================================
-   GET JOB FOR (TECHNICIAN)
+   GET CURRENT JOBS (TECHNICIAN & OWNER)
 ===================================================== */
 export const getTechnicianCurrentJobs = async (req, res) => {
   try {
-    if (req.user.role !== "Technician") {
+    const userRole = req.user?.role;
+
+    // Validate role access
+    if (userRole !== "Technician" && userRole !== "Owner") {
       return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message: "Access denied. Technician or Owner access only.",
         result: {},
       });
     }
 
-    const technicianProfileId = req.user?.profileId;
-    if (!technicianProfileId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-        result: {},
-      });
-    }
+    
 
     const technicianId = req.technician._id;
     const userId = req.technician.userId;
@@ -368,13 +388,47 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       userId ? userId.toString() : null
     ].filter(Boolean);
 
+  
+    if (userRole === "Technician") {
+      // Technician: Only their own jobs
+      const technicianProfileId = req.user?.technicianProfileId;
+      if (!technicianProfileId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized. Technician profile not found.",
+          result: {},
+        });
+      }
+
+      // Check technician activation status
+      const activation = await checkTechnicianActivation(technicianProfileId);
+      if (!activation.isActive) {
+        return res.status(200).json({
+          success: true,
+          message: activation.message,
+          result: [],
+        });
+      }
+
+      query.technicianId = technicianProfileId;
+    }
+    // If role is Owner: no additional filter, get all current jobs
+
     const jobs = await ServiceBooking.find({
       technicianId: { $in: idList },
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
       .populate({
-        path: "customerProfileId",
-        select: "firstName lastName mobileNumber",
+        path: "customerId",
+        select: "fname lname mobileNumber email",
+      })
+      .populate({
+        path: "technicianId",
+        populate: {
+          path: "userId",
+          select: "fname lname mobileNumber email",
+        },
+        select: "userId profileImage locality workStatus",
       })
       .populate({
         path: "addressId",
@@ -382,15 +436,76 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       })
       .populate({
         path: "serviceId",
-        select: "serviceName",
+        select: "serviceName serviceType",
       })
       .sort({ createdAt: -1 });
 
+    // Format response for better readability
+    const formattedJobs = jobs.map((job) => {
+      const jobObj = job.toObject();
+
+      // Format customer details
+      const customer = jobObj.customerId
+        ? {
+            firstName: jobObj.customerId.fname || "",
+            lastName: jobObj.customerId.lname || "",
+            mobileNumber: jobObj.customerId.mobileNumber || "",
+            email: jobObj.customerId.email || "",
+          }
+        : null;
+
+      // Format technician details
+      const technician = jobObj.technicianId
+        ? {
+            firstName: jobObj.technicianId.userId?.fname || "",
+            lastName: jobObj.technicianId.userId?.lname || "",
+            mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
+            email: jobObj.technicianId.userId?.email || "",
+            profileImage: jobObj.technicianId.profileImage || null,
+            locality: jobObj.technicianId.locality || "",
+            workStatus: jobObj.technicianId.workStatus || "",
+          }
+        : null;
+
+      // Format service details
+      const service = jobObj.serviceId
+        ? {
+            serviceName: jobObj.serviceId.serviceName || "",
+            serviceType: jobObj.serviceId.serviceType || "",
+          }
+        : null;
+
+      // Format address details
+      const address = jobObj.addressId
+        ? {
+            name: jobObj.addressId.name || "",
+            phone: jobObj.addressId.phone || "",
+            addressLine: jobObj.addressId.addressLine || "",
+            city: jobObj.addressId.city || "",
+            state: jobObj.addressId.state || "",
+            pincode: jobObj.addressId.pincode || "",
+          }
+        : null;
+
+      return {
+        jobId: jobObj._id,
+        status: jobObj.status,
+        customer,
+        technician,
+        service,
+        address,
+        baseAmount: jobObj.baseAmount,
+        scheduledAt: jobObj.scheduledAt,
+        createdAt: jobObj.createdAt,
+        acceptedAt: jobObj.assignedAt,
+        paymentStatus: jobObj.paymentStatus,
+      };
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Active jobs fetched",
-      result: jobs,
+      message: `Active jobs fetched for ${userRole}`,
+      result: formattedJobs,
     });
   } catch (err) {
     return res.status(500).json({
@@ -436,8 +551,8 @@ export const updateBookingStatus = async (req, res) => {
       });
     }
 
-    const booking = await ServiceBooking.findById(bookingId);
-
+    const technicianProfileId = req.user?.technicianProfileId;
+    let booking = await ServiceBooking.findById(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -445,16 +560,12 @@ export const updateBookingStatus = async (req, res) => {
         result: {},
       });
     }
-
     if (userRole !== "Technician") {
       return res.status(403).json({ success: false, message: "Only technician can update status", result: {} });
     }
-
-    const technicianProfileId = req.user?.profileId;
     if (!technicianProfileId || !booking.technicianId || booking.technicianId.toString() !== technicianProfileId.toString()) {
       return res.status(403).json({ success: false, message: "Access denied for this booking", result: {} });
     }
-
     // Check technician approval status
     const technician = await TechnicianProfile.findById(technicianProfileId);
     if (!technician) {
@@ -464,7 +575,6 @@ export const updateBookingStatus = async (req, res) => {
         result: {},
       });
     }
-
     if (!technician.profileComplete) {
       return res.status(403).json({
         success: false,
@@ -473,14 +583,13 @@ export const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // Check KYC status
-    const TechnicianKyc = mongoose.model('TechnicianKyc');
-    const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId });
-    if (!kyc || kyc.verificationStatus !== "approved") {
+    // Check technician activation status (KYC + Bank + Training)
+    const activation = await checkTechnicianActivation(technicianProfileId);
+    if (!activation.isActive) {
       return res.status(403).json({
         success: false,
-        message: "Your KYC must be approved before updating job status. Status: " + (kyc?.verificationStatus || "not_submitted"),
-        result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
+        message: activation.message,
+        result: {},
       });
     }
 
@@ -492,15 +601,12 @@ export const updateBookingStatus = async (req, res) => {
         result: { workStatus: technician.workStatus },
       });
     }
-
     booking.status = status;
     await booking.save();
-
     if (status === "completed") {
       // If payment is already verified, credit technician wallet (idempotent)
       await settleBookingEarningsIfEligible(booking._id);
     }
-
     return res.status(200).json({
       success: true,
       message: "Status updated",
@@ -553,11 +659,11 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
-      return res.status(401).json({ success: false, message: "Invalid token profile", result: {} });
+    if (!req.user.userId || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      return res.status(401).json({ success: false, message: "Invalid token user", result: {} });
     }
 
-    if (booking.customerProfileId.toString() !== req.user.profileId.toString()) {
+    if (booking.customerId.toString() !== req.user.userId.toString()) {
       return res.status(403).json({
         success: false,
         message: "Access denied",

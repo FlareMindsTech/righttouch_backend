@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const addressSchema = new mongoose.Schema(
   {
-    customerProfileId: {
+    customerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "CustomerProfile",
+      ref: "User",
       required: true,
       index: true,
     },
@@ -17,13 +17,13 @@ const addressSchema = new mongoose.Schema(
 
     name: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
 
     phone: {
       type: String,
-      required: true,
+      required: false,
       match: [/^[0-9]{10}$/, "Phone must be 10 digits"],
     },
 
@@ -49,13 +49,31 @@ const addressSchema = new mongoose.Schema(
     },
 
     latitude: {
-      type: String,
-      trim: true,
+      type: Number,
+      required: false,
+      validate: {
+        validator: function(v) {
+          // Both must exist or both must be null
+          const hasLat = v !== null && v !== undefined;
+          const hasLng = this.longitude !== null && this.longitude !== undefined;
+          return hasLat === hasLng; // Both true or both false
+        },
+        message: "Both latitude and longitude must be provided together"
+      }
     },
 
     longitude: {
-      type: String,
-      trim: true,
+      type: Number,
+      required: false,
+      validate: {
+        validator: function(v) {
+          // Both must exist or both must be null
+          const hasLng = v !== null && v !== undefined;
+          const hasLat = this.latitude !== null && this.latitude !== undefined;
+          return hasLng === hasLat; // Both true or both false
+        },
+        message: "Both latitude and longitude must be provided together"
+      }
     },
 
     isDefault: {
@@ -67,10 +85,10 @@ const addressSchema = new mongoose.Schema(
 );
 
 /**
- * Only ONE default address per customer
+ * Only ONE default address per user
  */
 addressSchema.index(
-  { customerProfileId: 1, isDefault: 1 },
+  { customerId: 1, isDefault: 1 },
   { unique: true, partialFilterExpression: { isDefault: true } }
 );
 

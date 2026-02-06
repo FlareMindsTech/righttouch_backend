@@ -1,21 +1,21 @@
 import express from "express";
-import { upload } from "../utils/cloudinaryUpload.js";
-
+import { upload } from "../Utils/cloudinaryUpload.js";
+import rateLimit from 'express-rate-limit';
 import {
   signupAndSendOtp,
   resendOtp,
   verifyOtp,
   setPassword,
   login,
-  requestPasswordResetOtp,
-  verifyPasswordResetOtp,
-  resetPassword,
+  technicianLogin,
+  ownerLogin,
   getMyProfile,
   completeProfile,
   updateMyProfile,
   getUserById,
   getAllUsers,
-} from "../controllers/User.js";
+  checkUserByMobile,
+} from "../Controllers/User.js";
 
 import {
   serviceCategory,
@@ -25,7 +25,7 @@ import {
   getByIdCategory,
   updateCategory,
   deleteCategory,
-} from "../controllers/categoryController.js";
+} from "../Controllers/categoryController.js";
 
 import {
   userRating,
@@ -33,13 +33,13 @@ import {
   getRatingById,
   updateRating,
   deleteRating,
-} from "../controllers/ratingController.js";
+} from "../Controllers/ratingController.js";
 
 import {
   userReport,
   getAllReports,
   getReportById,
-} from "../controllers/reportController.js";
+} from "../Controllers/reportController.js";
 
 import {
   createService,
@@ -50,14 +50,14 @@ import {
   getServiceById,
   updateService,
   deleteService,
-} from "../controllers/serviceController.js";
+} from "../Controllers/serviceController.js";
 
 import {
   createBooking,
   getBookings,
   getCustomerBookings,
   cancelBooking,
-} from "../controllers/serviceBookController.js";
+} from "../Controllers/serviceBookController.js";
 
 import {
   createProduct,
@@ -68,22 +68,23 @@ import {
   removeProductImage,
   replaceProductImages,
   updateProduct,
-} from "../controllers/productController.js";
+} from "../Controllers/productController.js";
 
 import {
   productBooking,
   getAllProductBooking,
   productBookingUpdate,
   productBookingCancel,
-} from "../controllers/productBooking.js";
+} from "../Controllers/productBooking.js";
 
 import {
-  createPayment,
   createPaymentOrder,
   verifyPayment,
   razorpayWebhook,
   updatePaymentStatus,
-} from "../controllers/paymentController.js";
+  retryPaymentSettlement,
+  createPayment,
+} from "../Controllers/paymentController.js";
 
 import {
   addToCart,
@@ -93,21 +94,68 @@ import {
   getCartById,
   updateCartById,
   checkout,
-} from "../controllers/cartController.js";
+} from "../Controllers/cartController.js";
 
-import { Auth } from "../middleware/Auth.js";
+import { Auth } from "../Middleware/Auth.js";
 
 const router = express.Router();
 
+const getClientIp = (req) => {
+  const xff = req.headers?.["x-forwarded-for"];
+  if (typeof xff === "string" && xff.trim()) return xff.split(",")[0].trim();
+  if (req.ip) return req.ip;
+  return req.socket?.remoteAddress || "unknown";
+};
+
+// 🔒 Strict Rate Limiters for Authentication
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 15 minutes
+  //max: 50, // 50 attempts per window (increased for testing)
+  message: {
+    success: false,
+    message: "Too many attempts, please try again after 15 minutes",
+    result: {},
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { ip: false },
+  keyGenerator: (req) => getClientIp(req),
+  validate: { ip: false },
+  keyGenerator: (req) => getClientIp(req),
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 60 * 1000, // 60 Seconds
+  // max: 3, // 3 OTP requests per window
+  message: {
+    success: false,
+    message: "Too many OTP requests, please try again after 15 minutes",
+    result: {},
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /* ================= USER ================= */
-router.post("/signup", signupAndSendOtp);
-router.post("/resend-otp", resendOtp);
-router.post("/verify-otp", verifyOtp);
-router.post("/set-password", setPassword);
-router.post("/login", login);
-router.post("/request-password-reset-otp", requestPasswordResetOtp);
-router.post("/verify-password-reset-otp", verifyPasswordResetOtp);
-router.post("/reset-password", resetPassword);
+router.post("/signup", authLimiter, signupAndSendOtp);
+router.post("/resend-otp", otpLimiter, resendOtp);
+router.post("/verify-otp", authLimiter, verifyOtp);
+router.post("/set-password", authLimiter, setPassword);
+router.post("/login", authLimiter, login);
+
+/* ================= USER LOGIN ROUTES (Role-specific) ================= */
+// Customer login (default, only allows Customer role)
+router.post("/login/customer", authLimiter, async (req, res, next) => {
+  req.body.role = "Customer";
+  return login(req, res, next);
+});
+
+
+// Owner login (only allows Owner role)
+router.post("/login/owner", authLimiter, ownerLogin);
+
+// 🔍 DEBUG: Check user by mobile number
+router.get("/debug/check-user/:mobileNumber", checkUserByMobile);
 
 router.get("/me", Auth, getMyProfile);
 router.post("/complete-profile", Auth, completeProfile);
@@ -202,6 +250,9 @@ router.post("/payment/order", Auth, createPaymentOrder);
 router.post("/payment/verify", Auth, verifyPayment);
 router.post("/payment/webhook/razorpay", razorpayWebhook);
 router.put("/payment/:id/status", Auth, updatePaymentStatus);
+
+// ✅ New: Manual retry for stuck settlements (Admin/Owner)
+router.post("/payment/retry-settlement", Auth, retryPaymentSettlement);
 
 /* ================= CART ================= */
 router.post("/cart/add", Auth, addToCart);

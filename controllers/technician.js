@@ -1,3 +1,50 @@
+// ================= UPDATE TECHNICIAN LIVE LOCATION =================
+export const updateTechnicianLocation = async (req, res) => {
+  try {
+    const technicianProfileId = req.user?.technicianProfileId;
+    const { latitude, longitude } = req.body;
+
+    if (!technicianProfileId || !mongoose.Types.ObjectId.isValid(technicianProfileId)) {
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
+    }
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({ success: false, message: "Invalid coordinates", result: {} });
+    }
+
+    // Only update if moved > 25 meters
+    const oldProfile = await TechnicianProfile.findById(technicianProfileId).select("location");
+    let shouldUpdate = true;
+    if (oldProfile && oldProfile.location && Array.isArray(oldProfile.location.coordinates)) {
+      const [oldLng, oldLat] = oldProfile.location.coordinates;
+      const toRad = deg => (deg * Math.PI) / 180;
+      const R = 6371000; // meters
+      const dLat = toRad(latitude - oldLat);
+      const dLng = toRad(longitude - oldLng);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(oldLat)) * Math.cos(toRad(latitude)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const dist = R * c;
+      if (dist < 25) shouldUpdate = false;
+    }
+    if (!shouldUpdate) {
+      return res.json({ success: true, message: "Location unchanged (moved < 25m)" });
+    }
+    await TechnicianProfile.updateOne(
+      { _id: technicianProfileId },
+      {
+        location: {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        },
+        "availability.isOnline": true,
+      }
+    );
+    return res.json({ success: true, message: "Location updated" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message, result: { error: error.message } });
+  }
+};
 import mongoose from "mongoose";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import Service from "../Schemas/Service.js";
@@ -31,7 +78,7 @@ const normalizeServiceIdsInput = (body) => {
 /* ================= ADD TECHNICIAN SKILLS (APPEND) ================= */
 export const addTechnicianSkills = async (req, res) => {
   try {
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
       return res.status(401).json({
@@ -112,7 +159,7 @@ export const addTechnicianSkills = async (req, res) => {
 /* ================= REMOVE TECHNICIAN SKILLS ================= */
 export const removeTechnicianSkills = async (req, res) => {
   try {
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
       return res.status(401).json({
@@ -179,7 +226,7 @@ export const removeTechnicianSkills = async (req, res) => {
 /* ================= UPDATE TECHNICIAN SKILLS ================= */
 export const createTechnician = async (req, res) => {
   try {
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
     const { skills } = req.body;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
@@ -230,7 +277,7 @@ export const createTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -273,7 +320,7 @@ export const getAllTechnicians = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -312,7 +359,7 @@ export const getTechnicianById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -320,7 +367,7 @@ export const getTechnicianById = async (req, res) => {
 /* ================= GET MY TECHNICIAN (FROM TOKEN) ================= */
 export const getMyTechnician = async (req, res) => {
   try {
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
       return res.status(401).json({
@@ -332,6 +379,10 @@ export const getMyTechnician = async (req, res) => {
 
     const technician = await TechnicianProfile.findById(technicianProfileId)
       .populate("skills.serviceId", "serviceName")
+      .populate({
+        path: "userId",
+        select: "fname lname mobileNumber email"
+      })
       .select("-password");
 
     if (!technician) {
@@ -360,7 +411,7 @@ export const getMyTechnician = async (req, res) => {
 export const updateTechnician = async (req, res) => {
   try {
     const { skills, availability } = req.body;
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
       return res.status(401).json({
@@ -484,7 +535,7 @@ export const updateTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -555,7 +606,7 @@ export const updateTechnicianStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -582,7 +633,7 @@ export const deleteTechnician = async (req, res) => {
       });
     }
 
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
     const isOwner = req.user?.role === "Owner";
     if (!isOwner && (!technicianProfileId || technician._id.toString() !== technicianProfileId.toString())) {
       return res.status(403).json({
@@ -602,7 +653,7 @@ export const deleteTechnician = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -639,7 +690,7 @@ export const updateTechnicianTraining = async (req, res) => {
     }
 
     const technician = await TechnicianProfile.findById(technicianId).select("-password");
-    
+
     if (!technician) {
       return res.status(404).json({
         success: false,
@@ -650,7 +701,7 @@ export const updateTechnicianTraining = async (req, res) => {
 
     // Update training status
     technician.trainingCompleted = trainingCompleted;
-    
+
     // If training is being set to false, force offline
     if (!trainingCompleted && technician.availability?.isOnline) {
       technician.availability.isOnline = false;
@@ -674,14 +725,14 @@ export const updateTechnicianTraining = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
 /* ================= UPLOAD TECHNICIAN PROFILE IMAGE ================= */
 export const uploadProfileImage = async (req, res) => {
   try {
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
 
     if (!technicianProfileId) {
       return res.status(401).json({
@@ -733,7 +784,7 @@ export const uploadProfileImage = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };

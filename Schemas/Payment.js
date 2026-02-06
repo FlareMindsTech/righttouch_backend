@@ -40,4 +40,14 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Payment", paymentSchema);
+paymentSchema.index(
+  { provider: 1, providerOrderId: 1 },
+  { unique: true, partialFilterExpression: { providerOrderId: { $type: "string" } } }
+);
+
+paymentSchema.index(
+  { provider: 1, providerPaymentId: 1 },
+  { unique: true, partialFilterExpression: { providerPaymentId: { $type: "string" } } }
+);
+
+export default mongoose.models.Payment || mongoose.model("Payment", paymentSchema);

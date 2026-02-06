@@ -1,20 +1,8 @@
 import mongoose from "mongoose";
 
 import Address from "../Schemas/Address.js";
-import CustomerProfile from "../Schemas/CustomerProfile.js";
-
-const ensureCustomer = (req) => {
-  if (!req.user || req.user.role !== "Customer") {
-    const err = new Error("Customer access only");
-    err.statusCode = 403;
-    throw err;
-  }
-  if (!req.user.profileId || !mongoose.Types.ObjectId.isValid(req.user.profileId)) {
-    const err = new Error("Invalid token profile");
-    err.statusCode = 401;
-    throw err;
-  }
-};
+import User from "../Schemas/User.js";
+import { ensureCustomer } from "../Utils/ensureCustomer.js";
 
 const getAddressIdFromReq = (req) => req.params?.id || req.body?.addressId || req.body?.id;
 
@@ -22,10 +10,12 @@ const getAddressIdFromReq = (req) => req.params?.id || req.body?.addressId || re
 export const createAddress = async (req, res) => {
   try {
     ensureCustomer(req);
-    const customerProfileId = req.user.profileId;
+    const customerId = req.user.userId;
 
     const {
       label,
+      name,
+      phone,
       addressLine,
       city,
       state,
@@ -35,16 +25,37 @@ export const createAddress = async (req, res) => {
       isDefault,
     } = req.body;
 
-    if (!addressLine) {
+    console.log(req.body);
+
+    // Clean inputs
+    const cleanAddressLine = typeof addressLine === 'string' ? addressLine.trim() : "";
+    
+    // Convert latitude and longitude from string to number
+    let cleanLat = undefined;
+    let cleanLng = undefined;
+    
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      const latNum = Number(latitude);
+      cleanLat = Number.isFinite(latNum) ? latNum : undefined;
+    }
+    
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      const lngNum = Number(longitude);
+      cleanLng = Number.isFinite(lngNum) ? lngNum : undefined;
+    }
+
+    if (!cleanAddressLine && (cleanLat === undefined || cleanLng === undefined)) {
       return res.status(400).json({
         success: false,
-        message: "Address line is required",
+        message: "Address line OR location coordinates are required",
         result: {},
       });
     }
 
+    const finalAddressLine = cleanAddressLine || "Pinned Location";
+
     // 🔒 Optional safety limit
-    const count = await Address.countDocuments({ customerProfileId });
+    const count = await Address.countDocuments({ customerId });
     if (count >= 10) {
       return res.status(400).json({
         success: false,
@@ -56,14 +67,14 @@ export const createAddress = async (req, res) => {
     // 🔒 Ensure single default address
     if (isDefault) {
       await Address.updateMany(
-        { customerProfileId },
+        { customerId },
         { isDefault: false }
       );
     }
 
-    // ✅ Take name + phone from CustomerProfile (not from request body)
-    const customer = await CustomerProfile.findById(customerProfileId).select(
-      "firstName lastName mobileNumber email"
+    // ✅ Get user profile for fallback name and phone
+    const customer = await User.findById(customerId).select(
+      "fname lname mobileNumber email"
     );
 
     if (!customer) {
@@ -74,14 +85,16 @@ export const createAddress = async (req, res) => {
       });
     }
 
-    const derivedName = [customer.firstName, customer.lastName]
+    // Derive name and phone from user profile if not complete
+    const profileName = [customer.fname, customer.lname]
       .filter(Boolean)
       .join(" ")
       .trim();
 
-    const derivedPhone = customer.mobileNumber;
+    const profilePhone = customer.mobileNumber;
 
-    if (!derivedName || !derivedPhone) {
+    // Check if profile is complete
+    if (!profileName || !profilePhone) {
       return res.status(400).json({
         success: false,
         message: "Please complete your profile (firstName, mobileNumber) before adding an address",
@@ -89,17 +102,39 @@ export const createAddress = async (req, res) => {
       });
     }
 
+    // Use provided name/phone or fallback to profile data
+    const finalName = (name && name.trim()) || profileName;
+    const finalPhone = (phone && phone.trim()) || profilePhone;
+
+    // Validate phone format if provided
+    if (finalPhone && !/^[0-9]{10}$/.test(finalPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits",
+        result: {},
+      });
+    }
+
+    // Validate coordinates if provided
+    if ((cleanLat !== undefined || cleanLng !== undefined) && (cleanLat === undefined || cleanLng === undefined)) {
+      return res.status(400).json({
+        success: false,
+        message: "Both latitude and longitude must be provided together",
+        result: {},
+      });
+    }
+
     const address = await Address.create({
-      customerProfileId,
+      customerId,
       label: label || "home",
-      name: derivedName,
-      phone: derivedPhone,
-      addressLine,
+      name: finalName,
+      phone: finalPhone,
+      addressLine: finalAddressLine,
       city,
       state,
       pincode,
-      latitude,
-      longitude,
+      latitude: cleanLat,
+      longitude: cleanLng,
       isDefault: Boolean(isDefault),
     });
 
@@ -125,9 +160,9 @@ export const getMyAddresses = async (req, res) => {
     ensureCustomer(req);
 
     const addresses = await Address.find({
-      customerProfileId: req.user.profileId,
+      customerId: req.user.userId,
     })
-      .populate("customerProfileId", "firstName lastName mobileNumber email")
+      .populate("customerId", "fname lname mobileNumber email")
       .sort({ isDefault: -1, createdAt: -1 });
 
     res.json({
@@ -168,8 +203,8 @@ export const getAddressById = async (req, res) => {
 
     const address = await Address.findOne({
       _id: addressId,
-      customerProfileId: req.user.profileId,
-    }).populate("customerProfileId", "firstName lastName mobileNumber email");
+      customerId: req.user.userId,
+    }).populate("customerId", "fname lname mobileNumber email");
 
     if (!address) {
       return res.status(404).json({
@@ -213,7 +248,7 @@ export const updateAddress = async (req, res) => {
 
     const address = await Address.findOne({
       _id: id,
-      customerProfileId: req.user.profileId,
+      customerId: req.user.userId,
     });
 
     if (!address) {
@@ -226,7 +261,7 @@ export const updateAddress = async (req, res) => {
 
     if (req.body.isDefault) {
       await Address.updateMany(
-        { customerProfileId: req.user.profileId, _id: { $ne: id } },
+        { customerId: req.user.userId, _id: { $ne: id } },
         { isDefault: false }
       );
     }
@@ -234,6 +269,8 @@ export const updateAddress = async (req, res) => {
     // Only allow safe updates
     const allowed = [
       "label",
+      "name",
+      "phone",
       "addressLine",
       "city",
       "state",
@@ -244,7 +281,30 @@ export const updateAddress = async (req, res) => {
     ];
 
     for (const key of allowed) {
-      if (req.body[key] !== undefined) address[key] = req.body[key];
+      if (req.body[key] !== undefined) {
+        // Validate phone format if being updated
+        if (key === "phone" && req.body[key]) {
+          const phoneStr = String(req.body[key]).trim();
+          if (!/^[0-9]{10}$/.test(phoneStr)) {
+            return res.status(400).json({
+              success: false,
+              message: "Phone must be 10 digits",
+              result: {},
+            });
+          }
+          address[key] = phoneStr;
+        } else if (key === "latitude" || key === "longitude") {
+          // Convert latitude/longitude to number if provided as string
+          if (req.body[key] !== null && req.body[key] !== '') {
+            const coordNum = Number(req.body[key]);
+            address[key] = Number.isFinite(coordNum) ? coordNum : undefined;
+          } else {
+            address[key] = req.body[key];
+          }
+        } else {
+          address[key] = req.body[key];
+        }
+      }
     }
 
     await address.save();
@@ -284,7 +344,7 @@ export const deleteAddress = async (req, res) => {
 
     const address = await Address.findOneAndDelete({
       _id: id,
-      customerProfileId: req.user.profileId,
+      customerId: req.user.userId,
     });
 
     if (!address) {
@@ -302,10 +362,10 @@ export const deleteAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete address error:", error);
-    res.status(error?.statusCode || 500).json({
+    res.status(500).json({
       success: false,
-      message: error.message || "Failed to delete address",
-      result: {error: error.message},
+      message: "Failed to delete address",
+      result: { reason: error.message || "An error occurred" },
     });
   }
 };
@@ -335,7 +395,7 @@ export const setDefaultAddress = async (req, res) => {
     // Check if address exists and belongs to customer
     const address = await Address.findOne({
       _id: id,
-      customerProfileId: req.user.profileId,
+      customerId: req.user.userId,
     });
 
     if (!address) {
@@ -348,7 +408,7 @@ export const setDefaultAddress = async (req, res) => {
 
     // Unset all other defaults
     await Address.updateMany(
-      { customerProfileId: req.user.profileId, _id: { $ne: id } },
+      { customerId: req.user.userId, _id: { $ne: id } },
       { isDefault: false }
     );
 
@@ -369,7 +429,7 @@ export const setDefaultAddress = async (req, res) => {
     res.status(error?.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to set default address",
-      result: {error: error.message},
+      result: { reason: error.message || "An error occurred" },
     });
   }
 };
@@ -380,9 +440,9 @@ export const getDefaultAddress = async (req, res) => {
     ensureCustomer(req);
 
     const address = await Address.findOne({
-      customerProfileId: req.user.profileId,
+      customerId: req.user.userId,
       isDefault: true,
-    }).populate("customerProfileId", "firstName lastName mobileNumber email");
+    }).populate("customerId", "fname lname mobileNumber email");
 
     if (!address) {
       return res.status(404).json({
@@ -402,7 +462,7 @@ export const getDefaultAddress = async (req, res) => {
     res.status(error?.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to fetch default address",
-      result: {error: error.message},
+      result: { reason: error.message || "An error occurred" },
     });
   }
 };
@@ -411,7 +471,7 @@ export const getDefaultAddress = async (req, res) => {
 export const adminGetAllAddresses = async (req, res) => {
   try {
     const addresses = await Address.find()
-      .populate("customerProfileId", "firstName lastName mobileNumber email")
+      .populate("customerId", "fname lname mobileNumber email")
       .sort({ createdAt: -1 });
     res.json({ success: true, result: addresses });
   } catch (err) {
@@ -428,8 +488,8 @@ export const adminGetAddressById = async (req, res) => {
     }
 
     const address = await Address.findById(id).populate(
-      "customerProfileId",
-      "firstName lastName mobileNumber email"
+      "customerId",
+      "fname lname mobileNumber email"
     );
     if (!address) {
       return res.status(404).json({ success: false, message: "Address not found", result: {} });

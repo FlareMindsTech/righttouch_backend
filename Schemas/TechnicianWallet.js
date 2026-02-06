@@ -16,4 +16,18 @@ const technicianWalletSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("TechnicianWallet", technicianWalletSchema);
+// ✅ One job-credit per booking (prevents double-credit)
+walletTransactionSchema.index(
+  { bookingId: 1, type: 1, source: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      bookingId: { $type: "objectId" },
+      type: "credit",
+      source: "job",
+    },
+  }
+);
+
+export default mongoose.models.WalletTransaction || mongoose.model("WalletTransaction", walletTransactionSchema);
+                

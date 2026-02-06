@@ -3,8 +3,10 @@ import jwt from "jsonwebtoken";
 export const Auth = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log("Auth Middleware - Header:", authHeader); // DEBUG
 
     if (!authHeader) {
+      console.log("Auth Middleware - Missing Header");
       return res.status(401).json({
         success: false,
         message: "Authorization header missing",
@@ -14,6 +16,7 @@ export const Auth = (req, res, next) => {
     const [scheme, token] = authHeader.split(" ");
 
     if (scheme !== "Bearer" || !token) {
+      console.log("Auth Middleware - Invalid Format:", scheme, token);
       return res.status(401).json({
         success: false,
         message: "Invalid authorization format",
@@ -24,22 +27,28 @@ export const Auth = (req, res, next) => {
       algorithms: ["HS256"], // prevents alg attack
     });
 
-    // Attach ONLY what is needed (support both legacy + new token payloads)
-    const userId = decoded.userId || decoded.profileId;
-    const profileId = decoded.profileId || decoded.userId;
+    // console.log("Auth Middleware - Decoded:", decoded); // DEBUG (optional, careful with logs)
 
+    // Attach ONLY what is needed (User-centric model)
+    const userId = decoded.userId;
+    let profileId = undefined;
+    if (decoded.role === "Technician" && decoded.technicianProfileId) {
+      profileId = decoded.technicianProfileId;
+    }
     req.user = {
       userId,
-      profileId,
       role: decoded.role,
       email: decoded.email,
+      technicianProfileId: decoded.technicianProfileId || null,
     };
 
     next();
   } catch (err) {
+    console.error("Auth Middleware - Error:", err.message); // DEBUG
     return res.status(401).json({
       success: false,
       message: "Token invalid or expired",
+      // error: err.message, // REMOVED for security (leakage)
     });
   }
 };
@@ -47,44 +56,20 @@ export const Auth = (req, res, next) => {
 
 // 🔹 Role-based access middleware
 export const authorizeRoles = (...allowedRoles) => {
-  return async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({ success: false, message: "Authorization header missing", result: "Missing authorization header" });
+  return (req, res, next) => {
+    // Auth middleware MUST run before this
+    if (!req.user || !req.user.role) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const [scheme, token] = authHeader.split(" ");
+    const isAllowed = allowedRoles
+      .map((r) => r.toLowerCase())
+      .includes((req.user.role || "").toLowerCase());
 
-    if (scheme !== "Bearer" || !token) {
-      return res.status(401).json({ success: false, message: "Invalid authorization format", result: "Token must be in Bearer format" });
+    if (!isAllowed) {
+      return res.status(403).json({ success: false, message: `Access denied: ${allowedRoles.join(", ")} only` });
     }
 
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-        algorithms: ["HS256"],
-      });
-
-      const isAllowed = allowedRoles
-        .map((r) => r.toLowerCase())
-        .includes((decoded.role || "").toLowerCase());
-
-      if (!isAllowed) {
-        return res.status(403).json({ success: false, message: `Access denied: ${allowedRoles.join(", ")} only`, result: "Insufficient permissions" });
-      }
-
-      const userId = decoded.userId || decoded.profileId;
-      const profileId = decoded.profileId || decoded.userId;
-
-      req.user = {
-        userId,
-        profileId,
-        role: decoded.role,
-        email: decoded.email,
-      };
-      next();
-    } catch (error) {
-      return res.status(401).json({ success: false, message: "Token invalid or expired", result: "Authentication failed" });
-    }
+    next();
   };
 };

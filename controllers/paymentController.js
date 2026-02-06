@@ -6,7 +6,7 @@ import Payment from "../Schemas/Payment.js";
 import PaymentEvent from "../Schemas/PaymentEvent.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import Service from "../Schemas/Service.js";
-import { settleBookingEarningsIfEligible } from "../utils/settlement.js";
+import { settleBookingEarningsIfEligible } from "../Utils/settlement.js";
 
 /* ================= HELPERS ================= */
 
@@ -15,6 +15,34 @@ const ok = (res, status, message, result = {}) =>
 
 const fail = (res, status, message, result = {}) =>
   res.status(status).json({ success: false, message, result });
+
+// ... existing code ...
+
+export const retryPaymentSettlement = async (req, res) => {
+  try {
+    // Only Admin or Owner can force retry
+    if (!["Admin", "Owner"].includes(req.user?.role)) {
+      return fail(res, 403, "Admin/Owner access only", {});
+    }
+
+    const { bookingId } = req.body;
+    if (!bookingId || !mongoose.Types.ObjectId.isValid(bookingId)) {
+      return fail(res, 400, "Valid bookingId is required", {});
+    }
+
+    const { settled, reason } = await settleBookingEarningsIfEligible(bookingId);
+
+    if (settled) {
+      return ok(res, 200, "Settlement successful", { reason });
+    } else {
+      return fail(res, 400, "Settlement not applicable or failed", { reason });
+    }
+
+  } catch (error) {
+    return fail(res, 500, error.message, { error: error?.message });
+  }
+};
+
 
 const toMoney = (v) => {
   const n = Number(v);
