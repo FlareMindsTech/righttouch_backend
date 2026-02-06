@@ -2,19 +2,7 @@ import mongoose from "mongoose";
 
 import Address from "../Schemas/Address.js";
 import User from "../Schemas/User.js";
-
-const ensureCustomer = (req) => {
-  if (!req.user || req.user.role !== "Customer") {
-    const err = new Error("Customer access only");
-    err.statusCode = 403;
-    throw err;
-  }
-  if (!req.user.userId || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
-    const err = new Error("Invalid token profile");
-    err.statusCode = 401;
-    throw err;
-  }
-};
+import { ensureCustomer } from "../Utils/ensureCustomer.js";
 
 const getAddressIdFromReq = (req) => req.params?.id || req.body?.addressId || req.body?.id;
 
@@ -127,6 +115,15 @@ export const createAddress = async (req, res) => {
       });
     }
 
+    // Validate coordinates if provided
+    if ((cleanLat !== undefined || cleanLng !== undefined) && (cleanLat === undefined || cleanLng === undefined)) {
+      return res.status(400).json({
+        success: false,
+        message: "Both latitude and longitude must be provided together",
+        result: {},
+      });
+    }
+
     const address = await Address.create({
       customerId,
       label: label || "home",
@@ -136,8 +133,8 @@ export const createAddress = async (req, res) => {
       city,
       state,
       pincode,
-      latitude,
-      longitude,
+      latitude: cleanLat,
+      longitude: cleanLng,
       isDefault: Boolean(isDefault),
     });
 
@@ -365,10 +362,10 @@ export const deleteAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete address error:", error);
-    res.status(error?.statusCode || 500).json({
+    res.status(500).json({
       success: false,
-      message: error.message || "Failed to delete address",
-      result: { error: error.message },
+      message: "Failed to delete address",
+      result: { reason: error.message || "An error occurred" },
     });
   }
 };
@@ -432,7 +429,7 @@ export const setDefaultAddress = async (req, res) => {
     res.status(error?.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to set default address",
-      result: { error: error.message },
+      result: { reason: error.message || "An error occurred" },
     });
   }
 };
@@ -465,7 +462,7 @@ export const getDefaultAddress = async (req, res) => {
     res.status(error?.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to fetch default address",
-      result: { error: error.message },
+      result: { reason: error.message || "An error occurred" },
     });
   }
 };
