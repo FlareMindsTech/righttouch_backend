@@ -5,7 +5,6 @@ import {
   signupAndSendOtp,
   resendOtp,
   verifyOtp,
-  setPassword,
   login,
   technicianLogin,
   ownerLogin,
@@ -140,7 +139,6 @@ const otpLimiter = rateLimit({
 router.post("/signup", authLimiter, signupAndSendOtp);
 router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
-router.post("/set-password", authLimiter, setPassword);
 router.post("/login", authLimiter, login);
 
 /* ================= USER LOGIN ROUTES (Role-specific) ================= */
@@ -153,6 +151,9 @@ router.post("/login/customer", authLimiter, async (req, res, next) => {
 
 // Owner login (only allows Owner role)
 router.post("/login/owner", authLimiter, ownerLogin);
+
+// Technician login
+router.post("/login/technician", authLimiter, technicianLogin);
 
 // 🔍 DEBUG: Check user by mobile number
 router.get("/debug/check-user/:mobileNumber", checkUserByMobile);
