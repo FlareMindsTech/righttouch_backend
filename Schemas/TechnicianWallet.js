@@ -18,6 +18,7 @@ const walletTransactionSchema = new mongoose.Schema(
       required: true,
     },
 
+    
     type: {
       type: String,
       enum: ["credit", "debit"],

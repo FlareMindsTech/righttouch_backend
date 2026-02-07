@@ -11,6 +11,7 @@ export const updateTechnicianLocation = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid coordinates", result: {} });
     }
 
+    
     // Only update if moved > 25 meters
     const oldProfile = await TechnicianProfile.findById(technicianProfileId).select("location");
     let shouldUpdate = true;

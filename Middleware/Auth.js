@@ -12,6 +12,7 @@ export const Auth = (req, res, next) => {
         message: "Authorization header missing",
       });
     }
+    
 
     const [scheme, token] = authHeader.split(" ");
 

@@ -12,6 +12,7 @@ const router = express.Router();
 
 /* ================= TECHNICIAN WALLET ================= */
 
+
 // Wallet balance
 router.get("/wallet", Auth, getTechnicianWallet);
 

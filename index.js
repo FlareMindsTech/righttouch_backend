@@ -20,6 +20,7 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+
 const App = express();
 const httpServer = createServer(App);
 

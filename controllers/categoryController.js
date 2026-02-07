@@ -27,6 +27,7 @@ export const serviceCategory = async (req, res) => {
       });
     }
 
+    
     // Duplicate check (case-insensitive) - same name allowed for different types
     const existing = await Category.findOne({
       category: { $regex: `^${escapeRegex(category)}$`, $options: "i" },

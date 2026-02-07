@@ -16,6 +16,7 @@ const paymentEventSchema = new mongoose.Schema(
       index: true,
     },
 
+    
     bookingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ServiceBooking",

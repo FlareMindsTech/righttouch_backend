@@ -15,6 +15,7 @@ const paymentSchema = new mongoose.Schema(
       default: "razorpay",
       index: true,
     },
+    
 
     currency: {
       type: String,
