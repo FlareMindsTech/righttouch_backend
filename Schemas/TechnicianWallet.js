@@ -10,8 +10,34 @@ const technicianWalletSchema = new mongoose.Schema(
     },
     balance: {
       type: Number,
-      default: 0
-    }
+      required: true,
+    },
+
+    
+    type: {
+      type: String,
+      enum: ["credit", "debit"],
+      required: true,
+    },
+
+    source: {
+      type: String,
+      enum: ["job", "penalty", "withdrawal", "adjustment"],
+      required: true,
+    },
+
+    paymentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+      index: true,
+    },
+
+    note: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

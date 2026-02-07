@@ -15,6 +15,7 @@
           .join(" ");
       },
     },
+    
 
     slug: {
       type: String,

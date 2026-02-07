@@ -17,6 +17,7 @@ const jobBroadcastSchema = new mongoose.Schema(
       index: true,
     },
 
+    
     sentAt: {
       type: Date,
       default: Date.now,

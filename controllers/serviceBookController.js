@@ -17,6 +17,7 @@ const toNumber = value => {
   return Number.isNaN(num) ? NaN : num;
 };
 
+
 const toFiniteNumber = (v) => {
   if (v === null || v === undefined) return null;
   if (typeof v === "string" && v.trim() === "") return null;

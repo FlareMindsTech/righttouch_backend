@@ -9,6 +9,7 @@ export const getAllUsers = async (req, res) => {
     let users;
 
     if (role === "Customer") {
+      
       // Enhanced Customer aggregation with booking stats and addresses
       users = await User.aggregate([
         {

@@ -9,6 +9,7 @@ const addressSchema = new mongoose.Schema(
       index: true,
     },
 
+    
     label: {
       type: String,
       enum: ["home", "office", "other"],

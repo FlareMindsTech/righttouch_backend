@@ -60,3 +60,4 @@ export const getTechnicianJobEligibility = async ({ technicianProfileId, session
     status,
   };
 };
+
