@@ -2,18 +2,30 @@ import axios from "axios";
 
 export default async function sendSms(phoneNumber, otpCode) {
   try {
-    const API_KEY = process.env.TWO_FACTOR_API_KEY;
+    const API_KEY = process.env.FAST2SMS_API_KEY;
 
-    console.log(otpCode);
-    // 2Factor CUSTOM OTP API
-    const url = `https://2factor.in/API/V1/${API_KEY}/SMS/${phoneNumber}/${otpCode}`;
+    const url = "https://www.fast2sms.com/dev/bulkV2";
 
-    const response = await axios.get(url, { timeout: 10000 });
+    const payload = {
+      route: "dlt",
+      sender_id: "RTHUBS",
+      message: "208466", // Fast2SMS internal message ID
+      variables_values: otpCode, // replaces {#var#}
+      numbers: phoneNumber, // 10-digit number only
+    };
 
-    if (response.data?.Status !== "Success") {
-      const err = new Error("2Factor rejected the request");
+    const response = await axios.post(url, payload, {
+      headers: {
+        authorization: API_KEY,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
+    });
+
+    if (!response.data?.return) {
+      const err = new Error("Fast2SMS rejected the request");
       err.name = "SmsError";
-      err.provider = "2factor";
+      err.provider = "fast2sms";
       err.details = response.data;
       throw err;
     }
@@ -23,11 +35,11 @@ export default async function sendSms(phoneNumber, otpCode) {
     const apiData = error.response?.data;
 
     const providerMessage =
-      apiData?.Details || apiData?.message || error.message;
+      apiData?.message || apiData?.error || error.message;
 
     const err = new Error(`SMS failed: ${providerMessage}`);
     err.name = "SmsError";
-    err.provider = "2factor";
+    err.provider = "fast2sms";
     err.status = error.response?.status || 502;
     err.details = apiData || {};
 

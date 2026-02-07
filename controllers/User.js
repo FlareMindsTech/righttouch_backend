@@ -289,7 +289,7 @@ export const getAllUsers = async (req, res) => {
                   $filter: {
                     input: "$jobs",
                     as: "job",
-                    cond: { 
+                    cond: {
                       $in: ["$$job.status", ["accepted", "on_the_way", "reached", "in_progress", "completed"]]
                     }
                   }
@@ -348,80 +348,8 @@ export const getUserById = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message, result: {} });
   }
 };
-// Owner-only login
-export const ownerLogin = async (req, res) => {
-  try {
-    const { identifier, password } = req.body;
-    if (!identifier || !password) {
-      return fail(res, 400, "Mobile & password required", "VALIDATION_ERROR");
-    }
-    // Only allow Owner role
-    const user = await User.findOne({ mobileNumber: identifier, role: "Owner" }).select("+password role");
-    if (!user) return fail(res, 404, "Invalid credentials", "INVALID_CREDENTIALS");
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return fail(res, 401, "Invalid credentials", "INVALID_CREDENTIALS");
-    await User.updateOne(
-      { _id: user._id },
-      { $set: { lastLoginAt: new Date() } }
-    );
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-    return ok(res, 200, "Login successful", {
-      token,
-      userId: user._id,
-      role: user.role,
-    });
-  } catch (err) {
-    return fail(res, 500, err.message, "SERVER_ERROR");
-  }
-};
-// Technician-only login
-export const technicianLogin = async (req, res) => {
-  try {
-    const { identifier, password } = req.body;
-    if (!identifier || !password) {
-      return fail(res, 400, "Identifier & password required", "VALIDATION_ERROR");
-    }
-    // Search by mobile number or email, only allow Technician role
-    const user = await User.findOne({ 
-      $or: [{ mobileNumber: identifier }, { email: identifier }],
-      role: "Technician" 
-    }).select("+password role");
-    if (!user) return fail(res, 404, "Invalid credentials", "INVALID_CREDENTIALS");
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return fail(res, 401, "Invalid credentials", "INVALID_CREDENTIALS");
-    await User.updateOne(
-      { _id: user._id },
-      { $set: { lastLoginAt: new Date() } }
-    );
-    const tech = await TechnicianProfile.findOne({ userId: user._id }).select("_id");
-    const technicianProfileId = tech?._id || null;
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-        technicianProfileId,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-    return ok(res, 200, "Login successful", {
-      token,
-      userId: user._id,
-      role: user.role,
-      technicianProfileId,
-      identifier: user.mobileNumber,
-    });
-  } catch (err) {
-    return fail(res, 500, err.message, "SERVER_ERROR");
-  }
-};
+// Owner and Technician login functions using passwords have been removed/replaced by OTP flows.
+// See the OTP-based wrappers further down in the file.
 
 // 🔍 DEBUG: Check if user exists by mobile number
 export const checkUserByMobile = async (req, res) => {
@@ -430,27 +358,27 @@ export const checkUserByMobile = async (req, res) => {
     if (!mobileNumber) {
       return res.status(400).json({ success: false, message: "Mobile number required", result: {} });
     }
-    
+
     const user = await User.findOne({ mobileNumber }).select("+password _id role fname lname mobileNumber email status createdAt");
-    
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "User not found with this mobile number", 
-        result: { mobileNumber } 
+      return res.status(404).json({
+        success: false,
+        message: "User not found with this mobile number",
+        result: { mobileNumber }
       });
     }
-    
+
     const hasPassword = !!user.password;
     const techProfile = await TechnicianProfile.findOne({ userId: user._id }).select("_id workStatus");
-    
+
     // Remove password from response
     const userObj = user.toObject();
     delete userObj.password;
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: "User found", 
+
+    return res.status(200).json({
+      success: true,
+      message: "User found",
       result: {
         user: userObj,
         hasPassword,
@@ -712,35 +640,37 @@ export const resendOtp = async (req, res) => {
 /* ======================================================
   3️⃣ VERIFY OTP
 ====================================================== */
+/* ======================================================
+  3️⃣ VERIFY OTP (UNIFIED: SIGNUP & LOGIN)
+====================================================== */
 export const verifyOtp = async (req, res) => {
   try {
-    const { mobileNumber, otp } = req.body;
-    const identifier = mobileNumber?.trim();
+    // Standardize input: accept identifier (or mobileNumber for backward compat)
+    let { identifier, mobileNumber, otp, role } = req.body;
+    const finalIdentifier = (identifier || mobileNumber)?.trim();
+    // Role is optional here if we can infer from OTP, but safer to validate if provided
+    const normalizedRole = role ? normalizeRole(role) : null;
 
-    if (!identifier || !otp) {
-      return fail(res, 400, "Mobile number and OTP required", "VALIDATION_ERROR", {
-        required: ["mobileNumber", "otp"],
+    if (!finalIdentifier || !otp) {
+      return fail(res, 400, "Identifier and OTP required", "VALIDATION_ERROR", {
+        required: ["identifier", "otp"],
       });
     }
 
-    // Find TempUser to get role
-    const tempUser = await TempUser.findOne({ identifier });
-    if (!tempUser) {
-      return fail(res, 404, "No signup request found. Please signup first.", "TEMPUSER_NOT_FOUND");
+    // 1. Find the OTP record (valid, not verified, not expired)
+    // We search by identifier. If role is provided, restrict to that role.
+    const query = {
+      identifier: finalIdentifier,
+      verified: false,
+      otp: { $exists: true }, // Ensure OTP field exists
+      expiresAt: { $gte: Date.now() },
+    };
+    if (normalizedRole) {
+      query.role = normalizedRole;
     }
 
-    const normalizedRole = tempUser.role;
-
-    // Find OTP record (NOT verified yet) - check expiresAt for expiry
-    const record = await Otp.findOne(
-      {
-        identifier,
-        role: normalizedRole,
-        verified: false,
-        otp: { $exists: true },
-        expiresAt: { $gte: Date.now() }
-      }
-    );
+    // Sort by createdAt desc to get the latest OTP
+    const record = await Otp.findOne(query).sort({ createdAt: -1 });
 
     if (!record) {
       return fail(res, 400, "OTP expired, invalid, or already used", "OTP_INVALID_OR_EXPIRED");
@@ -750,7 +680,7 @@ export const verifyOtp = async (req, res) => {
       return fail(res, 429, "Too many attempts. Request new OTP.", "OTP_TOO_MANY_ATTEMPTS");
     }
 
-    // Verify OTP BEFORE marking as verified
+    // 2. Verify OTP
     const isMatch = await bcrypt.compare(otp, record.otp);
     if (!isMatch) {
       await Otp.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
@@ -760,25 +690,114 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Mark OTP as verified ONLY after successful verification
+    // 3. Mark OTP as verified
     await Otp.updateOne({ _id: record._id }, { $set: { verified: true } });
 
-    // Update TempUser status
-    const tempUserUpdate = await TempUser.updateOne(
-      { identifier, role: normalizedRole },
-      { tempstatus: "Verified" }
-    );
+    // 4. Branch Logic based on Purpose
+    if (record.purpose === "SIGNUP") {
+      // --- SIGNUP COMPLETION LOGIC ---
+      const tempUser = await TempUser.findOne({ identifier: finalIdentifier, role: record.role });
+      if (!tempUser) {
+        return fail(res, 404, "No signup request found. Please signup first.", "TEMPUSER_NOT_FOUND");
+      }
 
-    if (tempUserUpdate.modifiedCount === 0) {
-      return fail(res, 500, "Failed to verify user status", "TEMPUSER_STATUS_UPDATE_FAILED");
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      try {
+        const userDoc = await User.create([
+          {
+            role: record.role,
+            mobileNumber: finalIdentifier,
+            status: "Active",
+          },
+        ], { session });
+        const user = userDoc[0];
+
+        let technicianProfile = null;
+        if (record.role === "Technician") {
+          technicianProfile = await TechnicianProfile.create([
+            {
+              userId: user._id,
+              location: null,
+              workStatus: "pending",
+              profileComplete: false,
+            },
+          ], { session });
+        }
+
+        // Cleanup
+        await TempUser.deleteOne({ identifier: finalIdentifier, role: record.role }, { session });
+        await Otp.deleteMany({ identifier: finalIdentifier, role: record.role }, { session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        // Generate Token
+        const tokenPayload = {
+          userId: user._id,
+          role: record.role,
+        };
+        if (technicianProfile && technicianProfile[0]) {
+          tokenPayload.technicianProfileId = technicianProfile[0]._id;
+        }
+        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+        return ok(res, 201, "Account created successfully", {
+          token,
+          userId: user._id,
+          role: record.role,
+          technicianProfileId: technicianProfile?.[0]?._id || null,
+        });
+      } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+        throw err; // Re-throw to outer catch
+      }
+
+    } else if (record.purpose === "LOGIN") {
+      // --- LOGIN COMPLETION LOGIC ---
+      const user = await User.findOne({ mobileNumber: finalIdentifier, role: record.role });
+      if (!user) {
+        return fail(res, 404, "User account not found.", "USER_NOT_FOUND");
+      }
+
+      // Update lastLoginAt
+      await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+
+      // Clean up used OTP
+      await Otp.deleteOne({ _id: record._id });
+
+      // Get technician profile if applicable
+      let technicianProfileId = null;
+      if (user.role === "Technician") {
+        const tech = await TechnicianProfile.findOne({ userId: user._id }).select("_id");
+        technicianProfileId = tech?._id || null;
+      }
+
+      // Generate Token
+      const token = jwt.sign(
+        {
+          userId: user._id,
+          role: user.role,
+          technicianProfileId,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return ok(res, 200, "Login successful", {
+        token,
+        userId: user._id,
+        role: user.role,
+        technicianProfileId,
+      });
+
+    } else {
+      return fail(res, 400, "Invalid OTP purpose", "OTP_PURPOSE_INVALID");
     }
 
-    return ok(res, 200, "OTP verified successfully", {
-      mobileNumber: identifier,
-      role: normalizedRole,
-      nextStep: "set-password",
-    });
   } catch (err) {
+    console.error("verifyOtp Error:", err);
     return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
   }
 };
@@ -786,184 +805,100 @@ export const verifyOtp = async (req, res) => {
 /* ======================================================
   4️⃣ SET PASSWORD + CREATE PROFILE
 ====================================================== */
-export const setPassword = async (req, res) => {
-  try {
-    const { password, confirmPassword, mobileNumber } = req.body;
-
-    if (!mobileNumber || !password || !confirmPassword) {
-      return fail(res, 400, "Mobile number, password and confirm password required", "VALIDATION_ERROR", {
-        required: ["mobileNumber", "password", "confirmPassword"],
-      });
-    }
-
-    if (password !== confirmPassword) {
-      return fail(res, 400, "Passwords do not match", "PASSWORD_MISMATCH");
-    }
-
-    if (!passwordRegex.test(password)) {
-      return fail(
-        res,
-        400,
-        "Password must be at least 8 characters with letters, numbers, and special characters",
-        "WEAK_PASSWORD"
-      );
-    }
-
-    // Find verified TempUser for this identifier
-    const identifier = mobileNumber?.trim();
-    let tempUser = await TempUser.findOne({ identifier, tempstatus: "Verified" });
-    let normalizedRole = tempUser?.role;
-
-    if (!tempUser) {
-      const pendingTemp = await TempUser.findOne({ identifier });
-      const verifiedOtp = await Otp.findOne({
-        identifier,
-        purpose: "SIGNUP",
-        verified: true,
-      });
-
-      if (pendingTemp && verifiedOtp) {
-        normalizedRole = pendingTemp.role;
-        tempUser = await TempUser.findOneAndUpdate(
-          { identifier, role: pendingTemp.role },
-          { tempstatus: "Verified" },
-          { new: true }
-        );
-      } else if (verifiedOtp) {
-        normalizedRole = verifiedOtp.role;
-      }
-    }
-
-    if (!normalizedRole) {
-      return fail(
-        res,
-        403,
-        "OTP not verified. Please complete OTP verification first.",
-        "OTP_NOT_VERIFIED"
-      );
-    }
-
-    // Check if user already exists
-    const userExists = await User.findOne({ mobileNumber: identifier });
-    if (userExists) {
-      return fail(res, 409, "User with this mobile number already exists", "MOBILE_ALREADY_EXISTS");
-    }
-
-    // Transaction: create User, then TechnicianProfile if needed
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const userDoc = await User.create([
-        {
-          role: normalizedRole,
-          mobileNumber: identifier,
-          password: hashedPassword,
-          status: "Active",
-        },
-      ], { session });
-      const user = userDoc[0];
-
-      let technicianProfile = null;
-      if (normalizedRole === "Technician") {
-        technicianProfile = await TechnicianProfile.create([
-          {
-            userId: user._id,
-            location: null, // do not use [0,0] placeholder
-            workStatus: "pending",
-            profileComplete: false,
-          },
-        ], { session });
-      }
-
-      if (tempUser?._id) {
-        await TempUser.deleteOne({ _id: tempUser._id }, { session });
-      } else {
-        await TempUser.deleteOne({ identifier, role: normalizedRole }, { session });
-      }
-      await Otp.deleteMany({ identifier, role: normalizedRole }, { session });
-
-      await session.commitTransaction();
-      session.endSession();
-
-      // JWT: userId = User._id, technicianProfileId = TechnicianProfile._id (if technician)
-      const tokenPayload = {
-        userId: user._id,
-        role: normalizedRole,
-      };
-      if (technicianProfile && technicianProfile[0]) {
-        tokenPayload.technicianProfileId = technicianProfile[0]._id;
-      }
-      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-      return res.status(201).json({
-        success: true,
-        message: "Account created successfully",
-        token,
-        userId: user._id,
-        role: normalizedRole,
-        technicianProfileId: technicianProfile && technicianProfile[0] ? technicianProfile[0]._id : null,
-      });
-    } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
-      return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
-    }
-  } catch (err) {
-    return fail(res, 500, err.message || "Internal server error", "SERVER_ERROR");
-  }
-};
+// setPassword function removed as part of OTP-only auth refactor.
+// User creation now happens in verifyOtp.
 
 /* ======================================================
   5️⃣ LOGIN (Role-specific)
 ====================================================== */
 
+/* ======================================================
+  4️⃣ LOGIN - REQUEST OTP (OTP-based, no password)
+====================================================== */
 export const login = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    const { identifier, mobileNumber, role } = req.body;
+    const finalIdentifier = (identifier || mobileNumber)?.trim();
+    const normalizedRole = normalizeRole(role);
 
-    if (!identifier || !password) {
-      return fail(res, 400, "Mobile & password required", "VALIDATION_ERROR");
+    if (!finalIdentifier) {
+      return fail(res, 400, "Mobile number (identifier) required", "VALIDATION_ERROR");
+    }
+    if (!normalizedRole) {
+      return fail(res, 400, "Valid role required", "VALIDATION_ERROR");
     }
 
-    // LOGIN VIA USER
-    const user = await User.findOne({ mobileNumber: identifier }).select("+password role");
-    if (!user) return fail(res, 404, "Invalid credentials", "INVALID_CREDENTIALS");
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return fail(res, 401, "Invalid credentials", "INVALID_CREDENTIALS");
-
-    // Update lastLoginAt
-    await User.updateOne(
-      { _id: user._id },
-      { $set: { lastLoginAt: new Date() } }
-    );
-
-    let technicianProfileId = null;
-    if (user.role === "Technician") {
-      const tech = await TechnicianProfile.findOne({ userId: user._id }).select("_id");
-      technicianProfileId = tech?._id || null;
+    // Check if user exists with this role
+    const user = await User.findOne({ mobileNumber: finalIdentifier, role: normalizedRole });
+    if (!user) {
+      return fail(res, 404, "User not found. Please signup first.", "USER_NOT_FOUND");
     }
 
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-        technicianProfileId,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    if (user.status === "Blocked") {
+      return fail(res, 403, "Account is blocked. Please contact support.", "ACCOUNT_BLOCKED");
+    }
 
-    return ok(res, 200, "Login successful", {
-      token,
-      userId: user._id,
-      role: user.role,
-      technicianProfileId,
+    // Remove old login OTPs
+    await Otp.deleteMany({
+      identifier: finalIdentifier,
+      role: normalizedRole,
+      purpose: "LOGIN",
+    });
+
+    // Generate and hash OTP
+    const otp = generateOtp();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    // Store OTP
+    await Otp.create({
+      identifier: finalIdentifier,
+      role: normalizedRole,
+      purpose: "LOGIN",
+      otp: hashedOtp,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    });
+
+    // Send SMS
+    try {
+      await sendSms(finalIdentifier, otp);
+    } catch (smsErr) {
+      console.error("SMS sending failed:", smsErr.message);
+      return fail(res, 500, "Failed to send OTP. Please try again.", "SMS_SEND_FAILED");
+    }
+
+    return ok(res, 200, "OTP sent successfully", {
+      identifier: finalIdentifier,
+      role: normalizedRole,
+      purpose: "LOGIN",
+      expiresInSeconds: 300,
     });
   } catch (err) {
     return fail(res, 500, err.message, "SERVER_ERROR");
   }
+};
+
+/* ======================================================
+  ROLE-SPECIFIC LOGIN WRAPPERS (OTP-based)
+====================================================== */
+
+// Owner-only login (OTP-based, wrapper for login)
+export const ownerLogin = async (req, res) => {
+  req.body.role = "Owner";
+  return login(req, res);
+};
+
+// Technician-only login (OTP-based, wrapper for login)
+export const technicianLogin = async (req, res) => {
+  req.body.role = "Technician";
+  return login(req, res);
+};
+
+// Deprecated verifyLoginOtp kept for backward compatibility if needed, 
+// using unified verifyOtp logic.
+export const verifyLoginOtp = async (req, res) => {
+  req.body.role = req.body.role || "Customer"; // Default or infer from context if possible
+  // For strictness, client should use verifyOtp directly with role.
+  return verifyOtp(req, res);
 };
 
 /* ======================================================
@@ -1190,3 +1125,4 @@ export const updateMyProfile = async (req, res) => {
 };
 
 // getUserById and getAllUsers removed: use User or TechnicianProfile directly in routes/controllers as needed.
+// Trigger restart.
