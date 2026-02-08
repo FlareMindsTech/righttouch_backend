@@ -5,6 +5,7 @@ import {
   signupAndSendOtp,
   resendOtp,
   verifyOtp,
+  setPassword,
   login,
   technicianLogin,
   ownerLogin,
@@ -13,8 +14,14 @@ import {
   updateMyProfile,
   getUserById,
   getAllUsers,
-  checkUserByMobile,
+  checkUserByIdentifier,
+  requestLoginOtp,
+  verifyLoginOtp,
 } from "../Controllers/User.js";
+
+// ...existing code...
+
+
 
 import {
   serviceCategory,
@@ -97,7 +104,14 @@ import {
 
 import { Auth } from "../Middleware/Auth.js";
 
+
 const router = express.Router();
+
+
+// ================= UNIFIED OTP LOGIN (ALL ROLES) =================
+// Use a single endpoint for all roles, DRY and secure
+router.post("/auth/login/request-otp", requestLoginOtp);
+router.post("/auth/login/verify-otp", verifyLoginOtp);
 
 const getClientIp = (req) => {
   const xff = req.headers?.["x-forwarded-for"];
@@ -117,9 +131,6 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false },
-  keyGenerator: (req) => getClientIp(req),
-  validate: { ip: false },
   keyGenerator: (req) => getClientIp(req),
 });
 
@@ -128,7 +139,7 @@ const otpLimiter = rateLimit({
   // max: 3, // 3 OTP requests per window
   message: {
     success: false,
-    message: "Too many OTP requests, please try again after 15 minutes",
+    message: "Too many OTP requests, please try again after 1 minute",
     result: {},
   },
   standardHeaders: true,
@@ -139,6 +150,7 @@ const otpLimiter = rateLimit({
 router.post("/signup", authLimiter, signupAndSendOtp);
 router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
+router.post("/set-password", authLimiter, setPassword);
 router.post("/login", authLimiter, login);
 
 /* ================= USER LOGIN ROUTES (Role-specific) ================= */
@@ -152,11 +164,31 @@ router.post("/login/customer", authLimiter, async (req, res, next) => {
 // Owner login (only allows Owner role)
 router.post("/login/owner", authLimiter, ownerLogin);
 
-// Technician login
-router.post("/login/technician", authLimiter, technicianLogin);
+// ---------------- Owner-specific registration/login routes ----------------
+// Owner: request signup OTP (role pre-filled)
+router.post("/owner/signup", authLimiter, async (req, res, next) => {
+  req.body.role = "Owner";
+  return signupAndSendOtp(req, res, next);
+});
 
-// 🔍 DEBUG: Check user by mobile number
-router.get("/debug/check-user/:mobileNumber", checkUserByMobile);
+// Owner: verify OTP
+router.post("/owner/verify-otp", authLimiter, async (req, res, next) => {
+  // req.body.role = "Owner";
+  return verifyOtp(req, res, next);
+});
+
+// Owner: set password after OTP verified
+router.post("/owner/set-password", authLimiter, Auth, async (req, res, next) => {
+  // req.body.role = "Owner";
+  return setPassword(req, res, next);
+});
+
+// Owner: login (role-restricted)
+router.post("/owner/login", authLimiter, ownerLogin);
+
+// 🔍 DEBUG: Check user by identifier (PROTECTED, OWNER/ADMIN ONLY)
+import { authorizeRoles } from "../Middleware/Auth.js";
+router.get("/debug/check-user/:identifier", Auth, authorizeRoles("Owner", "Admin"), checkUserByIdentifier);
 
 router.get("/me", Auth, getMyProfile);
 router.post("/complete-profile", Auth, completeProfile);

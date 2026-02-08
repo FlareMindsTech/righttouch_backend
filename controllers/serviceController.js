@@ -4,7 +4,8 @@ import Category from "../Schemas/Category.js";
 
 const SERVICE_TYPES = ["Repair", "Installation", "Maintenance", "Inspection"];
 const PRICING_TYPES = ["fixed", "after_inspection", "per_unit"];
-const HIDE_FIELDS = "-duration -siteVisitRequired -serviceWarranty";
+const HIDE_FIELDS = ""; // Removed hiding fields
+// const HIDE_FIELDS = "-duration -siteVisitRequired -serviceWarranty";
 
 const toNumber = value => {
   const num = Number(value);
@@ -21,12 +22,26 @@ export const createService = async (req, res) => {
       serviceType,
       pricingType,
       serviceCost,
+      minimumVisitCharge, // Added
       commissionPercentage,
       serviceDiscountPercentage,
       whatIncluded,
       whatNotIncluded,
       serviceHighlights,
       cancellationPolicy,
+      // New fields
+      frequentlyAskedQuestions,
+      supportedBrands,
+      rectifyMethod,
+      faultReasons,
+      toolsEquipments,
+      serviceChecklist,
+      requiresSpareParts,
+      duration,
+      siteVisitRequired,
+      serviceWarranty,
+      isPopular,
+      isRecommended
     } = req.body;
 
     if (!categoryId || !serviceName || !description || serviceCost === undefined) {
@@ -61,20 +76,19 @@ export const createService = async (req, res) => {
       return res.status(400).json({ success: false, message: "serviceCost must be a non-negative number", result: {} });
     }
 
-    if (commissionPercentage !== undefined) {
-      const commissionNum = toNumber(commissionPercentage);
-      if (Number.isNaN(commissionNum) || commissionNum < 0 || commissionNum > 50) {
-        return res.status(400).json({ success: false, message: "commissionPercentage must be between 0 and 50", result: {} });
-      }
-      req.body.commissionPercentage = commissionNum;
-    }
+    // Validate percentages
+    const commPct = commissionPercentage !== undefined ? toNumber(commissionPercentage) : 0;
+    const discPct = serviceDiscountPercentage !== undefined ? toNumber(serviceDiscountPercentage) : 0;
+    const minVisitCharge = minimumVisitCharge !== undefined ? toNumber(minimumVisitCharge) : 0;
 
-    if (serviceDiscountPercentage !== undefined) {
-      const discountNum = toNumber(serviceDiscountPercentage);
-      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
-        return res.status(400).json({ success: false, message: "serviceDiscountPercentage must be between 0 and 100", result: {} });
-      }
-      req.body.serviceDiscountPercentage = discountNum;
+    if (Number.isNaN(commPct) || commPct < 0 || commPct > 50) {
+      return res.status(400).json({ success: false, message: "commissionPercentage must be between 0 and 50", result: {} });
+    }
+    if (Number.isNaN(discPct) || discPct < 0 || discPct > 100) {
+      return res.status(400).json({ success: false, message: "serviceDiscountPercentage must be between 0 and 100", result: {} });
+    }
+    if (Number.isNaN(minVisitCharge) || minVisitCharge < 0) {
+      return res.status(400).json({ success: false, message: "minimumVisitCharge must be a non-negative number", result: {} });
     }
 
     const existing = await Service.findOne({
@@ -97,17 +111,31 @@ export const createService = async (req, res) => {
       serviceType: normalizedServiceType,
       pricingType: normalizedPricingType,
       serviceCost: serviceCostNum,
-      commissionPercentage,
-      serviceDiscountPercentage,
+      minimumVisitCharge: minVisitCharge, // Added
+      commissionPercentage: commPct,
+      serviceDiscountPercentage: discPct,
       whatIncluded,
       whatNotIncluded,
       serviceHighlights,
       cancellationPolicy,
+      // New fields mapping
+      frequentlyAskedQuestions,
+      supportedBrands,
+      rectifyMethod,
+      faultReasons,
+      toolsEquipments,
+      serviceChecklist,
+      requiresSpareParts,
+      duration,
+      siteVisitRequired,
+      serviceWarranty,
+      isPopular: isPopular || false,
+      isRecommended: isRecommended || false
     });
 
     // Re-fetch with hidden fields and populated category for response
     const responseDoc = await Service.findById(service._id)
-      .select(HIDE_FIELDS)
+
       .populate("categoryId", "category categoryType description");
 
     return res.status(201).json({
@@ -119,7 +147,7 @@ export const createService = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -164,7 +192,7 @@ export const uploadServiceImages = async (req, res) => {
 
     // Re-fetch with hidden fields and populated category for response
     const responseDoc = await Service.findById(service._id)
-      .select(HIDE_FIELDS)
+
       .populate("categoryId", "category categoryType description");
 
     return res.status(200).json({
@@ -176,7 +204,7 @@ export const uploadServiceImages = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -220,7 +248,7 @@ export const removeServiceImage = async (req, res) => {
     await service.save();
 
     const responseDoc = await Service.findById(service._id)
-      .select(HIDE_FIELDS)
+
       .populate("categoryId", "category categoryType description");
 
     return res.status(200).json({
@@ -232,7 +260,7 @@ export const removeServiceImage = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -276,7 +304,7 @@ export const replaceServiceImages = async (req, res) => {
     await service.save();
 
     const responseDoc = await Service.findById(service._id)
-      .select(HIDE_FIELDS)
+
       .populate("categoryId", "category categoryType description");
 
     return res.status(200).json({
@@ -288,7 +316,7 @@ export const replaceServiceImages = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -321,7 +349,7 @@ export const getAllServices = async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     const services = await Service.find(query)
-      .select(HIDE_FIELDS)
+
       .populate("categoryId", "category categoryType description")
       .skip(skip)
       .limit(limitNum)
@@ -346,7 +374,7 @@ export const getAllServices = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -365,7 +393,7 @@ export const getServiceById = async (req, res) => {
     }
 
     const service = await Service.findById(id)
-      .select(HIDE_FIELDS)
+
       .populate(
         "categoryId",
         "category categoryType description"
@@ -388,7 +416,7 @@ export const getServiceById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -396,9 +424,8 @@ export const getServiceById = async (req, res) => {
 export const updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const update = { ...req.body };
+    const updateData = req.body;
 
-    // 🔒 Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -407,61 +434,8 @@ export const updateService = async (req, res) => {
       });
     }
 
-    if (update.categoryId) {
-      if (!mongoose.Types.ObjectId.isValid(update.categoryId)) {
-        return res.status(400).json({ success: false, message: "Invalid categoryId", result: {} });
-      }
-      const category = await Category.findById(update.categoryId);
-      if (!category || category.categoryType !== "service") {
-        return res.status(400).json({ success: false, message: "Category must exist and be of type service", result: {} });
-      }
-    }
-
-    if (update.serviceType) {
-      if (!SERVICE_TYPES.includes(update.serviceType)) {
-        return res.status(400).json({ success: false, message: "Invalid serviceType", result: {} });
-      }
-    }
-
-    if (update.pricingType) {
-      if (!PRICING_TYPES.includes(update.pricingType)) {
-        return res.status(400).json({ success: false, message: "Invalid pricingType", result: {} });
-      }
-    }
-
-    if (update.serviceCost !== undefined) {
-      const costNum = toNumber(update.serviceCost);
-      if (Number.isNaN(costNum) || costNum < 0) {
-        return res.status(400).json({ success: false, message: "serviceCost must be a non-negative number", result: {} });
-      }
-      update.serviceCost = costNum;
-    }
-
-    if (update.commissionPercentage !== undefined) {
-      const commissionNum = toNumber(update.commissionPercentage);
-      if (Number.isNaN(commissionNum) || commissionNum < 0 || commissionNum > 50) {
-        return res.status(400).json({ success: false, message: "commissionPercentage must be between 0 and 50", result: {} });
-      }
-      update.commissionPercentage = commissionNum;
-    }
-
-    if (update.serviceDiscountPercentage !== undefined) {
-      const discountNum = toNumber(update.serviceDiscountPercentage);
-      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
-        return res.status(400).json({ success: false, message: "serviceDiscountPercentage must be between 0 and 100", result: {} });
-      }
-      update.serviceDiscountPercentage = discountNum;
-    }
-
-    const updated = await Service.findByIdAndUpdate(
-      id,
-      update,
-      { new: true, runValidators: true, context: "query" }
-    )
-      .select(HIDE_FIELDS)
-      .populate("categoryId", "category categoryType description");
-
-    if (!updated) {
+    const service = await Service.findById(id);
+    if (!service) {
       return res.status(404).json({
         success: false,
         message: "Service not found",
@@ -469,16 +443,83 @@ export const updateService = async (req, res) => {
       });
     }
 
+    // Handle Category Validation
+    if (updateData.categoryId) {
+      if (!mongoose.Types.ObjectId.isValid(updateData.categoryId)) {
+        return res.status(400).json({ success: false, message: "Invalid categoryId", result: {} });
+      }
+      const category = await Category.findById(updateData.categoryId);
+      if (!category || category.categoryType !== "service") {
+        return res.status(400).json({ success: false, message: "Category must exist and be of type service", result: {} });
+      }
+    }
+
+    // Handle Enums
+    if (updateData.serviceType && !SERVICE_TYPES.includes(updateData.serviceType)) {
+      return res.status(400).json({ success: false, message: "Invalid serviceType", result: {} });
+    }
+    if (updateData.pricingType && !PRICING_TYPES.includes(updateData.pricingType)) {
+      return res.status(400).json({ success: false, message: "Invalid pricingType", result: {} });
+    }
+
+    // Handle Numeric Fields
+    if (updateData.serviceCost !== undefined) {
+      const costNum = toNumber(updateData.serviceCost);
+      if (Number.isNaN(costNum) || costNum < 0) {
+        return res.status(400).json({ success: false, message: "serviceCost must be a non-negative number", result: {} });
+      }
+      service.serviceCost = costNum;
+    }
+
+    if (updateData.commissionPercentage !== undefined) {
+      const commissionNum = toNumber(updateData.commissionPercentage);
+      if (Number.isNaN(commissionNum) || commissionNum < 0 || commissionNum > 50) {
+        return res.status(400).json({ success: false, message: "commissionPercentage must be between 0 and 50", result: {} });
+      }
+      service.commissionPercentage = commissionNum;
+    }
+
+    if (updateData.serviceDiscountPercentage !== undefined) {
+      const discountNum = toNumber(updateData.serviceDiscountPercentage);
+      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+        return res.status(400).json({ success: false, message: "serviceDiscountPercentage must be between 0 and 100", result: {} });
+      }
+      service.serviceDiscountPercentage = discountNum;
+    }
+
+    // Handle other fields (arrays, strings, bools)
+    const allowedUpdates = [
+      "categoryId", "serviceName", "description", "serviceType", "pricingType",
+      "whatIncluded", "whatNotIncluded", "serviceHighlights", "cancellationPolicy",
+      "frequentlyAskedQuestions", "supportedBrands", "rectifyMethod", "faultReasons",
+      "toolsEquipments", "serviceChecklist", "requiresSpareParts", "duration",
+      "siteVisitRequired", "serviceWarranty", "isPopular", "isRecommended", "isActive",
+      "minimumVisitCharge"
+    ];
+
+    allowedUpdates.forEach((field) => {
+      if (updateData[field] !== undefined) {
+        service[field] = updateData[field];
+      }
+    });
+
+    // Save triggers the pre-save hook for auto-calculations
+    const updated = await service.save();
+
+    // Re-fetch with populated category for response
+    const responseDoc = await Service.findById(updated._id)
+      .populate("categoryId", "category categoryType description");
+
     return res.status(200).json({
       success: true,
       message: "Service updated successfully",
-      result: updated,
+      result: responseDoc,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
@@ -515,7 +556,8 @@ export const deleteService = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      result: {error: error.message},
+      result: { error: error.message },
     });
   }
 };
+

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 import Address from "../Schemas/Address.js";
 import User from "../Schemas/User.js";
-import { ensureCustomer } from "../utils/ensureCustomer.js";
+import { ensureCustomer } from "../Utils/ensureCustomer.js";
 
 const getAddressIdFromReq = (req) => req.params?.id || req.body?.addressId || req.body?.id;
 

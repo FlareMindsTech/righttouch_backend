@@ -352,20 +352,21 @@ export const getUserById = async (req, res) => {
 // See the OTP-based wrappers further down in the file.
 
 // 🔍 DEBUG: Check if user exists by mobile number
-export const checkUserByMobile = async (req, res) => {
+// 🔍 DEBUG: Check if user exists by identifier
+export const checkUserByIdentifier = async (req, res) => {
   try {
-    const { mobileNumber } = req.params;
-    if (!mobileNumber) {
-      return res.status(400).json({ success: false, message: "Mobile number required", result: {} });
+    const { identifier } = req.params;
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: "Identifier required", result: {} });
     }
 
-    const user = await User.findOne({ mobileNumber }).select("+password _id role fname lname mobileNumber email status createdAt");
+    const user = await User.findOne({ mobileNumber: identifier }).select("+password _id role fname lname mobileNumber email status createdAt");
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found with this mobile number",
-        result: { mobileNumber }
+        message: "User not found with this identifier",
+        result: { identifier }
       });
     }
 
@@ -476,33 +477,34 @@ const buildLocation = (lat, lng) => {
 ====================================================== */
 export const signupAndSendOtp = async (req, res) => {
   try {
-    let { mobileNumber, role } = req.body;
+    let { identifier, role } = req.body;
 
     role = normalizeRole(role);
-    mobileNumber = mobileNumber?.trim();
+    identifier = identifier?.trim();
 
-    if (!mobileNumber || !role) {
-      return fail(res, 400, "Mobile number and role required", "VALIDATION_ERROR", {
-        required: ["mobileNumber", "role"],
+    if (!identifier || !role) {
+      return fail(res, 400, "Identifier and role required", "VALIDATION_ERROR", {
+        required: ["identifier", "role"],
       });
     }
 
     // Prevent re-registering an existing mobile number (across any role)
-    const mobileExists = await findAnyProfileByMobileNumber(mobileNumber);
+    // Note: We still treat identifier as mobileNumber for database storage in User model
+    const mobileExists = await findAnyProfileByMobileNumber(identifier);
     if (mobileExists) {
       return fail(
         res,
         409,
         "Mobile number already registered. Please login.",
         "MOBILE_ALREADY_EXISTS",
-        { mobileNumber }
+        { identifier }
       );
     }
 
     // Step 1: Create / update temp user (FIRST)
     const tempUser = await TempUser.findOneAndUpdate(
-      { identifier: mobileNumber, role },
-      { identifier: mobileNumber, role, tempstatus: "Pending" },
+      { identifier, role },
+      { identifier, role, tempstatus: "Pending" },
       { upsert: true, new: true }
     );
 
@@ -512,7 +514,7 @@ export const signupAndSendOtp = async (req, res) => {
 
     // Step 2: Remove old OTPs
     await Otp.deleteMany({
-      identifier: mobileNumber,
+      identifier,
       role,
       purpose: "SIGNUP",
     });
@@ -523,7 +525,7 @@ export const signupAndSendOtp = async (req, res) => {
 
     // Step 4: Store OTP
     await Otp.create({
-      identifier: mobileNumber,
+      identifier,
       role,
       purpose: "SIGNUP",
       otp: hashedOtp,
@@ -532,7 +534,7 @@ export const signupAndSendOtp = async (req, res) => {
 
     // Step 5: SEND OTP VIA SMS (AFTER storing in database)
     try {
-      await sendSms(mobileNumber, otp);
+      await sendSms(identifier, otp);
     } catch (smsErr) {
       console.error("SMS sending failed:", smsErr.message);
       // OTP is stored, SMS will retry or user can request resend
@@ -540,7 +542,7 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     return ok(res, 200, "OTP sent successfully", {
-      mobileNumber,
+      identifier,
       role,
       purpose: "SIGNUP",
       expiresInSeconds: 300,
@@ -556,24 +558,24 @@ export const signupAndSendOtp = async (req, res) => {
 ====================================================== */
 export const resendOtp = async (req, res) => {
   try {
-    const { mobileNumber } = req.body;
-    const identifier = mobileNumber?.trim();
+    const { identifier } = req.body;
+    const finalIdentifier = identifier?.trim();
 
-    if (!identifier) {
-      return fail(res, 400, "Mobile number required", "VALIDATION_ERROR", {
-        required: ["mobileNumber"],
+    if (!finalIdentifier) {
+      return fail(res, 400, "Identifier required", "VALIDATION_ERROR", {
+        required: ["identifier"],
       });
     }
 
     // If user already exists, do not allow resend for signup flow
-    const mobileExists = await findAnyProfileByMobileNumber(identifier);
+    const mobileExists = await findAnyProfileByMobileNumber(finalIdentifier);
     if (mobileExists) {
       return fail(
         res,
         409,
         "Mobile number already registered. Please login.",
         "MOBILE_ALREADY_EXISTS",
-        { mobileNumber: identifier }
+        { identifier: finalIdentifier }
       );
     }
 
@@ -625,7 +627,7 @@ export const resendOtp = async (req, res) => {
     }
 
     return ok(res, 200, "OTP resent successfully", {
-      mobileNumber: identifier,
+      identifier: finalIdentifier,
       role: normalizedRole,
       purpose: "SIGNUP",
       expiresInSeconds: 300,
@@ -803,33 +805,66 @@ export const verifyOtp = async (req, res) => {
 };
 
 /* ======================================================
-  4️⃣ SET PASSWORD + CREATE PROFILE
+  4️⃣ SET PASSWORD (For Owners) - Authenticated
 ====================================================== */
-// setPassword function removed as part of OTP-only auth refactor.
-// User creation now happens in verifyOtp.
+export const setPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { userId } = req.user; // From Auth middleware
+
+    if (!userId) {
+      return fail(res, 401, "Unauthorized", "UNAUTHORIZED");
+    }
+
+    if (!password) {
+      return fail(res, 400, "Password is required", "VALIDATION_ERROR");
+    }
+
+    if (password.length < 8) {
+      return fail(res, 400, "Password must be at least 8 characters long", "VALIDATION_ERROR");
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return fail(res, 404, "User not found", "USER_NOT_FOUND");
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return ok(res, 200, "Password set successfully");
+  } catch (err) {
+    return fail(res, 500, err.message, "SERVER_ERROR");
+  }
+};
 
 /* ======================================================
-  5️⃣ LOGIN (Role-specific)
-====================================================== */
-
-/* ======================================================
-  4️⃣ LOGIN - REQUEST OTP (OTP-based, no password)
+  5️⃣ LOGIN (Hybrid: Password for Owner, OTP for Cust/Tech)
 ====================================================== */
 export const login = async (req, res) => {
   try {
-    const { identifier, mobileNumber, role } = req.body;
+    const { identifier, mobileNumber, role, password } = req.body;
     const finalIdentifier = (identifier || mobileNumber)?.trim();
     const normalizedRole = normalizeRole(role);
 
     if (!finalIdentifier) {
-      return fail(res, 400, "Mobile number (identifier) required", "VALIDATION_ERROR");
+      return fail(res, 400, "Identifier (Mobile Number) required", "VALIDATION_ERROR");
     }
     if (!normalizedRole) {
       return fail(res, 400, "Valid role required", "VALIDATION_ERROR");
     }
 
     // Check if user exists with this role
-    const user = await User.findOne({ mobileNumber: finalIdentifier, role: normalizedRole });
+    // Need password selection ONLY if it's Owner
+    const query = User.findOne({ mobileNumber: finalIdentifier, role: normalizedRole });
+    if (normalizedRole === "Owner") {
+      query.select("+password");
+    }
+    const user = await query.exec();
+
     if (!user) {
       return fail(res, 404, "User not found. Please signup first.", "USER_NOT_FOUND");
     }
@@ -838,66 +873,118 @@ export const login = async (req, res) => {
       return fail(res, 403, "Account is blocked. Please contact support.", "ACCOUNT_BLOCKED");
     }
 
-    // Remove old login OTPs
-    await Otp.deleteMany({
-      identifier: finalIdentifier,
-      role: normalizedRole,
-      purpose: "LOGIN",
-    });
+    // --- OWNER LOGIN (PASSWORD) ---
+    if (normalizedRole === "Owner" && user.password) {
+      if (!password) {
+        return fail(res, 400, "Password is required for Owner login", "PASSWORD_REQUIRED");
+      }
 
-    // Generate and hash OTP
-    const otp = generateOtp();
-    const hashedOtp = await bcrypt.hash(otp, 10);
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return fail(res, 401, "Invalid password", "INVALID_CREDENTIALS");
+      }
 
-    // Store OTP
-    await Otp.create({
-      identifier: finalIdentifier,
-      role: normalizedRole,
-      purpose: "LOGIN",
-      otp: hashedOtp,
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    });
+      // Login Successful
+      await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
 
-    // Send SMS
-    try {
-      await sendSms(finalIdentifier, otp);
-    } catch (smsErr) {
-      console.error("SMS sending failed:", smsErr.message);
-      return fail(res, 500, "Failed to send OTP. Please try again.", "SMS_SEND_FAILED");
+      const token = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return ok(res, 200, "Login successful", {
+        token,
+        userId: user._id,
+        role: user.role,
+      });
     }
 
-    return ok(res, 200, "OTP sent successfully", {
-      identifier: finalIdentifier,
-      role: normalizedRole,
-      purpose: "LOGIN",
-      expiresInSeconds: 300,
-    });
+    // --- CUSTOMER / TECHNICIAN LOGIN (OTP) ---
+    else {
+      // Remove old login OTPs
+      await Otp.deleteMany({
+        identifier: finalIdentifier,
+        role: normalizedRole,
+        purpose: "LOGIN",
+      });
+
+      // Generate and hash OTP
+      const otp = generateOtp();
+      const hashedOtp = await bcrypt.hash(otp, 10);
+
+      // Store OTP
+      await Otp.create({
+        identifier: finalIdentifier,
+        role: normalizedRole,
+        purpose: "LOGIN",
+        otp: hashedOtp,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+
+      // Send SMS
+      try {
+        await sendSms(finalIdentifier, otp);
+      } catch (smsErr) {
+        console.error("SMS sending failed:", smsErr.message);
+        return fail(res, 500, "Failed to send OTP. Please try again.", "SMS_SEND_FAILED");
+      }
+
+      return ok(res, 200, "OTP sent successfully", {
+        identifier: finalIdentifier,
+        role: normalizedRole,
+        purpose: "LOGIN",
+        expiresInSeconds: 300,
+      });
+    }
+
   } catch (err) {
     return fail(res, 500, err.message, "SERVER_ERROR");
   }
 };
 
 /* ======================================================
-  ROLE-SPECIFIC LOGIN WRAPPERS (OTP-based)
+  ROLE-SPECIFIC LOGIN WRAPPERS
 ====================================================== */
 
-// Owner-only login (OTP-based, wrapper for login)
 export const ownerLogin = async (req, res) => {
   req.body.role = "Owner";
   return login(req, res);
 };
 
-// Technician-only login (OTP-based, wrapper for login)
 export const technicianLogin = async (req, res) => {
   req.body.role = "Technician";
   return login(req, res);
 };
 
-// Deprecated verifyLoginOtp kept for backward compatibility if needed, 
-// using unified verifyOtp logic.
+export const customerLogin = async (req, res) => {
+  req.body.role = "Customer";
+  return login(req, res);
+};
+
+/* ======================================================
+  ROLE-SPECIFIC VERIFY OTP WRAPPERS
+====================================================== */
+
+export const verifyCustomerOtp = async (req, res) => {
+  req.body.role = "Customer";
+  return verifyOtp(req, res);
+};
+
+export const verifyTechnicianOtp = async (req, res) => {
+  req.body.role = "Technician";
+  return verifyOtp(req, res);
+};
+
+// Unified login OTP request endpoint wrapper (used by routes)
+export const requestLoginOtp = async (req, res) => {
+  // Delegates to `login` which handles Owner (password) and OTP flows for others
+  return login(req, res);
+};
+
+// Unified login OTP verify endpoint wrapper (used by routes)
 export const verifyLoginOtp = async (req, res) => {
-  req.body.role = req.body.role || "Customer"; // Default or infer from context if possible
-  // For strictness, client should use verifyOtp directly with role.
+  // Delegates to `verifyOtp` which supports LOGIN purpose
   return verifyOtp(req, res);
 };
 

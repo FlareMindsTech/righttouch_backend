@@ -8,9 +8,9 @@ import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
-import UserRoutes from "./routes/User.js";
-import TechnicianRoutes from "./routes/technician.js";
-import AddressRoutes from "./routes/address.js";
+import UserRoutes from "./Routes/User.js";
+import TechnicianRoutes from "./Routes/technician.js";
+import AddressRoutes from "./Routes/address.js";
 
 dotenv.config();
 
@@ -18,6 +18,10 @@ dotenv.config();
 if (!process.env.JWT_SECRET) {
   console.error("❌ FATAL: JWT_SECRET is not defined in environment variables");
   process.exit(1);
+}
+
+if (!process.env.FAST2SMS_API_KEY) {
+  console.warn("⚠️ WARNING: FAST2SMS_API_KEY is not defined. SMS sending will fail.");
 }
 
 const App = express();
@@ -29,7 +33,7 @@ const trustProxyEnv = process.env.TRUST_PROXY;
 const trustProxy =
   typeof trustProxyEnv === "string"
     ? trustProxyEnv === "true" || trustProxyEnv === "1"
-    : process.env.NODE_ENV === "production";
+    : (process.env.NODE_ENV === "production" ? 1 : false);
 App.set("trust proxy", trustProxy);
 
 // 🔌 Initialize Socket.IO
