@@ -21,6 +21,8 @@ const checkTechnicianActivation = async (technicianProfileId) => {
       };
     }
 
+    
+
     // Check bank verification
     if (!kyc.bankVerified) {
       return {
