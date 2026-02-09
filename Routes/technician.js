@@ -1,20 +1,36 @@
 import express from "express";
-import { Auth, authorizeRoles } from "../Middleware/Auth.js";
+import { Auth } from "../Middleware/Auth.js";
 import isTechnician from "../Middleware/isTechnician.js";
 import { upload } from "../Utils/cloudinaryUpload.js";
-import { updateTechnicianLocation, createTechnician, getAllTechnicians, getTechnicianById, getMyTechnician, updateTechnician, addTechnicianSkills, removeTechnicianSkills, updateTechnicianStatus, deleteTechnician, updateTechnicianTraining, uploadProfileImage } from "../Controllers/technician.js";
+import {
+  updateTechnicianLocation,
+  createTechnician,
+  getAllTechnicians,
+  getTechnicianById,
+  getMyTechnician,
+  updateTechnician,
+  addTechnicianSkills,
+  removeTechnicianSkills,
+  updateTechnicianStatus,
+  deleteTechnician,
+  updateTechnicianTraining,
+  uploadProfileImage,
+} from "../Controllers/technician.js";
 import { technicianLogin, verifyTechnicianOtp } from "../Controllers/User.js";
-import { respondToJob, getMyJobs, getNearbyJobs } from "../Controllers/technicianBroadcastController.js";
-import { submitTechnicianKyc, uploadTechnicianKycDocuments, getTechnicianKyc, getMyTechnicianKyc, getAllTechnicianKyc, verifyTechnicianKyc, verifyBankDetails, deleteTechnicianKyc, getOrphanedKyc, deleteOrphanedKyc, deleteAllOrphanedKyc } from "../Controllers/technicianKycController.js";
-import { updateBookingStatus, getTechnicianJobHistory, getTechnicianCurrentJobs } from "../Controllers/serviceBookController.js";
-import { createWalletTransaction, getWalletHistory, requestWithdrawal, getMyWithdrawals, cancelMyWithdrawal, ownerListWithdrawals, ownerDecideWithdrawal } from "../Controllers/technicianWalletController.js";
-import { Auth, authorizeRoles } from "../Middleware/Auth.js";
-import isTechnician from "../Middleware/isTechnician.js";
-import { upload } from "../Utils/cloudinaryUpload.js";
-import { updateTechnicianLocation, createTechnician, getAllTechnicians, getTechnicianById, getMyTechnician, updateTechnician, addTechnicianSkills, removeTechnicianSkills, updateTechnicianStatus, deleteTechnician, updateTechnicianTraining, uploadProfileImage } from "../Controllers/technician.js";
-import { technicianLogin } from "../Controllers/User.js";
 import { respondToJob, getMyJobs } from "../Controllers/technicianBroadcastController.js";
-import { submitTechnicianKyc, uploadTechnicianKycDocuments, getTechnicianKyc, getMyTechnicianKyc, getAllTechnicianKyc, verifyTechnicianKyc, verifyBankDetails, deleteTechnicianKyc, getOrphanedKyc, deleteOrphanedKyc, deleteAllOrphanedKyc } from "../Controllers/technicianKycController.js";
+import {
+  submitTechnicianKyc,
+  uploadTechnicianKycDocuments,
+  getTechnicianKyc,
+  getMyTechnicianKyc,
+  getAllTechnicianKyc,
+  verifyTechnicianKyc,
+  verifyBankDetails,
+  deleteTechnicianKyc,
+  getOrphanedKyc,
+  deleteOrphanedKyc,
+  deleteAllOrphanedKyc,
+} from "../Controllers/technicianKycController.js";
 import { updateBookingStatus, getTechnicianJobHistory, getTechnicianCurrentJobs } from "../Controllers/serviceBookController.js";
 import { createWalletTransaction, getWalletTransactions, requestWithdraw, getMyWithdrawRequests, cancelMyWithdrawal } from "../Controllers/technicianWalletController.js";
 
