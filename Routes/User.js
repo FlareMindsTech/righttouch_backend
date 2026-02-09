@@ -160,6 +160,9 @@ router.post("/login/customer", authLimiter, async (req, res, next) => {
   return login(req, res, next);
 });
 
+// Customer: verify OTP (role pre-filled)
+router.post("/login/customer/verify-otp", authLimiter, verifyOtp);
+
 
 // Owner login (only allows Owner role)
 router.post("/login/owner", authLimiter, ownerLogin);
