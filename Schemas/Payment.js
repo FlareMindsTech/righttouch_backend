@@ -6,14 +6,12 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "ServiceBooking",
       required: true,
-      unique: true, // one payment per booking
+      unique: true,
     },
 
     provider: {
       type: String,
-      enum: ["razorpay"],
       default: "razorpay",
-      index: true,
     },
     
 
@@ -22,66 +20,23 @@ const paymentSchema = new mongoose.Schema(
       default: "INR",
     },
 
-    providerOrderId: {
-      type: String,
-      default: null,
-      index: true,
-    },
+    providerOrderId: String,
+    providerPaymentId: String,
+    providerSignature: String,
 
-    providerPaymentId: {
-      type: String,
-      default: null,
-      index: true,
-    },
-
-    providerSignature: {
-      type: String,
-      default: null,
-      select: false,
-    },
-
-    verifiedAt: {
-      type: Date,
-      default: null,
-    },
-
-    baseAmount: {
-      type: Number,
-      required: true,
-    },
-
-    totalAmount: {
-      type: Number,
-      required: true,
-    },
-
-    commissionAmount: {
-      type: Number,
-      required: true,
-    },
-
-    technicianAmount: {
-      type: Number,
-      required: true,
-    },
-
-    paymentMode: {
-      type: String,
-      enum: ["online"], // ✅ ONLY ONLINE
-      default: "online",
-    },
+    baseAmount: Number,
+    totalAmount: Number,
+    commissionAmount: Number,
+    technicianAmount: Number,
 
     status: {
       type: String,
       enum: ["pending", "success", "failed"],
       default: "pending",
-      index: true,
     },
 
-    failureReason: {
-      type: String,
-      default: null,
-    },
+    failureReason: String,
+    verifiedAt: Date,
   },
   { timestamps: true }
 );

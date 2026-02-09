@@ -140,12 +140,10 @@ export const respondToJob = async (req, res) => {
   session.startTransaction();
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const technicianProfileId = req.user?.technicianProfileId;
-
-    // Check technician activation status
-    const activation = await checkTechnicianActivation(technicianProfileId);
-    if (!activation.isActive) {
+    const { status, response } = req.body;
+    const finalStatus = (status || response || "").toLowerCase();
+    const technicianProfileId = req.user?.profileId;
+    if (!technicianProfileId) {
       await session.abortTransaction();
       return res.status(403).json({
         success: false,
@@ -166,11 +164,7 @@ export const respondToJob = async (req, res) => {
         message: "Job not assigned to this technician",
       });
     }
-
-    // Technician eligibility checks (workStatus, isOnline)
-    const TechnicianProfile = mongoose.model("TechnicianProfile");
-    const technician = await TechnicianProfile.findById(technicianProfileId).session(session);
-    if (!technician || technician.workStatus !== "approved" || !technician.availability?.isOnline) {
+    if (finalStatus !== "accepted" && finalStatus !== "accept") {
       await session.abortTransaction();
       return res.status(403).json({ success: false, message: "Technician not eligible for job acceptance", result: {} });
     }
@@ -204,153 +198,5 @@ export const respondToJob = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message, result: { error: err.message } });
   } finally {
     session.endSession();
-  }
-};
-
-/* ================= GET NEARBY JOBS WITH DISTANCE ================= */
-export const getNearbyJobs = async (req, res) => {
-  try {
-    const technicianProfileId = req.user?.technicianProfileId;
-    // Allow params from query (GET standard) or body (optional flexibility)
-    const input = { ...req.query, ...req.body };
-    const { latitude, longitude, radius } = input;
-
-    if (!technicianProfileId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-        result: {},
-      });
-    }
-
-    // Check technician activation status
-    const activation = await checkTechnicianActivation(technicianProfileId);
-    if (!activation.isActive) {
-      return res.status(200).json({
-        success: true,
-        message: activation.message,
-        result: [],
-      });
-    }
-
-    // Resolve Location: Use provided coords OR fallback to stored technician location
-    let lat = Number(latitude);
-    let lng = Number(longitude);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      // Fallback to stored location
-      const techProfile = await TechnicianProfile.findById(technicianProfileId).select("location");
-      if (
-        techProfile &&
-        techProfile.location &&
-        techProfile.location.coordinates &&
-        techProfile.location.type === "Point"
-      ) {
-        // GeoJSON: [longitude, latitude]
-        lng = techProfile.location.coordinates[0];
-        lat = techProfile.location.coordinates[1];
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: "Location not found. Please provide latitude/longitude or update your profile location.",
-          result: { received: input },
-        });
-      }
-    }
-
-    // Get broadcasted IDs for this technician
-    const broadcasts = await JobBroadcast.find({
-      technicianId: technicianProfileId,
-      status: "sent",
-    }).select("bookingId");
-
-    const bookingIds = broadcasts.map((b) => b.bookingId);
-
-    if (bookingIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "No jobs available",
-        result: [],
-      });
-    }
-
-    const maxDist = radius ? Number(radius) : 20000; // Default 20km
-
-    // Aggregate to find nearby jobs and calculate distance
-    const jobs = await ServiceBooking.aggregate([
-      {
-        $geoNear: {
-          near: { type: "Point", coordinates: [lng, lat] },
-          distanceField: "distance", // Distance in meters
-          maxDistance: maxDist,
-          query: {
-            _id: { $in: bookingIds },
-            status: "broadcasted",
-            technicianId: null,
-          },
-          spherical: true,
-        },
-      },
-      // Populate Service
-      {
-        $lookup: {
-          from: "services", // Collection name (plural of model name usually)
-          localField: "serviceId",
-          foreignField: "_id",
-          as: "service",
-        },
-      },
-      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-      // Populate Customer
-      {
-        $lookup: {
-          from: "users",
-          localField: "customerId",
-          foreignField: "_id",
-          as: "customer",
-          pipeline: [{ $project: { firstName: 1, lastName: 1, mobileNumber: 1 } }],
-        },
-      },
-      { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
-      // Populate Address (if addressId exists, though addressSnapshot is usually on booking)
-      {
-        $lookup: {
-          from: "addresses",
-          localField: "addressId",
-          foreignField: "_id",
-          as: "addressDetails",
-        },
-      },
-      { $unwind: { path: "$addressDetails", preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          _id: 1,
-          distance: 1, // Include distance
-          serviceName: "$service.serviceName",
-          customer: 1,
-          addressSnapshot: 1,
-          address: 1,
-          baseAmount: 1,
-          scheduledAt: 1,
-          status: 1,
-          location: 1,
-          addressDetails: 1
-        }
-      },
-      { $sort: { distance: 1 } } // Sort by distance (closest first)
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      message: "Nearby jobs fetched successfully",
-      result: jobs,
-    });
-  } catch (err) {
-    console.error("getNearbyJobs Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-      result: { error: err.message },
-    });
   }
 };

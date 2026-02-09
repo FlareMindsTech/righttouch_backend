@@ -1,4 +1,3 @@
-
 // Schemas/JobBroadcast.js
 import mongoose from "mongoose";
 

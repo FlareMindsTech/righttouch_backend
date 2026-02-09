@@ -144,23 +144,31 @@ export const createBooking = async (req, res) => {
       });
     }
 
-    // 1️⃣ Create booking (status: requested)
+    // Calculate split
+    const commissionPct = typeof service.commissionPercentage === "number" ? service.commissionPercentage : 0;
+    const commissionAmt = Math.round((baseAmountNum * commissionPct) / 100);
+    const techAmt = baseAmountNum - commissionAmt;
+
+    // 1️⃣ Create booking
     const bookingDoc = {
       customerId,
       serviceId,
       baseAmount: baseAmountNum,
-
-      // ✅ Swiggy-Style Location Snapshot
+       // ✅ Swiggy-Style Location Snapshot
       locationType: resolvedLocation.locationType,
       addressSnapshot: resolvedLocation.addressSnapshot,
 
       // Legacy/Display address string
       address: resolvedLocation.addressSnapshot.addressLine || "Pinned Location",
-
+      commissionPercentage: commissionPct,
+      commissionAmount: commissionAmt,
+      technicianAmount: techAmt,
+      address: addressForBooking,
       scheduledAt,
       status: "requested",
       radius: radiusInput ?? 500,
     };
+
 
     // Only save addressId if we actually used a saved address
     if (resolvedLocation.addressId) {
@@ -317,6 +325,8 @@ export const getTechnicianJobHistory = async (req, res) => {
       });
     }
 
+    const technicianId = req.technician._id;
+    const userId = req.technician.userId;
     // Check technician activation status
     const activation = await checkTechnicianActivation(technicianProfileId);
     if (!activation.isActive) {
@@ -328,7 +338,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     }
 
     const jobs = await ServiceBooking.find({
-      technicianId: technicianProfileId,
+      technicianId: { $in: [technicianId, userId] },
       status: { $in: ["completed", "cancelled"] },
     })
       .populate("customerId", "fname lname mobileNumber email")
@@ -366,11 +376,20 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       });
     }
 
-    let query = {
-      status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
-    };
+    
 
-    // Role-based query logic
+    const technicianId = req.technician._id;
+    const userId = req.technician.userId;
+
+    // Search by both ObjectId and String versions to be safe
+    const idList = [
+      technicianId,
+      userId,
+      technicianId.toString(),
+      userId ? userId.toString() : null
+    ].filter(Boolean);
+
+  
     if (userRole === "Technician") {
       // Technician: Only their own jobs
       const technicianProfileId = req.user?.technicianProfileId;
@@ -396,7 +415,10 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     }
     // If role is Owner: no additional filter, get all current jobs
 
-    const jobs = await ServiceBooking.find(query)
+    const jobs = await ServiceBooking.find({
+      technicianId: { $in: idList },
+      status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
+    })
       .populate({
         path: "customerId",
         select: "fname lname mobileNumber email",
