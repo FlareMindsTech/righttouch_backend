@@ -1,12 +1,12 @@
 import express from "express";
-import { Auth } from "../middleware/Auth.js";
+import { Auth } from "../Middleware/Auth.js";
 
 import {
   getTechnicianWallet,
   getWalletTransactions,
   requestWithdraw,
   getMyWithdrawRequests
-} from "../controllers/technicianWalletController.js";
+} from "../Controllers/technicianWalletController.js";
 
 const router = express.Router();
 

@@ -1,12 +1,12 @@
 import express from "express";
-import { Auth } from "../middleware/Auth.js";
+import { Auth } from "../Middleware/Auth.js";
 
 import {
   getAdminWalletSummary,
   getAllWithdrawRequests,
   approveWithdraw,
   rejectWithdraw
-} from "../controllers/adminWalletController.js";
+} from "../Controllers/adminWalletController.js";
 
 const router = express.Router();
 

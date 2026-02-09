@@ -8,11 +8,11 @@ import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
-import UserRoutes from "./routes/User.js";
-import TechnicianRoutes from "./routes/technician.js";
-import AddressRoutes from "./routes/address.js";
-import technicianWalletRoutes from "./routes/technicianWalletRoutes.js";
-import adminWalletRoutes from "./routes/adminWalletRoutes.js";
+import UserRoutes from "./Routes/User.js";
+import TechnicianRoutes from "./Routes/technician.js";
+import AddressRoutes from "./Routes/address.js";
+import technicianWalletRoutes from "./Routes/technicianWalletRoutes.js";
+import adminWalletRoutes from "./Routes/adminWalletRoutes.js";
 
 
 dotenv.config();
