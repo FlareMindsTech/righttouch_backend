@@ -5,10 +5,10 @@ import isTechnician from "../middleware/isTechnician.js";
 import { upload } from "../utils/cloudinaryUpload.js";
 import { updateTechnicianLocation, createTechnician, getAllTechnicians, getTechnicianById, getMyTechnician, updateTechnician, addTechnicianSkills, removeTechnicianSkills, updateTechnicianStatus, deleteTechnician, updateTechnicianTraining, uploadProfileImage } from "../controllers/technician.js";
 import { technicianLogin } from "../controllers/User.js";
-import { respondToJob, getMyJobs, getNearbyJobs } from "../controllers/technicianBroadcastController.js";
+import { respondToJob, getMyJobs } from "../controllers/technicianBroadcastController.js";
 import { submitTechnicianKyc, uploadTechnicianKycDocuments, getTechnicianKyc, getMyTechnicianKyc, getAllTechnicianKyc, verifyTechnicianKyc, verifyBankDetails, deleteTechnicianKyc, getOrphanedKyc, deleteOrphanedKyc, deleteAllOrphanedKyc } from "../controllers/technicianKycController.js";
 import { updateBookingStatus, getTechnicianJobHistory, getTechnicianCurrentJobs } from "../controllers/serviceBookController.js";
-import { createWalletTransaction, getWalletHistory, requestWithdrawal, getMyWithdrawals, cancelMyWithdrawal, ownerListWithdrawals, ownerDecideWithdrawal } from "../controllers/technicianWalletController.js";
+import { createWalletTransaction, getWalletTransactions, requestWithdraw, getMyWithdrawRequests, cancelMyWithdrawal } from "../controllers/technicianWalletController.js";
 
 
 
@@ -65,7 +65,6 @@ router.delete("/technician/kyc/orphaned/cleanup/all", Auth, deleteAllOrphanedKyc
 /* ================= JOB BROADCAST ================= */
 
 router.get("/job-broadcast/my-jobs", Auth, isTechnician, getMyJobs);
-router.get("/job-broadcast/nearby-jobs", Auth, isTechnician, getNearbyJobs);
 
 router.put("/job-broadcast/respond/:id", Auth, respondToJob);
 
@@ -80,15 +79,11 @@ router.get("/jobs/history", Auth, isTechnician, getTechnicianJobHistory);
 /* ================= TECHNICIAN WALLET ================= */
 
 router.post("/wallet/transaction", Auth, createWalletTransaction);
-router.get("/wallet/history", Auth, isTechnician, getWalletHistory);
+router.get("/wallet/history", Auth, isTechnician, getWalletTransactions);
 
 // Technician payout requests
-router.post("/wallet/withdrawals/request", Auth, isTechnician, requestWithdrawal);
-router.get("/wallet/withdrawals/me", Auth, isTechnician, getMyWithdrawals);
+router.post("/wallet/withdrawals/request", Auth, isTechnician, requestWithdraw);
+router.get("/wallet/withdrawals/me", Auth, isTechnician, getMyWithdrawRequests);
 router.put("/wallet/withdrawals/:id/cancel", Auth, isTechnician, cancelMyWithdrawal);
-
-// Owner payout queue (approve/reject/mark-paid)
-router.get("/wallet/withdrawals", Auth, authorizeRoles("Owner"), ownerListWithdrawals);
-router.put("/wallet/withdrawals/:id/decision", Auth, authorizeRoles("Owner"), ownerDecideWithdrawal);
 
 export default router;

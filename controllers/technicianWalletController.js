@@ -1,6 +1,8 @@
+import mongoose from "mongoose";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import WalletTransaction from "../Schemas/WalletTransaction.js";
 import WithdrawRequest from "../Schemas/WithdrawRequest.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 
