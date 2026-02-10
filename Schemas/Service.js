@@ -20,7 +20,7 @@ const serviceSchema = new mongoose.Schema(
       required: true,
     },
 
-    
+
     // ================= SERVICE TYPE =================
     serviceType: {
       type: String,
@@ -62,9 +62,10 @@ const serviceSchema = new mongoose.Schema(
     },
 
     // ================= COMMISSION =================
+    // sk
     commissionPercentage: {
       type: Number,
-      default: 0,
+      default: 10,
       max: 50,
     },
 

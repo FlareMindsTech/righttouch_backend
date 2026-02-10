@@ -154,7 +154,7 @@ export const createBooking = async (req, res) => {
       customerId,
       serviceId,
       baseAmount: baseAmountNum,
-       // ✅ Swiggy-Style Location Snapshot
+      // ✅ Swiggy-Style Location Snapshot
       locationType: resolvedLocation.locationType,
       addressSnapshot: resolvedLocation.addressSnapshot,
 
@@ -376,20 +376,17 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       });
     }
 
-    
 
-    const technicianId = req.technician._id;
-    const userId = req.technician.userId;
 
-    // Search by both ObjectId and String versions to be safe
-    const idList = [
-      technicianId,
-      userId,
-      technicianId.toString(),
-      userId ? userId.toString() : null
-    ].filter(Boolean);
+    // sk Add the requested status
+    // For Technician, we get profileId from token. For Owner, we might get all jobs or filter differently.
 
-  
+    let technicianId = null;
+    let userId = req.user.userId;
+
+    if (userRole === "Technician") {
+      technicianId = req.user?.technicianProfileId;
+    }
     if (userRole === "Technician") {
       // Technician: Only their own jobs
       const technicianProfileId = req.user?.technicianProfileId;
@@ -411,8 +408,17 @@ export const getTechnicianCurrentJobs = async (req, res) => {
         });
       }
 
-      query.technicianId = technicianProfileId;
+      technicianId = technicianProfileId;
     }
+
+    // sk Add the requested status
+    // Search by both ObjectId and String versions to be safe
+    const idList = [
+      technicianId,
+      userId,
+      technicianId ? technicianId.toString() : null,
+      userId ? userId.toString() : null
+    ].filter(Boolean);
     // If role is Owner: no additional filter, get all current jobs
 
     const jobs = await ServiceBooking.find({
@@ -448,45 +454,67 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       // Format customer details
       const customer = jobObj.customerId
         ? {
-            firstName: jobObj.customerId.fname || "",
-            lastName: jobObj.customerId.lname || "",
-            mobileNumber: jobObj.customerId.mobileNumber || "",
-            email: jobObj.customerId.email || "",
-          }
+          firstName: jobObj.customerId.fname || "",
+          lastName: jobObj.customerId.lname || "",
+          mobileNumber: jobObj.customerId.mobileNumber || "",
+          email: jobObj.customerId.email || "",
+        }
         : null;
 
       // Format technician details
       const technician = jobObj.technicianId
         ? {
-            firstName: jobObj.technicianId.userId?.fname || "",
-            lastName: jobObj.technicianId.userId?.lname || "",
-            mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
-            email: jobObj.technicianId.userId?.email || "",
-            profileImage: jobObj.technicianId.profileImage || null,
-            locality: jobObj.technicianId.locality || "",
-            workStatus: jobObj.technicianId.workStatus || "",
-          }
+          firstName: jobObj.technicianId.userId?.fname || "",
+          lastName: jobObj.technicianId.userId?.lname || "",
+          mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
+          email: jobObj.technicianId.userId?.email || "",
+          profileImage: jobObj.technicianId.profileImage || null,
+          locality: jobObj.technicianId.locality || "",
+          workStatus: jobObj.technicianId.workStatus || "",
+        }
         : null;
 
       // Format service details
       const service = jobObj.serviceId
         ? {
-            serviceName: jobObj.serviceId.serviceName || "",
-            serviceType: jobObj.serviceId.serviceType || "",
-          }
+          serviceName: jobObj.serviceId.serviceName || "",
+          serviceType: jobObj.serviceId.serviceType || "",
+        }
         : null;
 
       // Format address details
-      const address = jobObj.addressId
-        ? {
-            name: jobObj.addressId.name || "",
-            phone: jobObj.addressId.phone || "",
-            addressLine: jobObj.addressId.addressLine || "",
-            city: jobObj.addressId.city || "",
-            state: jobObj.addressId.state || "",
-            pincode: jobObj.addressId.pincode || "",
-          }
-        : null;
+      //sk
+      let address = null;
+      if (jobObj.addressId) {
+        address = {
+          name: jobObj.addressId.name || "",
+          phone: jobObj.addressId.phone || "",
+          addressLine: jobObj.addressId.addressLine || "",
+          city: jobObj.addressId.city || "",
+          state: jobObj.addressId.state || "",
+          pincode: jobObj.addressId.pincode || "",
+        //sk
+          latitude: jobObj.addressId.latitude,
+          longitude: jobObj.addressId.longitude,
+        };
+      } else if (jobObj.addressSnapshot) {
+        address = {
+          name: jobObj.addressSnapshot.name || "",
+          phone: jobObj.addressSnapshot.phone || "",
+          addressLine: jobObj.addressSnapshot.addressLine || "",
+          city: jobObj.addressSnapshot.city || "",
+          state: jobObj.addressSnapshot.state || "",
+          pincode: jobObj.addressSnapshot.pincode || "",
+          latitude: jobObj.addressSnapshot.latitude,
+          longitude: jobObj.addressSnapshot.longitude,
+        };
+      }
+
+      // Fallback to GeoJSON if needed
+      if (address && (!address.latitude || !address.longitude) && jobObj.location?.coordinates) {
+        address.longitude = jobObj.location.coordinates[0];
+        address.latitude = jobObj.location.coordinates[1];
+      }
 
       return {
         jobId: jobObj._id,

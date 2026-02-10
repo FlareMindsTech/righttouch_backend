@@ -1,3 +1,4 @@
+
 import express from "express";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
@@ -40,13 +41,7 @@ const trustProxy =
 App.set("trust proxy", trustProxy);
 
 // REQUIRED FOR RAZORPAY WEBHOOK
-App.use(
-  bodyParser.json({
-    verify: (req, res, buf) => {
-      req.rawBody = buf.toString();
-    },
-  })
-);
+// REQUIRED FOR RAZORPAY WEBHOOK logic is handled by the express.json middleware below (lines 89-94)
 
 // 🔌 Initialize Socket.IO
 const io = new Server(httpServer, {
@@ -155,7 +150,9 @@ App.get("/", (req, res) => {
 
 // Routes
 App.use("/api/user", UserRoutes);
-App.use("/api/technician", TechnicianRoutes);
+//sk
+App.use("/api/technician", TechnicianRoutes); // Existing technician routes (profile, jobs, etc.)
+App.use("/api/technician", technicianWalletRoutes); // NEW: Technician wallet routes
 App.use("/api/addresses", AddressRoutes);
 App.use("/api/admin", adminWalletRoutes);
 

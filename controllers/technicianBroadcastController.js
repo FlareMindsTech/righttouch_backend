@@ -21,7 +21,7 @@ const checkTechnicianActivation = async (technicianProfileId) => {
       };
     }
 
-    
+
 
     // Check bank verification
     if (!kyc.bankVerified) {
@@ -108,7 +108,8 @@ export const getMyJobs = async (req, res) => {
 
     const bookings = await ServiceBooking.find({
       _id: { $in: bookingIds },
-      status: "broadcasted",
+      // sk Add the requested
+      status: { $in: ["broadcasted", "requested"] },
       technicianId: null,
       ...geoFilter,
     })
@@ -142,12 +143,12 @@ export const respondToJob = async (req, res) => {
     const { id } = req.params;
     const { status, response } = req.body;
     const finalStatus = (status || response || "").toLowerCase();
-    const technicianProfileId = req.user?.profileId;
+    const technicianProfileId = req.user?.technicianProfileId;
     if (!technicianProfileId) {
       await session.abortTransaction();
       return res.status(403).json({
         success: false,
-        message: activation.message,
+        message: "Unauthorized: Technician profile not found",
       });
     }
 
@@ -194,7 +195,10 @@ export const respondToJob = async (req, res) => {
     await session.commitTransaction();
     return res.status(200).json({ success: true, message: "Job accepted successfully", result: booking });
   } catch (err) {
-    await session.abortTransaction();
+    // Only abort if transaction is active (not committed/aborted) //sk
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
     return res.status(500).json({ success: false, message: err.message, result: { error: err.message } });
   } finally {
     session.endSession();

@@ -1,4 +1,11 @@
-// ================= UPDATE TECHNICIAN LIVE LOCATION =================
+import mongoose from "mongoose";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import Service from "../Schemas/Service.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
+import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
+import { broadcastPendingJobsToTechnician } from "../Utils/technicianMatching.js";
+
+// ================= UPDATE TECHNICIAN LIVE LOCATION ================= //sk
 export const updateTechnicianLocation = async (req, res) => {
   try {
     const technicianProfileId = req.user?.technicianProfileId;
@@ -11,7 +18,7 @@ export const updateTechnicianLocation = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid coordinates", result: {} });
     }
 
-    
+
     // Only update if moved > 25 meters
     const oldProfile = await TechnicianProfile.findById(technicianProfileId).select("location");
     let shouldUpdate = true;
@@ -41,16 +48,17 @@ export const updateTechnicianLocation = async (req, res) => {
         "availability.isOnline": true,
       }
     );
-    return res.json({ success: true, message: "Location updated" });
+
+
+    //sk
+    // 2. 🔥 Trigger calculation: Find matching jobs nearby and push them to this tech
+    await broadcastPendingJobsToTechnician(technicianProfileId, req.io);
+
+    return res.json({ success: true, message: "Location updated and jobs calculated" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message, result: { error: error.message } });
   }
 };
-import mongoose from "mongoose";
-import TechnicianProfile from "../Schemas/TechnicianProfile.js";
-import Service from "../Schemas/Service.js";
-import ServiceBooking from "../Schemas/ServiceBooking.js";
-import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 const TECHNICIAN_STATUSES = ["pending", "trained", "approved", "suspended"];

@@ -1,5 +1,6 @@
 import express from "express";
 import { Auth } from "../Middleware/Auth.js";
+import { getFilterWalletStats } from "../Controllers/adminWalletController.js";
 
 import {
   getAdminWalletSummary,
@@ -19,6 +20,9 @@ router.get("/wallet", Auth, getAdminWalletSummary);
 // All withdraw requests
 router.get("/wallet/withdraws", Auth, getAllWithdrawRequests);
 router.get("/wallet/withdrawals", Auth, getAllWithdrawRequests); // Alias for HTML
+//sk
+// Filter Stats
+router.get("/wallet/filter", Auth, getFilterWalletStats);
 
 // Decide withdraw
 router.put("/wallet/withdraw/:id/approve", Auth, approveWithdraw);
