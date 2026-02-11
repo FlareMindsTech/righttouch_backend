@@ -122,9 +122,9 @@ export const createWalletTransaction = async (req, res) => {
 
 /* GET WALLET BALANCE */
 export const getTechnicianWallet = async (req, res) => {
-  ensureTechnician(req);
+  // ensureTechnician(req); // Handled by middleware //sk
 
-  const tech = await TechnicianProfile.findById(req.user.profileId);
+  const tech = req.technician;
   res.json({
     success: true,
     balance: tech?.walletBalance || 0
@@ -133,10 +133,10 @@ export const getTechnicianWallet = async (req, res) => {
 
 /* GET WALLET TRANSACTIONS */
 export const getWalletTransactions = async (req, res) => {
-  ensureTechnician(req);
+  // ensureTechnician(req); // Handled by middleware //sk
 
   const txns = await WalletTransaction.find({
-    technicianId: req.user.profileId
+    technicianId: req.technician._id //sk
   }).sort({ createdAt: -1 });
 
   res.json({ success: true, result: txns });
@@ -144,20 +144,20 @@ export const getWalletTransactions = async (req, res) => {
 
 /* REQUEST WITHDRAW */
 export const requestWithdraw = async (req, res) => {
-  ensureTechnician(req);
+  // ensureTechnician(req); // Handled by middleware //sk
 
   const { amount } = req.body;
   if (!amount || amount <= 0) {
     return res.status(400).json({ success: false, message: "Invalid amount" });
   }
 
-  const tech = await TechnicianProfile.findById(req.user.profileId);
+  const tech = req.technician; //sk
   if (tech.walletBalance < amount) {
     return res.status(400).json({ success: false, message: "Insufficient balance" });
   }
 
   const withdraw = await WithdrawRequest.create({
-    technicianId: req.user.profileId,
+    technicianId: req.technician._id, //sk
     amount
   });
 
@@ -166,11 +166,11 @@ export const requestWithdraw = async (req, res) => {
 
 /* MY WITHDRAW REQUESTS */
 export const getMyWithdrawRequests = async (req, res) => {
-  ensureTechnician(req);
+  // ensureTechnician(req); // Handled by middleware //sk
 
   const data = await WithdrawRequest.find({
-    technicianId: req.user.profileId
-  }).sort({ createdAt: -1 });
+    technicianId: req.technician._id //sk
+  }).sort({ createdAt: -1 }); //sk
 
   res.json({ success: true, result: data });
 };
@@ -178,10 +178,11 @@ export const getMyWithdrawRequests = async (req, res) => {
 /* ================= CANCEL MY WITHDRAW ================= */
 export const cancelMyWithdrawal = async (req, res) => {
   try {
-    if (req.user?.role !== "Technician") {
+    // Role check handled by verifyRoles or isTechnician if applied //sk
+    if (req.user?.role !== "Technician" || !req.technician) { //sk
       return res.status(403).json({
         success: false,
-        message: "Technician access only"
+        message: "Technician access only" //sk
       });
     }
 
@@ -189,7 +190,7 @@ export const cancelMyWithdrawal = async (req, res) => {
 
     const withdraw = await WithdrawRequest.findOne({
       _id: id,
-      technicianId: req.user.profileId,
+      technicianId: req.technician._id,//sk
       status: "pending"
     });
 

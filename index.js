@@ -1,3 +1,4 @@
+
 import express from "express";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
@@ -46,6 +47,16 @@ mongoose
 
 // Socket.IO Setup with HTTP Server
 const httpServer = createServer(App);
+// Ensure req.ip works behind proxies (Render/Nginx/etc.)
+// Set TRUST_PROXY=true/1 in production if you're behind a reverse proxy.
+const trustProxyEnv = process.env.TRUST_PROXY;
+const trustProxy =
+  typeof trustProxyEnv === "string"
+    ? trustProxyEnv === "true" || trustProxyEnv === "1"
+    : (process.env.NODE_ENV === "production" ? 1 : false);
+App.set("trust proxy", trustProxy);
+
+// 🔌 Initialize Socket.IO
 const io = new Server(httpServer, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
@@ -119,7 +130,9 @@ App.use((req, res, next) => {
 
 // Routes
 App.use("/api/user", UserRoutes);
-App.use("/api/technician", TechnicianRoutes);
+//sk
+App.use("/api/technician", TechnicianRoutes); // Existing technician routes (profile, jobs, etc.)
+App.use("/api/technician", technicianWalletRoutes); // NEW: Technician wallet routes
 App.use("/api/addresses", AddressRoutes);
 App.use("/api/admin", adminWalletRoutes);
 App.use("/api/dev", DevRoutes);

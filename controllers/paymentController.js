@@ -114,7 +114,8 @@ const razorpayRequest = async ({ method, path, body }) => {
 
 const computeSplitFromService = ({ service, payableAmount }) => {
   const totalAmount = round2(payableAmount);
-  const pct = toMoney(service?.commissionPercentage) ?? 0;
+  //sk
+  const pct = 10; // Fixed 10% commission
   const commissionAmount = round2((totalAmount * pct) / 100);
   const technicianAmount = round2(totalAmount - commissionAmount);
 
@@ -127,7 +128,7 @@ const computeSplitFromService = ({ service, payableAmount }) => {
 };
 
 /* =====================================================
-   1️⃣ CREATE PAYMENT ORDER
+   1️⃣ CREATE PAYME// NT ORDER
 ===================================================== */
 
 export const createPaymentOrder = async (req, res) => {
@@ -145,8 +146,9 @@ export const createPaymentOrder = async (req, res) => {
     if (!booking) return fail(res, 404, "Booking not found");
 
     if (
-      booking.customerProfileId.toString() !==
-      req.user.profileId.toString()
+      //sk
+      booking.customerId.toString() !==
+      req.user?.userId?.toString()
     ) {
       return fail(res, 403, "Access denied");
     }
@@ -158,13 +160,15 @@ export const createPaymentOrder = async (req, res) => {
     }
 
     const allowed = [
-  "broadcasted", 
-  "accepted",
-  "on_the_way",
-  "reached",
-  "in_progress",
-  "completed",
-];
+      // sk
+      "requested",
+      "broadcasted",
+      "accepted",
+      "on_the_way",
+      "reached",
+      "in_progress",
+      "completed",
+    ];
     if (!allowed.includes(booking.status)) {
       return fail(
         res,
