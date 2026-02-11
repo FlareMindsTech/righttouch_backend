@@ -890,8 +890,7 @@ export const login = async (req, res) => {
 
       const token = jwt.sign(
         { userId: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
+        process.env.JWT_SECRET
       );
 
       return ok(res, 200, "Login successful", {
@@ -1002,7 +1001,12 @@ export const getMyProfile = async (req, res) => {
     return fail(res, 401, "Unauthorized", "UNAUTHORIZED");
   }
   if (role === "Technician") {
-    const profile = await TechnicianProfile.findOne({ userId }).select("-password");
+    const profile = await TechnicianProfile.findOne({ userId })
+      .populate({
+        path: "userId",
+        select: "fname lname gender mobileNumber email",
+      })
+      .select("-password");
     if (!profile) return fail(res, 404, "Profile not found", "PROFILE_NOT_FOUND");
     const result = profile.toObject();
     // Optionally fetch KYC
@@ -1047,6 +1051,16 @@ export const completeProfile = async (req, res) => {
         updateData[field] = req.body[field];
       }
     });
+    const userUpdateData = {};
+    if (req.body.firstName !== undefined || req.body.fname !== undefined) {
+      userUpdateData.fname = req.body.firstName ?? req.body.fname;
+    }
+    if (req.body.lastName !== undefined || req.body.lname !== undefined) {
+      userUpdateData.lname = req.body.lastName ?? req.body.lname;
+    }
+    if (req.body.gender !== undefined) {
+      userUpdateData.gender = req.body.gender;
+    }
     // Technician geo location (optional) -> stored as GeoJSON Point + display strings
     if (updateData.latitude !== undefined || updateData.longitude !== undefined) {
       const latString = updateData.latitude;
@@ -1059,6 +1073,9 @@ export const completeProfile = async (req, res) => {
       if (loc) updateData.location = loc;
     }
     updateData.profileComplete = true;
+    if (Object.keys(userUpdateData).length > 0) {
+      await User.findByIdAndUpdate(userId, userUpdateData, { new: true, runValidators: true });
+    }
     const updated = await TechnicianProfile.findOneAndUpdate(
       { userId },
       updateData,
