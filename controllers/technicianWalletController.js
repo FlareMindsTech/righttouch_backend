@@ -122,33 +122,145 @@ export const createWalletTransaction = async (req, res) => {
 
 /* GET WALLET BALANCE */
 export const getTechnicianWallet = async (req, res) => {
-  // ensureTechnician(req); // Handled by middleware //sk
+  try {
+    // ensureTechnician(req); // Handled by middleware //sk
 
-  const tech = req.technician;
-  res.json({
-    success: true,
-    balance: tech?.walletBalance || 0
-  });
+    const tech = req.technician;
+    //sk
+    const techId = new mongoose.Types.ObjectId(tech._id);
+
+    // Calculate total earnings (sum of all credit transactions)
+    const totalEarningsResult = await WalletTransaction.aggregate([
+      {
+        $match: {
+          technicianId: techId,
+          type: "credit"
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$amount" }
+        }
+      }
+    ]);
+
+    const totalEarnings = totalEarningsResult[0]?.total || 0;
+
+    // Calculate withdrawal stats
+    const withdrawalStats = await WithdrawRequest.aggregate([
+      {
+        $match: {
+          technicianId: techId
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          approvedTotal: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "approved"] }, "$amount", 0]
+            }
+          },
+          approvedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "approved"] }, 1, 0]
+            }
+          },
+          rejectedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "rejected"] }, 1, 0]
+            }
+          },
+          pendingTotal: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "pending"] }, "$amount", 0]
+            }
+          },
+          pendingCount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "pending"] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const stats = withdrawalStats[0] || {
+      approvedTotal: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+      pendingTotal: 0,
+      pendingCount: 0
+    };
+
+    res.json({
+      success: true,
+      //sk
+      balance: tech?.walletBalance || 0,
+      totalEarnings,
+      stats
+    });
+  } catch (error) {
+    console.error("Error in getTechnicianWallet:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
 };
 
 /* GET WALLET TRANSACTIONS */
 export const getWalletTransactions = async (req, res) => {
   // ensureTechnician(req); // Handled by middleware //sk
 
-  const txns = await WalletTransaction.find({
-    technicianId: req.technician._id //sk
-  }).sort({ createdAt: -1 });
+  //sk
+  let query = { technicianId: req.technician._id };
+
+  if (req.query.startDate || req.query.endDate) {
+    query.createdAt = {};
+    if (req.query.startDate) {
+      query.createdAt.$gte = new Date(req.query.startDate);
+    }
+    if (req.query.endDate) {
+      // Set end date to end of day
+      const end = new Date(req.query.endDate);
+      end.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = end;
+    }
+  }
+
+  const txns = await WalletTransaction.find(query).sort({ createdAt: -1 });
 
   res.json({ success: true, result: txns });
 };
 
+
+
 /* REQUEST WITHDRAW */
 export const requestWithdraw = async (req, res) => {
-  // ensureTechnician(req); // Handled by middleware //sk
+  // ensureTechnician(req); // Handled by middleware 
+ //sk
+
+  // Check if today is Friday
+  const today = new Date();
+  if (today.getDay() !== 5) {
+    return res.status(400).json({
+      success: false,
+      message: "Withdrawal requests are only allowed on Fridays"
+    });
+  }
 
   const { amount } = req.body;
+  //sk
+  const config = getConfig(); // Get config
+
   if (!amount || amount <= 0) {
     return res.status(400).json({ success: false, message: "Invalid amount" });
+  }
+//sk
+  if (amount < config.minWithdrawal) {
+    return res.status(400).json({
+      success: false,
+      message: `Minimum withdrawal amount is ₹${config.minWithdrawal}`
+    });
   }
 
   const tech = req.technician; //sk
