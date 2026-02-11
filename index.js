@@ -19,6 +19,7 @@ import UserRoutes from "./Routes/User.js";
 import TechnicianRoutes from "./Routes/technician.js";
 import AddressRoutes from "./Routes/address.js";
 import adminWalletRoutes from "./Routes/adminWalletRoutes.js";
+import technicianWalletRoutes from "./Routes/technicianWalletRoutes.js";
 import DevRoutes from "./Routes/dev.js";
 
 const App = express();

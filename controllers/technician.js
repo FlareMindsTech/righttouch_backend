@@ -4,6 +4,7 @@ import Service from "../Schemas/Service.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import { broadcastPendingJobsToTechnician } from "../Utils/technicianMatching.js";
+import { handleLocationUpdate } from "../Utils/technicianLocation.js";
 
 // ================= UPDATE TECHNICIAN LIVE LOCATION ================= //sk
 export const updateTechnicianLocation = async (req, res) => {
@@ -18,7 +19,6 @@ export const updateTechnicianLocation = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid coordinates", result: {} });
     }
 
-<<<<<<< HEAD
     const result = await handleLocationUpdate(technicianProfileId, latitude, longitude, req.io);
 
     return res.json({
@@ -26,60 +26,11 @@ export const updateTechnicianLocation = async (req, res) => {
       message: result.matchCalculation ? "Location updated and jobs calculated" : "Location updated (matching rate limited)",
       result
     });
-=======
-
-    // Only update if moved > 25 meters
-    const oldProfile = await TechnicianProfile.findById(technicianProfileId).select("location");
-    let shouldUpdate = true;
-    if (oldProfile && oldProfile.location && Array.isArray(oldProfile.location.coordinates)) {
-      const [oldLng, oldLat] = oldProfile.location.coordinates;
-      const toRad = deg => (deg * Math.PI) / 180;
-      const R = 6371000; // meters
-      const dLat = toRad(latitude - oldLat);
-      const dLng = toRad(longitude - oldLng);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(oldLat)) * Math.cos(toRad(latitude)) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const dist = R * c;
-      if (dist < 25) shouldUpdate = false;
-    }
-    if (!shouldUpdate) {
-      return res.json({ success: true, message: "Location unchanged (moved < 25m)" });
-    }
-    await TechnicianProfile.updateOne(
-      { _id: technicianProfileId },
-      {
-        location: {
-          type: "Point",
-          coordinates: [longitude, latitude],
-        },
-        "availability.isOnline": true,
-      }
-    );
-
-
-    //sk
-    // 2. 🔥 Trigger calculation: Find matching jobs nearby and push them to this tech
-    await broadcastPendingJobsToTechnician(technicianProfileId, req.io);
-
-    return res.json({ success: true, message: "Location updated and jobs calculated" });
->>>>>>> 225bc76ea353af264c53c4463dbd35c579273f17
   } catch (error) {
     console.error("updateTechnicianLocation Error:", error);
     return res.status(500).json({ success: false, message: error.message, result: { error: error.message } });
   }
 };
-<<<<<<< HEAD
-import mongoose from "mongoose";
-import TechnicianProfile from "../Schemas/TechnicianProfile.js";
-import Service from "../Schemas/Service.js";
-import ServiceBooking from "../Schemas/ServiceBooking.js";
-import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import { broadcastPendingJobsToTechnician } from "../Utils/technicianMatching.js";
-import { handleLocationUpdate } from "../Utils/technicianLocation.js";
-=======
->>>>>>> 225bc76ea353af264c53c4463dbd35c579273f17
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 const TECHNICIAN_STATUSES = ["pending", "trained", "approved", "suspended"];
