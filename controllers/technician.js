@@ -1,4 +1,12 @@
-// ================= UPDATE TECHNICIAN LIVE LOCATION =================
+import mongoose from "mongoose";
+import TechnicianProfile from "../Schemas/TechnicianProfile.js";
+import Service from "../Schemas/Service.js";
+import ServiceBooking from "../Schemas/ServiceBooking.js";
+import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
+import { broadcastPendingJobsToTechnician } from "../Utils/technicianMatching.js";
+import { handleLocationUpdate } from "../Utils/technicianLocation.js";
+
+// ================= UPDATE TECHNICIAN LIVE LOCATION ================= //sk
 export const updateTechnicianLocation = async (req, res) => {
   try {
     const technicianProfileId = req.user?.technicianProfileId;
@@ -23,13 +31,6 @@ export const updateTechnicianLocation = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message, result: { error: error.message } });
   }
 };
-import mongoose from "mongoose";
-import TechnicianProfile from "../Schemas/TechnicianProfile.js";
-import Service from "../Schemas/Service.js";
-import ServiceBooking from "../Schemas/ServiceBooking.js";
-import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
-import { broadcastPendingJobsToTechnician } from "../Utils/technicianMatching.js";
-import { handleLocationUpdate } from "../Utils/technicianLocation.js";
 
 const isValidObjectId = mongoose.Types.ObjectId.isValid;
 const TECHNICIAN_STATUSES = ["pending", "trained", "approved", "suspended"];
