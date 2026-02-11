@@ -112,15 +112,14 @@ const razorpayRequest = async ({ method, path, body }) => {
 
 /* ================= COMMISSION SPLIT ================= */
 
-const computeSplitFromService = ({ service, payableAmount }) => {
-  const totalAmount = round2(payableAmount);
-  //sk
-  const pct = 10; // Fixed 10% commission
-  const commissionAmount = round2((totalAmount * pct) / 100);
+const computeSplitFromBooking = ({ booking }) => {
+  const totalAmount = round2(booking.baseAmount);
+  const commissionPercentage = booking.commissionPercentage || 0;
+  const commissionAmount = round2(booking.commissionAmount || (totalAmount * commissionPercentage) / 100);
   const technicianAmount = round2(totalAmount - commissionAmount);
 
   return {
-    commissionPercentage: pct,
+    commissionPercentage,
     totalAmount,
     commissionAmount,
     technicianAmount,
@@ -185,9 +184,8 @@ export const createPaymentOrder = async (req, res) => {
       return fail(res, 400, "Invalid amount");
     }
 
-    const split = computeSplitFromService({
-      service,
-      payableAmount,
+    const split = computeSplitFromBooking({
+      booking
     });
 
     let payment = await Payment.findOne({ bookingId });
