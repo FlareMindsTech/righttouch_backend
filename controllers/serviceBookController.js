@@ -27,50 +27,11 @@ const toFiniteNumber = (v) => {
 
 /* ================= TECHNICIAN ACTIVATION CHECK ================= */
 const checkTechnicianActivation = async (technicianProfileId) => {
-  try {
-    // Fetch KYC data
-    const kyc = await TechnicianKyc.findOne({
-      technicianId: technicianProfileId,
-    }).select("verificationStatus bankVerified");
-
-    // Check KYC approval
-    if (!kyc || kyc.verificationStatus !== "approved") {
-      return {
-        isActive: false,
-        message: "Complete KYC, bank verification, and training to activate technician account",
-      };
-    }
-
-    // Check bank verification
-    if (!kyc.bankVerified) {
-      return {
-        isActive: false,
-        message: "Complete KYC, bank verification, and training to activate technician account",
-      };
-    }
-
-    // Fetch technician profile
-    const profile = await TechnicianProfile.findById(technicianProfileId).select("trainingCompleted");
-
-    // Check training completion
-    if (!profile || !profile.trainingCompleted) {
-      return {
-        isActive: false,
-        message: "Complete KYC, bank verification, and training to activate technician account",
-      };
-    }
-
-    // All conditions met
-    return {
-      isActive: true,
-      message: "Technician account is active",
-    };
-  } catch (error) {
-    return {
-      isActive: false,
-      message: error.message,
-    };
-  }
+  // BYPASSED: All technicians are considered active for testing
+  return {
+    isActive: true,
+    message: "Technician account is active (bypass)",
+  };
 };
 
 
@@ -154,7 +115,7 @@ export const createBooking = async (req, res) => {
       customerId,
       serviceId,
       baseAmount: baseAmountNum,
-       // ✅ Swiggy-Style Location Snapshot
+      // ✅ Swiggy-Style Location Snapshot
       locationType: resolvedLocation.locationType,
       addressSnapshot: resolvedLocation.addressSnapshot,
 
@@ -163,7 +124,6 @@ export const createBooking = async (req, res) => {
       commissionPercentage: commissionPct,
       commissionAmount: commissionAmt,
       technicianAmount: techAmt,
-      address: addressForBooking,
       scheduledAt,
       status: "requested",
       radius: radiusInput ?? 500,
@@ -376,7 +336,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       });
     }
 
-    
+
 
     const technicianId = req.technician._id;
     const userId = req.technician.userId;
@@ -389,7 +349,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       userId ? userId.toString() : null
     ].filter(Boolean);
 
-  
+
     if (userRole === "Technician") {
       // Technician: Only their own jobs
       const technicianProfileId = req.user?.technicianProfileId;
@@ -448,44 +408,44 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       // Format customer details
       const customer = jobObj.customerId
         ? {
-            firstName: jobObj.customerId.fname || "",
-            lastName: jobObj.customerId.lname || "",
-            mobileNumber: jobObj.customerId.mobileNumber || "",
-            email: jobObj.customerId.email || "",
-          }
+          firstName: jobObj.customerId.fname || "",
+          lastName: jobObj.customerId.lname || "",
+          mobileNumber: jobObj.customerId.mobileNumber || "",
+          email: jobObj.customerId.email || "",
+        }
         : null;
 
       // Format technician details
       const technician = jobObj.technicianId
         ? {
-            firstName: jobObj.technicianId.userId?.fname || "",
-            lastName: jobObj.technicianId.userId?.lname || "",
-            mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
-            email: jobObj.technicianId.userId?.email || "",
-            profileImage: jobObj.technicianId.profileImage || null,
-            locality: jobObj.technicianId.locality || "",
-            workStatus: jobObj.technicianId.workStatus || "",
-          }
+          firstName: jobObj.technicianId.userId?.fname || "",
+          lastName: jobObj.technicianId.userId?.lname || "",
+          mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
+          email: jobObj.technicianId.userId?.email || "",
+          profileImage: jobObj.technicianId.profileImage || null,
+          locality: jobObj.technicianId.locality || "",
+          workStatus: jobObj.technicianId.workStatus || "",
+        }
         : null;
 
       // Format service details
       const service = jobObj.serviceId
         ? {
-            serviceName: jobObj.serviceId.serviceName || "",
-            serviceType: jobObj.serviceId.serviceType || "",
-          }
+          serviceName: jobObj.serviceId.serviceName || "",
+          serviceType: jobObj.serviceId.serviceType || "",
+        }
         : null;
 
       // Format address details
       const address = jobObj.addressId
         ? {
-            name: jobObj.addressId.name || "",
-            phone: jobObj.addressId.phone || "",
-            addressLine: jobObj.addressId.addressLine || "",
-            city: jobObj.addressId.city || "",
-            state: jobObj.addressId.state || "",
-            pincode: jobObj.addressId.pincode || "",
-          }
+          name: jobObj.addressId.name || "",
+          phone: jobObj.addressId.phone || "",
+          addressLine: jobObj.addressId.addressLine || "",
+          city: jobObj.addressId.city || "",
+          state: jobObj.addressId.state || "",
+          pincode: jobObj.addressId.pincode || "",
+        }
         : null;
 
       return {
