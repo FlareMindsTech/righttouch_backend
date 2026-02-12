@@ -127,7 +127,7 @@ export const getTechnicianWallet = async (req, res) => {
 
     const tech = req.technician;
     //sk
-    const techId = new mongoose.Types.ObjectId(tech._id);
+    //skconst techId = new mongoose.Types.ObjectId(tech._id);
 
     // Calculate total earnings (sum of all credit transactions)
     const totalEarningsResult = await WalletTransaction.aggregate([
