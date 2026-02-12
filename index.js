@@ -107,7 +107,8 @@ const getClientIp = (req) => {
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  //sk
+  max: 1000, // 1000 requests per window (increased for development)
   message: {
     success: false,
     message: "Too many requests, please try again later",

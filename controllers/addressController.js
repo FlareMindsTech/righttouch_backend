@@ -30,16 +30,16 @@ export const createAddress = async (req, res) => {
 
     // Clean inputs
     const cleanAddressLine = typeof addressLine === 'string' ? addressLine.trim() : "";
-    
+
     // Convert latitude and longitude from string to number
     let cleanLat = undefined;
     let cleanLng = undefined;
-    
+
     if (latitude !== undefined && latitude !== null && latitude !== '') {
       const latNum = Number(latitude);
       cleanLat = Number.isFinite(latNum) ? latNum : undefined;
     }
-    
+
     if (longitude !== undefined && longitude !== null && longitude !== '') {
       const lngNum = Number(longitude);
       cleanLng = Number.isFinite(lngNum) ? lngNum : undefined;
