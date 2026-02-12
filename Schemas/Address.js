@@ -30,7 +30,7 @@ const addressSchema = new mongoose.Schema(
 
     addressLine: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
 

@@ -332,7 +332,12 @@ export const getAllTechnicianKyc = async (req, res) => {
 
     const technicians = technicianIds.length
       ? await TechnicianProfile.find({ _id: { $in: technicianIds } })
-        .select("userId firstName lastName skills workStatus profileComplete availability")
+        .select("userId skills workStatus profileComplete availability")
+        .populate({
+          path: "userId",
+          select: "fname lname gender mobileNumber email",
+          options: { lean: true },
+        })
         .lean()
       : [];
 
@@ -341,10 +346,22 @@ export const getAllTechnicianKyc = async (req, res) => {
     const kyc = kycDocs.map((k) => {
       const technicianIdRaw = k.technicianId ? k.technicianId.toString() : null;
       const technician = technicianIdRaw ? techById.get(technicianIdRaw) : null;
+      const user = technician?.userId || null;
+      const technicianResult = technician
+        ? {
+          ...technician,
+          userId: user?._id || null,
+          fname: user?.fname || null,
+          lname: user?.lname || null,
+          gender: user?.gender || null,
+          mobileNumber: user?.mobileNumber || null,
+          email: user?.email || null,
+        }
+        : null;
 
       return {
         ...k,
-        technicianId: technician || null,
+        technicianId: technicianResult,
         technicianIdRaw,
         technicianIdMissing: technicianIdRaw === null,
         orphanedTechnician: technicianIdRaw !== null && !technician,
@@ -414,8 +431,8 @@ export const getTechnicianKyc = async (req, res) => {
       technicianId: technician ? {
         ...technician,
         _id: technician._id,
-        firstName: technician?.userId?.fname || null,
-        lastName: technician?.userId?.lname || null,
+        fname: technician?.userId?.fname || null,
+        lname: technician?.userId?.lname || null,
         mobileNumber: technician?.userId?.mobileNumber || null,
         email: technician?.userId?.email || null,
         userId: technician?.userId?._id || null
@@ -453,7 +470,7 @@ export const getMyTechnicianKyc = async (req, res) => {
     }
 
     const kyc = await TechnicianKyc.findOne({ technicianId: technicianProfileId })
-      .populate("technicianId", "firstName lastName skills workStatus profileComplete availability");
+      .populate("technicianId", "fname lname skills workStatus profileComplete availability");
     if (!kyc) {
       return res.status(404).json({
         success: false,
@@ -463,13 +480,33 @@ export const getMyTechnicianKyc = async (req, res) => {
     }
 
     const eligibility = await getTechnicianJobEligibility({ technicianProfileId });
+    const kycObj = kyc.toObject();
+    const workStatus = kycObj?.technicianId?.workStatus || null;
+
+    const bankApproved =
+      kycObj.bankVerificationStatus === "approved" || kycObj.bankVerified === true;
+    const normalizedBankVerificationStatus = bankApproved
+      ? "approved"
+      : (kycObj.bankVerificationStatus || "pending");
+    const normalizedBankVerified = bankApproved;
+
+    const normalizedEligibility = {
+      ...eligibility,
+      canWork: workStatus === "approved" ? eligibility.eligible : false,
+      status: {
+        ...eligibility.status,
+        workStatus,
+      },
+    };
 
     return res.status(200).json({
       success: true,
       message: "KYC fetched successfully",
       result: {
-        ...kyc.toObject(),
-        eligibility,
+        ...kycObj,
+        bankVerified: normalizedBankVerified,
+        bankVerificationStatus: normalizedBankVerificationStatus,
+        eligibility: normalizedEligibility,
       },
     });
   } catch (error) {
@@ -532,6 +569,22 @@ export const verifyTechnicianKyc = async (req, res) => {
     kyc.rejectionReason = status === "rejected" ? rejectionReason : null;
     kyc.verifiedAt = new Date();
     kyc.verifiedBy = req.user.userId;
+
+    if (status === "approved") {
+      if (kyc.bankDetails && Object.keys(kyc.bankDetails).length > 0) {
+        kyc.bankVerified = true;
+        kyc.bankUpdateRequired = false;
+        kyc.bankVerifiedAt = new Date();
+        kyc.bankVerifiedBy = req.user.userId;
+        kyc.bankVerificationStatus = "approved";
+        kyc.bankEditableUntil = null;
+        kyc.bankRejectionReason = null;
+      }
+    } else {
+      kyc.bankVerified = false;
+      kyc.bankUpdateRequired = true;
+      kyc.bankVerificationStatus = "pending";
+    }
 
     await kyc.save();
 

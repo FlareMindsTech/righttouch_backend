@@ -98,7 +98,7 @@ export const createAddress = async (req, res) => {
     if (!profileName || !profilePhone) {
       return res.status(400).json({
         success: false,
-        message: "Please complete your profile (firstName, mobileNumber) before adding an address",
+        message: "Please complete your profile (fname, mobileNumber) before adding an address",
         result: {},
       });
     }

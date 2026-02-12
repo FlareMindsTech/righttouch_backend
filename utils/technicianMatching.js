@@ -5,32 +5,125 @@ import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import Service from "../Schemas/Service.js";
 import { findNearbyTechnicians } from "./findNearbyTechnicians.js";
-import { broadcastJobToTechnicians } from "./sendNotification.js";
+import { broadcastJobToTechnicians, notifyTechnicianOfNewJob } from "./sendNotification.js";
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
+ * Searches for existing unassigned jobs that match a technician's profile
+ * and broadcasts them specifically to that technician.
+ * Used when a technician goes online or updates their location.
+ */
+export const broadcastPendingJobsToTechnician = async (technicianProfileId, io) => {
+  try {
+    const tech = await TechnicianProfile.findById(technicianProfileId);
+    if (!tech) return { success: false, message: "Technician not found" };
+
+    // Guard: Only approved and online technicians receive jobs
+    if (tech.workStatus !== "approved" || !tech.availability?.isOnline) {
+      console.log(`⚠️ broadcastPendingJobsToTechnician: Tech ${technicianProfileId} not eligible (status: ${tech.workStatus}, online: ${tech.availability?.isOnline})`);
+      return { success: false, message: "Technician not eligible or offline" };
+    }
+
+    if (!tech.location || !tech.location.coordinates) {
+      console.log(`⚠️ broadcastPendingJobsToTechnician: Tech ${technicianProfileId} has no location`);
+      return { success: false, message: "Technician has no location" };
+    }
+
+    const [lng, lat] = tech.location.coordinates;
+    const technicianServiceIds = tech.skills.map(s => s.serviceId).filter(Boolean);
+
+    if (technicianServiceIds.length === 0) {
+      console.log(`⚠️ broadcastPendingJobsToTechnician: Tech ${technicianProfileId} has no skills`);
+      return { success: false, message: "Technician has no skills" };
+    }
+
+    // THE CALCULATION: Find 'requested' or 'broadcasted' jobs within 10km search limit
+    // that the technician hasn't seen yet.
+    const eligibleBookings = await ServiceBooking.find({
+      serviceId: { $in: technicianServiceIds },
+      technicianId: null,
+      status: { $in: ["requested", "broadcasted"] },
+      location: {
+        $nearSphere: {
+          $geometry: { type: "Point", coordinates: [lng, lat] },
+          $maxDistance: 10000, // 10km limit
+        },
+      },
+    }).limit(20);
+
+    if (eligibleBookings.length === 0) {
+      return { success: true, count: 0, message: "No matching jobs nearby" };
+    }
+
+    let newlyBroadcastedCount = 0;
+
+    // Create broadcast records for each matched job
+    for (const booking of eligibleBookings) {
+      try {
+        // Attempt to create a broadcast record (fails if already exists due to unique index)
+        const broadcast = await JobBroadcast.create({
+          bookingId: booking._id,
+          technicianId: tech._id,
+          status: "sent",
+        });
+
+        if (broadcast) {
+          newlyBroadcastedCount++;
+
+          // Fetch full service details for notification
+          const service = await Service.findById(booking.serviceId);
+
+          // Send Real-time Alert
+          await notifyTechnicianOfNewJob(
+            io,
+            tech._id.toString(),
+            {
+              bookingId: booking._id,
+              serviceId: service?._id,
+              serviceName: service?.serviceName || "New Service",
+              serviceType: service?.serviceType,
+              description: service?.description,
+              duration: service?.duration,
+              customerName: booking.addressSnapshot?.name || "Customer",
+              baseAmount: booking.baseAmount,
+              address: booking.address,
+              scheduledAt: booking.scheduledAt,
+            }
+          );
+        }
+      } catch (err) {
+        if (err.code !== 11000) {
+          console.error(`❌ Error broadcasting job ${booking._id} to tech ${tech._id}:`, err);
+        }
+        // Duplicate is fine - means they already got the job
+      }
+    }
+
+    console.log(`✅ broadcastPendingJobsToTechnician: Notified tech ${tech._id} of ${newlyBroadcastedCount} new jobs`);
+    return { success: true, count: newlyBroadcastedCount };
+  } catch (error) {
+    console.error("Match Calculation Error:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Find eligible technicians for a given service + customer location.
  * Rules:
- * - workStatus=approved
- * - profileComplete=true
- * - availability.isOnline=true
- * - skill match on serviceId
- * - KYC verificationStatus=approved
- * - if coordinates available, prefer nearby (nearSphere)
- * - fallback to pincode/city match when geo not possible
+ * - Role = Technician
  */
 export const findEligibleTechniciansForService = async ({
   serviceId,
-  address = {},
-  radiusMeters = 5000,
-  limit = 50,
+  address,
+  radiusMeters = 10000,
   enableGeo = true,
+  limit = 50,
   session,
 } = {}) => {
-  if (!serviceId || !mongoose.Types.ObjectId.isValid(serviceId)) {
-    return [];
-  }
+  // REMOVED ALL VALIDATIONS: KYC, Online Status, Skills, workStatus, etc.
+  // Any technician profile in the system is now "eligible".
+
 
   const serviceObjectId = new mongoose.Types.ObjectId(serviceId);
   const serviceIdString = String(serviceId);
@@ -169,48 +262,24 @@ export const matchAndBroadcastBooking = async (bookingId, io) => {
       return { success: false, message: "No coordinates for booking" };
     }
 
-    // 1. Find Eligible Technicians (Skills, Online, KYC Approved, Blocked, etc.)
-    // Note: We use the helper which checks skills & general availability
+    // 1. Find Technicians
     const eligibleTechnicians = await findEligibleTechniciansForService({
       serviceId: booking.serviceId,
-      address: { latitude, longitude },
-      enableGeo: false, // We will do strict geo search next
+      address: booking.addressSnapshot || {
+        latitude: booking.location?.coordinates[1],
+        longitude: booking.location?.coordinates[0]
+      },
+      limit: 100
     });
 
-    const eligibleIds = eligibleTechnicians.map(t => t._id);
+    const technicianIds = eligibleTechnicians.map(t => t._id.toString());
 
-    if (eligibleIds.length === 0) {
-      console.log(`⚠️ No eligible (online/skilled) technicians for booking ${bookingId}`);
-      // Optional: Update booking status or log
-      return { success: true, count: 0, message: "No eligible technicians found" };
-    }
-
-    // 2. Geo & Radius Search (Progressive)
-    const baseRadius = booking.radius || 3000; // Default usually 3km or 5km
-    const radiusSteps = [baseRadius, baseRadius * 2, baseRadius * 4];
-
-    let nearbyTechnicians = [];
-
-    for (const radius of radiusSteps) {
-      nearbyTechnicians = await findNearbyTechnicians({
-        latitude,
-        longitude,
-        radiusMeters: radius,
-        limit: 20, // Max technicians to ping at once
-        technicianIds: eligibleIds, // Filter the eligible ones by distance
-      });
-
-      if (nearbyTechnicians.length > 0) break;
-    }
-
-    if (nearbyTechnicians.length === 0) {
-      console.log(`⚠️ No nearby technicians found for booking ${bookingId}`);
-      await ServiceBooking.updateOne({ _id: booking._id }, { broadcastedAt: null });
-      return { success: true, count: 0, message: "No nearby technicians found" };
+    if (technicianIds.length === 0) {
+      console.log(`⚠️ No technicians found for booking ${bookingId}`);
+      return { success: true, count: 0, message: "No technicians found" };
     }
 
     // 3. Create JobBroadcast Records
-    const technicianIds = nearbyTechnicians.map(t => t._id.toString());
     const jobBroadcastDocs = technicianIds.map(technicianId => ({
       bookingId: booking._id,
       technicianId,
@@ -238,6 +307,10 @@ export const matchAndBroadcastBooking = async (bookingId, io) => {
         bookingId: booking._id,
         serviceId: service._id,
         serviceName: service.serviceName,
+        serviceType: service.serviceType,
+        description: service.description,
+        duration: service.duration,
+        customerName: booking.addressSnapshot?.name || "Customer",
         baseAmount: booking.baseAmount,
         address: booking.address, // legacy string or snapshot line
         scheduledAt: booking.scheduledAt,
@@ -250,71 +323,6 @@ export const matchAndBroadcastBooking = async (bookingId, io) => {
   } catch (error) {
     console.error("❌ matchAndBroadcastBooking Error:", error);
     return { success: false, error: error.message };
-  }
-};
-//sk
-/**
- * Searches for existing unassigned jobs that match a technician's profile
- * and broadcasts them specifically to that technician.
- */
-export const broadcastPendingJobsToTechnician = async (technicianProfileId, io) => {
-  try {
-    const tech = await TechnicianProfile.findById(technicianProfileId);
-
-    // Guard: Only approved and online technicians receive jobs
-    if (!tech || tech.workStatus !== "approved" || !tech.availability?.isOnline) return;
-
-    const lat = tech.location.coordinates[1];
-    const lng = tech.location.coordinates[0];
-
-    // THE CALCULATION: Find 'requested' jobs within 10km search limit
-    const eligibleBookings = await ServiceBooking.find({
-      serviceId: { $in: tech.skills.map(s => s.serviceId) },
-      technicianId: null,
-      status: { $in: ["requested", "broadcasted"] },
-      location: {
-        $nearSphere: {
-          $geometry: { type: "Point", coordinates: [lng, lat] },
-          $maxDistance: 10000, // 10km limit
-        },
-      },
-    }).limit(20);
-
-    // Create broadcast records for each matched job
-    for (const booking of eligibleBookings) {
-      // Check if broadcast already exists
-      const existingBroadcast = await JobBroadcast.findOne({
-        bookingId: booking._id,
-        technicianId: technicianProfileId,
-      });
-
-      if (!existingBroadcast) {
-        await JobBroadcast.create({
-          bookingId: booking._id,
-          technicianId: technicianProfileId,
-          status: "sent",
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
-        });
-
-        const service = await Service.findById(booking.serviceId);
-        if (service) {
-          await broadcastJobToTechnicians(
-            io,
-            [technicianProfileId.toString()],
-            {
-              bookingId: booking._id,
-              serviceId: service._id,
-              serviceName: service.serviceName,
-              baseAmount: booking.baseAmount,
-              address: booking.address,
-              scheduledAt: booking.scheduledAt,
-            }
-          );
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Match Calculation Error:", error);
   }
 };
 

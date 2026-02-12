@@ -22,7 +22,7 @@ const geoPointSchema = new mongoose.Schema(
             Number.isFinite(v[1])
           );
         },
-        
+
         message: "location.coordinates must be [longitude, latitude]",
       },
     },
@@ -58,6 +58,26 @@ const technicianProfileSchema = new mongoose.Schema(
     locality: {
       type: String,
       trim: true, // service area / working locality
+    },
+
+    address: {
+      type: String,
+      trim: true,
+    },
+
+    city: {
+      type: String,
+      trim: true,
+    },
+
+    state: {
+      type: String,
+      trim: true,
+    },
+
+    pincode: {
+      type: String,
+      trim: true,
     },
 
     experienceYears: {
@@ -130,6 +150,12 @@ const technicianProfileSchema = new mongoose.Schema(
     profileComplete: {
       type: Boolean,
       default: false,
+    },
+
+    // Last time matching calculations were performed (for rate limiting)
+    lastMatchingAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

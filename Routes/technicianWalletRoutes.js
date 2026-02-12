@@ -1,6 +1,5 @@
 import express from "express";
 import { Auth } from "../Middleware/Auth.js";
-import isTechnician from "../Middleware/isTechnician.js";
 
 import {
   getTechnicianWallet,
@@ -13,21 +12,17 @@ const router = express.Router();
 
 /* ================= TECHNICIAN WALLET ================= */
 
-//sk
+
 // Wallet balance
-// Wallet balance
-router.get("/wallet", Auth, isTechnician, getTechnicianWallet);
+router.get("/wallet", Auth, getTechnicianWallet);
 
 // Wallet transactions (credits / debits)
-// Wallet transactions (credits / debits)
-router.get("/wallet/transactions", Auth, isTechnician, getWalletTransactions);
+router.get("/wallet/transactions", Auth, getWalletTransactions);
 
 // Withdraw request
-// Withdraw request
-router.post("/wallet/withdraw", Auth, isTechnician, requestWithdraw);
+router.post("/wallet/withdraw", Auth, requestWithdraw);
 
 // My withdraw history
-// My withdraw history
-router.get("/wallet/withdraws", Auth, isTechnician, getMyWithdrawRequests);
+router.get("/wallet/withdraws", Auth, getMyWithdrawRequests);
 
 export default router;

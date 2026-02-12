@@ -4,6 +4,7 @@ import ServiceBooking from "../Schemas/ServiceBooking.js";
 import TechnicianKyc from "../Schemas/TechnicianKYC.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import { notifyCustomerJobAccepted, notifyJobTaken } from "../Utils/sendNotification.js";
+import { fetchTechnicianJobsInternal } from "../Utils/technicianJobFetch.js";
 
 /* ================= TECHNICIAN ACTIVATION CHECK ================= */
 const checkTechnicianActivation = async (technicianProfileId) => {
@@ -20,8 +21,6 @@ const checkTechnicianActivation = async (technicianProfileId) => {
         message: "Complete KYC, bank verification, and training to activate technician account",
       };
     }
-
-
 
     // Check bank verification
     if (!kyc.bankVerified) {
@@ -55,85 +54,27 @@ const checkTechnicianActivation = async (technicianProfileId) => {
   }
 };
 
-/* ================= GET MY JOBS ================= */
+/* ================= GET MY JOBS (LIVE FEED) ================= */
 export const getMyJobs = async (req, res) => {
   try {
     const technicianProfileId = req.user?.technicianProfileId;
     if (!technicianProfileId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-        result: {},
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Check technician activation status
     const activation = await checkTechnicianActivation(technicianProfileId);
     if (!activation.isActive) {
-      return res.status(200).json({
-        success: true,
-        message: activation.message,
-        result: [],
-      });
+      return res.status(200).json({ success: true, message: activation.message, result: [] });
     }
 
-    // Only show jobs that are broadcasted to this technician and not yet accepted, with geo filter
-    const broadcasts = await JobBroadcast.find({
-      technicianId: technicianProfileId,
-      status: "sent",
-    }).select("bookingId");
+    const jobs = await fetchTechnicianJobsInternal(technicianProfileId);
 
-    const bookingIds = broadcasts.map(b => b.bookingId);
-
-    // Fetch technician's location for geo filter
-    const technician = await mongoose.model("TechnicianProfile").findById(technicianProfileId).select("location");
-    let geoFilter = {};
-    if (technician && technician.location && technician.location.type === "Point" && Array.isArray(technician.location.coordinates)) {
-      geoFilter = {
-        $or: [
-          { location: { $exists: false } },
-          {
-            location: {
-              $geoWithin: {
-                $centerSphere: [
-                  technician.location.coordinates,
-                  10000 / 6378100 // 10km in radians
-                ]
-              }
-            },
-          },
-        ],
-      };
-    }
-
-    const bookings = await ServiceBooking.find({
-      _id: { $in: bookingIds },
-      // sk Add the requested
-      status: { $in: ["broadcasted", "requested"] },
-      technicianId: null,
-      ...geoFilter,
-    })
-      .populate([
-        { path: "serviceId", select: "serviceName" },
-        { path: "customerId", select: "firstName lastName mobileNumber" },
-        { path: "addressId", select: "name phone addressLine city state pincode latitude longitude" },
-      ])
-      .sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      message: "Jobs fetched successfully",
-      result: bookings,
-    });
+    return res.status(200).json({ success: true, message: "Live jobs fetched successfully", result: jobs });
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-      result: { error: err.message },
-    });
+    console.error("getMyJobs Error:", err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
-
 
 /* ================= RESPOND TO JOB ================= */
 export const respondToJob = async (req, res) => {
@@ -146,60 +87,65 @@ export const respondToJob = async (req, res) => {
     const technicianProfileId = req.user?.technicianProfileId;
     if (!technicianProfileId) {
       await session.abortTransaction();
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized: Technician profile not found",
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized: Technician profile not found" });
     }
 
-    // Check JobBroadcast existence for this technician and booking
     const broadcast = await JobBroadcast.findOne({
       bookingId: id,
       technicianId: technicianProfileId,
       status: "sent",
     }).session(session);
+
     if (!broadcast) {
       await session.abortTransaction();
-      return res.status(403).json({
-        success: false,
-        message: "Job not assigned to this technician",
-      });
-    }
-    if (finalStatus !== "accepted" && finalStatus !== "accept") {
-      await session.abortTransaction();
-      return res.status(403).json({ success: false, message: "Technician not eligible for job acceptance", result: {} });
+      return res.status(403).json({ success: false, message: "Job not assigned to you or already closed" });
     }
 
-    // Atomically assign booking if still open
+    if (finalStatus !== "accepted" && finalStatus !== "accept") {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Invalid response status" });
+    }
+
     const booking = await ServiceBooking.findOneAndUpdate(
       { _id: id, status: { $in: ["requested", "broadcasted"] }, technicianId: null },
       { technicianId: technicianProfileId, status: "accepted", assignedAt: new Date() },
       { new: true, session }
-    );
+    ).populate("customerId");
+
     if (!booking) {
       await session.abortTransaction();
-      return res.status(409).json({ success: false, message: "Booking already taken", result: {} });
+      return res.status(409).json({ success: false, message: "Too late! Booking already taken" });
     }
-    // Update JobBroadcast status for this technician
-    await JobBroadcast.updateOne(
-      { bookingId: id, technicianId: technicianProfileId },
-      { status: "accepted" },
-      { session }
-    );
-    // Mark all other broadcasts as expired
-    await JobBroadcast.updateMany(
-      { bookingId: id, technicianId: { $ne: technicianProfileId } },
-      { status: "expired" },
-      { session }
-    );
+
+    await JobBroadcast.updateOne({ bookingId: id, technicianId: technicianProfileId }, { status: "accepted" }, { session });
+
+    const otherBroadcasts = await JobBroadcast.find({
+      bookingId: id,
+      technicianId: { $ne: technicianProfileId },
+      status: "sent"
+    }).session(session).select("technicianId");
+    const otherTechIds = otherBroadcasts.map(b => b.technicianId.toString());
+
+    await JobBroadcast.updateMany({ bookingId: id, technicianId: { $ne: technicianProfileId } }, { status: "expired" }, { session });
+
     await session.commitTransaction();
+
+    if (req.io) {
+      if (booking.customerId) {
+        notifyCustomerJobAccepted(req.io, booking.customerId._id, {
+          bookingId: booking._id,
+          technicianId: technicianProfileId,
+          status: "accepted"
+        });
+      }
+      if (otherTechIds.length > 0) notifyJobTaken(req.io, otherTechIds, booking._id);
+    }
+
     return res.status(200).json({ success: true, message: "Job accepted successfully", result: booking });
   } catch (err) {
-    // Only abort if transaction is active (not committed/aborted) //sk
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    return res.status(500).json({ success: false, message: err.message, result: { error: err.message } });
+    if (session.inTransaction()) await session.abortTransaction();
+    console.error("respondToJob Error:", err);
+    return res.status(500).json({ success: false, message: err.message });
   } finally {
     session.endSession();
   }

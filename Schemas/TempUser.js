@@ -18,6 +18,22 @@ const tempUserSchema = new mongoose.Schema(
       enum: ["Pending", "Verified", "Expired"],
       default: "Pending",
     },
+    termsAndServices: {
+      type: Boolean,
+      default: false,
+    },
+    privacyPolicy: {
+      type: Boolean,
+      default: false,
+    },
+    termsAndServicesAt: {
+      type: Date,
+      default: null,
+    },
+    privacyPolicyAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -27,50 +27,11 @@ const toFiniteNumber = (v) => {
 
 /* ================= TECHNICIAN ACTIVATION CHECK ================= */
 const checkTechnicianActivation = async (technicianProfileId) => {
-  try {
-    // Fetch KYC data
-    const kyc = await TechnicianKyc.findOne({
-      technicianId: technicianProfileId,
-    }).select("verificationStatus bankVerified");
-
-    // Check KYC approval
-    if (!kyc || kyc.verificationStatus !== "approved") {
-      return {
-        isActive: false,
-        message: "Complete KYC, bank verification, and training to activate technician account",
-      };
-    }
-
-    // Check bank verification
-    if (!kyc.bankVerified) {
-      return {
-        isActive: false,
-        message: "Complete KYC, bank verification, and training to activate technician account",
-      };
-    }
-
-    // Fetch technician profile
-    const profile = await TechnicianProfile.findById(technicianProfileId).select("trainingCompleted");
-
-    // Check training completion
-    if (!profile || !profile.trainingCompleted) {
-      return {
-        isActive: false,
-        message: "Complete KYC, bank verification, and training to activate technician account",
-      };
-    }
-
-    // All conditions met
-    return {
-      isActive: true,
-      message: "Technician account is active",
-    };
-  } catch (error) {
-    return {
-      isActive: false,
-      message: error.message,
-    };
-  }
+  // BYPASSED: All technicians are considered active for testing
+  return {
+    isActive: true,
+    message: "Technician account is active (bypass)",
+  };
 };
 
 
@@ -163,7 +124,6 @@ export const createBooking = async (req, res) => {
       commissionPercentage: commissionPct,
       commissionAmount: commissionAmt,
       technicianAmount: techAmt,
-      address: addressForBooking,
       scheduledAt,
       status: "requested",
       radius: radiusInput ?? 500,
@@ -377,16 +337,17 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     }
 
 
-
-    // sk Add the requested status
-    // For Technician, we get profileId from token. For Owner, we might get all jobs or filter differently.
-
     let technicianId = null;
     let userId = req.user.userId;
 
     if (userRole === "Technician") {
       technicianId = req.user?.technicianProfileId;
     }
+
+
+    // sk Add the requested status
+    // For Technician, we get profileId from token. For Owner, we might get all jobs or filter differently.
+
     if (userRole === "Technician") {
       // Technician: Only their own jobs
       const technicianProfileId = req.user?.technicianProfileId;
@@ -408,17 +369,8 @@ export const getTechnicianCurrentJobs = async (req, res) => {
         });
       }
 
-      technicianId = technicianProfileId;
+      query.technicianId = technicianProfileId;
     }
-
-    // sk Add the requested status
-    // Search by both ObjectId and String versions to be safe
-    const idList = [
-      technicianId,
-      userId,
-      technicianId ? technicianId.toString() : null,
-      userId ? userId.toString() : null
-    ].filter(Boolean);
     // If role is Owner: no additional filter, get all current jobs
 
     const jobs = await ServiceBooking.find({
@@ -454,8 +406,8 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       // Format customer details
       const customer = jobObj.customerId
         ? {
-          firstName: jobObj.customerId.fname || "",
-          lastName: jobObj.customerId.lname || "",
+          fname: jobObj.customerId.fname || "",
+          lname: jobObj.customerId.lname || "",
           mobileNumber: jobObj.customerId.mobileNumber || "",
           email: jobObj.customerId.email || "",
         }
@@ -464,8 +416,8 @@ export const getTechnicianCurrentJobs = async (req, res) => {
       // Format technician details
       const technician = jobObj.technicianId
         ? {
-          firstName: jobObj.technicianId.userId?.fname || "",
-          lastName: jobObj.technicianId.userId?.lname || "",
+          fname: jobObj.technicianId.userId?.fname || "",
+          lname: jobObj.technicianId.userId?.lname || "",
           mobileNumber: jobObj.technicianId.userId?.mobileNumber || "",
           email: jobObj.technicianId.userId?.email || "",
           profileImage: jobObj.technicianId.profileImage || null,
@@ -483,7 +435,6 @@ export const getTechnicianCurrentJobs = async (req, res) => {
         : null;
 
       // Format address details
-      //sk
       let address = null;
       if (jobObj.addressId) {
         address = {

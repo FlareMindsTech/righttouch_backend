@@ -4,6 +4,7 @@ import Service from "../Schemas/Service.js";
 import ServiceBooking from "../Schemas/ServiceBooking.js";
 import JobBroadcast from "../Schemas/TechnicianBroadcast.js";
 import { broadcastPendingJobsToTechnician } from "../Utils/technicianMatching.js";
+import { handleLocationUpdate } from "../Utils/technicianLocation.js";
 
 // ================= UPDATE TECHNICIAN LIVE LOCATION ================= //sk
 export const updateTechnicianLocation = async (req, res) => {
@@ -18,44 +19,15 @@ export const updateTechnicianLocation = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid coordinates", result: {} });
     }
 
+    const result = await handleLocationUpdate(technicianProfileId, latitude, longitude, req.io);
 
-    // Only update if moved > 25 meters
-    const oldProfile = await TechnicianProfile.findById(technicianProfileId).select("location");
-    let shouldUpdate = true;
-    if (oldProfile && oldProfile.location && Array.isArray(oldProfile.location.coordinates)) {
-      const [oldLng, oldLat] = oldProfile.location.coordinates;
-      const toRad = deg => (deg * Math.PI) / 180;
-      const R = 6371000; // meters
-      const dLat = toRad(latitude - oldLat);
-      const dLng = toRad(longitude - oldLng);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(oldLat)) * Math.cos(toRad(latitude)) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const dist = R * c;
-      if (dist < 25) shouldUpdate = false;
-    }
-    if (!shouldUpdate) {
-      return res.json({ success: true, message: "Location unchanged (moved < 25m)" });
-    }
-    await TechnicianProfile.updateOne(
-      { _id: technicianProfileId },
-      {
-        location: {
-          type: "Point",
-          coordinates: [longitude, latitude],
-        },
-        "availability.isOnline": true,
-      }
-    );
-
-
-    //sk
-    // 2. 🔥 Trigger calculation: Find matching jobs nearby and push them to this tech
-    await broadcastPendingJobsToTechnician(technicianProfileId, req.io);
-
-    return res.json({ success: true, message: "Location updated and jobs calculated" });
+    return res.json({
+      success: true,
+      message: result.matchCalculation ? "Location updated and jobs calculated" : "Location updated (matching rate limited)",
+      result
+    });
   } catch (error) {
+    console.error("updateTechnicianLocation Error:", error);
     return res.status(500).json({ success: false, message: error.message, result: { error: error.message } });
   }
 };
@@ -236,7 +208,19 @@ export const removeTechnicianSkills = async (req, res) => {
 export const createTechnician = async (req, res) => {
   try {
     const technicianProfileId = req.user?.technicianProfileId;
-    const { skills } = req.body;
+    const {
+      skills,
+      fname,
+      lname,
+      gender,
+      address,
+      city,
+      state,
+      pincode,
+      locality,
+      experienceYears,
+      specialization,
+    } = req.body;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
       return res.status(401).json({
@@ -263,9 +247,31 @@ export const createTechnician = async (req, res) => {
       });
     }
 
+    const profileUpdate = {};
+    if (skills !== undefined) profileUpdate.skills = skills;
+    if (address !== undefined) profileUpdate.address = address;
+    if (city !== undefined) profileUpdate.city = city;
+    if (state !== undefined) profileUpdate.state = state;
+    if (pincode !== undefined) profileUpdate.pincode = pincode;
+    if (locality !== undefined) profileUpdate.locality = locality;
+    if (experienceYears !== undefined) profileUpdate.experienceYears = experienceYears;
+    if (specialization !== undefined) profileUpdate.specialization = specialization;
+
+    const userUpdate = {};
+    if (fname !== undefined) userUpdate.fname = fname;
+    if (lname !== undefined) userUpdate.lname = lname;
+    if (gender !== undefined) userUpdate.gender = gender;
+
+    if (Object.keys(userUpdate).length > 0) {
+      await mongoose.model("User").findByIdAndUpdate(req.user?.userId, userUpdate, {
+        new: true,
+        runValidators: true,
+      });
+    }
+
     const technician = await TechnicianProfile.findByIdAndUpdate(
       technicianProfileId,
-      { skills },
+      profileUpdate,
       { new: true, runValidators: true }
     ).select("-password");
 
@@ -310,14 +316,18 @@ export const getAllTechnicians = async (req, res) => {
 
     if (search) {
       query.$or = [
-        { firstName: { $regex: search, $options: "i" } },
-        { lastName: { $regex: search, $options: "i" } },
+        { fname: { $regex: search, $options: "i" } },
+        { lname: { $regex: search, $options: "i" } },
         { workStatus: { $regex: search, $options: "i" } },
       ];
     }
 
     const technicians = await TechnicianProfile.find(query)
       .populate("skills.serviceId", "serviceName")
+      .populate({
+        path: "userId",
+        select: "fname lname gender mobileNumber email",
+      })
       .select("-password");
 
     return res.status(200).json({
@@ -349,6 +359,10 @@ export const getTechnicianById = async (req, res) => {
 
     const technician = await TechnicianProfile.findById(id)
       .populate("skills.serviceId", "serviceName")
+      .populate({
+        path: "userId",
+        select: "fname lname gender mobileNumber email",
+      })
       .select("-password");
 
     if (!technician) {
@@ -390,7 +404,7 @@ export const getMyTechnician = async (req, res) => {
       .populate("skills.serviceId", "serviceName")
       .populate({
         path: "userId",
-        select: "fname lname mobileNumber email"
+        select: "-password",
       })
       .select("-password");
 
@@ -483,54 +497,23 @@ export const updateTechnician = async (req, res) => {
       const isGoingOnline = Boolean(availability.isOnline) && !technician.availability.isOnline;
       technician.availability.isOnline = Boolean(availability.isOnline);
 
-      // 🔥 When technician goes online, broadcast existing unassigned jobs
+      // 🔥 When technician goes online, broadcast existing unassigned jobs NEARBY
       if (isGoingOnline && technician.skills.length > 0) {
-        try {
-          const technicianServiceIds = technician.skills
-            .map(s => s.serviceId)
-            .filter(Boolean)
-            .map(id => new mongoose.Types.ObjectId(id));
-
-          if (technicianServiceIds.length > 0) {
-            // Find unassigned bookings matching technician's skills
-            const unassignedBookings = await ServiceBooking.find({
-              serviceId: { $in: technicianServiceIds },
-              technicianId: null, // No technician assigned yet
-              status: "broadcasted",
-            }).select("_id serviceId");
-
-            // Check which bookings this technician hasn't received yet
-            const existingBroadcasts = await JobBroadcast.find({
-              technicianId: technicianProfileId,
-              bookingId: { $in: unassignedBookings.map(b => b._id) },
-            }).select("bookingId");
-
-            const existingBookingIds = new Set(
-              existingBroadcasts.map(b => b.bookingId.toString())
-            );
-
-            // Create broadcasts for new jobs
-            const newBroadcasts = unassignedBookings
-              .filter(booking => !existingBookingIds.has(booking._id.toString()))
-              .map(booking => ({
-                bookingId: booking._id,
-                technicianId: technicianProfileId,
-                status: "sent",
-              }));
-
-            if (newBroadcasts.length > 0) {
-              await JobBroadcast.insertMany(newBroadcasts);
-              console.log(`✅ Broadcasted ${newBroadcasts.length} existing jobs to technician ${technicianProfileId}`);
-            }
-          }
-        } catch (broadcastError) {
-          console.error("⚠️ Error broadcasting existing jobs:", broadcastError.message);
-          // Don't fail the online status update if broadcast fails
-        }
+        // We defer the broadcast till after the save to ensure isOnline=true in DB
+        // or we pass req.io and let the utility handle it.
+        // The utility broadcastPendingJobsToTechnician checks tech.availability.isOnline
+        // so we must save first OR pass a flag.
+        // Actually, broadcastPendingJobsToTechnician re-fetches the tech, 
+        // so we SHOULD save first.
       }
     }
 
     await technician.save();
+
+    // Trigger proactive matching if they just went online
+    if (availability?.isOnline === true) {
+      await broadcastPendingJobsToTechnician(technicianProfileId, req.io);
+    }
 
     const result = technician.toObject();
     delete result.password;

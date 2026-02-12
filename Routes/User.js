@@ -17,6 +17,7 @@ import {
   checkUserByIdentifier,
   requestLoginOtp,
   verifyLoginOtp,
+  acceptTerms,
 } from "../Controllers/User.js";
 
 // ...existing code...
@@ -111,6 +112,7 @@ const router = express.Router();
 // Use a single endpoint for all roles, DRY and secure
 router.post("/auth/login/request-otp", requestLoginOtp);
 router.post("/auth/login/verify-otp", verifyLoginOtp);
+router.post("/auth/accept-terms", Auth, acceptTerms);
 
 const getClientIp = (req) => {
   const xff = req.headers?.["x-forwarded-for"];
@@ -121,6 +123,7 @@ const getClientIp = (req) => {
 
 // 🔒 Strict Rate Limiters for Authentication
 const authLimiter = rateLimit({
+  //sk
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 attempts per window (increased for testing)
   message: {
@@ -151,6 +154,17 @@ router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
 router.post("/set-password", authLimiter, setPassword);
 router.post("/login", authLimiter, login);
+
+/* ================= CUSTOMER SIGNUP (TERMS REQUIRED) ================= */
+// Customer signup route - requires termsAccepted
+router.post("/signup/customer", authLimiter, async (req, res, next) => {
+  req.body.role = "Customer";
+  // termsAccepted must be sent in body
+  return signupAndSendOtp(req, res, next);
+});
+
+// Customer: verify OTP after signup
+router.post("/signup/customer/verify-otp", authLimiter, verifyOtp);
 
 /* ================= USER LOGIN ROUTES (Role-specific) ================= */
 // Customer login (default, only allows Customer role)
