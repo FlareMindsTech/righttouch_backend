@@ -48,8 +48,8 @@ export const getAllUsers = async (req, res) => {
             createdAt: 1,
             lastLoginAt: 1,
             profile: {
-              firstName: { $ifNull: ["$fname", ""] },
-              lastName: { $ifNull: ["$lname", ""] },
+              fname: { $ifNull: ["$fname", ""] },
+              lname: { $ifNull: ["$lname", ""] },
               gender: { $ifNull: ["$gender", ""] },
               profileComplete: { $ifNull: ["$profileComplete", false] }
             },
@@ -164,7 +164,7 @@ export const getAllUsers = async (req, res) => {
             createdAt: 1,
             lastLoginAt: 1,
             profile: {
-              firstName: {
+              fname: {
                 $cond: [
                   { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ["$fname", ""] } } } }, 0] },
                   "$fname",
@@ -182,7 +182,7 @@ export const getAllUsers = async (req, res) => {
                   }
                 ]
               },
-              lastName: {
+              lname: {
                 $cond: [
                   { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ["$lname", ""] } } } }, 0] },
                   "$lname",
@@ -478,7 +478,7 @@ const buildLocation = (lat, lng) => {
 ====================================================== */
 export const signupAndSendOtp = async (req, res) => {
   try {
-    let { identifier, role } = req.body;
+    let { identifier, role, termsAndServices, privacyPolicy } = req.body;
 
     role = normalizeRole(role);
     identifier = identifier?.trim();
@@ -487,6 +487,26 @@ export const signupAndSendOtp = async (req, res) => {
       return fail(res, 400, "Identifier and role required", "VALIDATION_ERROR", {
         required: ["identifier", "role"],
       });
+    }
+
+    // Validate terms and privacy acceptance (required for Customer and Technician)
+    if (role === "Customer" || role === "Technician") {
+      const missing = [];
+      if (termsAndServices !== true) missing.push("termsAndServices");
+      if (privacyPolicy !== true) missing.push("privacyPolicy");
+
+      if (missing.length > 0) {
+        return fail(
+          res,
+          400,
+          `You must accept ${missing.join(" and ")} to continue`,
+          "TERMS_OR_PRIVACY_NOT_ACCEPTED",
+          {
+            required: ["termsAndServices", "privacyPolicy"],
+            message: "Both termsAndServices and privacyPolicy must be true"
+          }
+        );
+      }
     }
 
     // Prevent re-registering an existing mobile number (across any role)
@@ -503,9 +523,25 @@ export const signupAndSendOtp = async (req, res) => {
     }
 
     // Step 1: Create / update temp user (FIRST)
+    const updateFields = {
+      identifier,
+      role,
+      tempstatus: "Pending"
+    };
+
+    // If terms/privacy were accepted, persist them in temp storage
+    if (termsAndServices === true) {
+      updateFields.termsAndServices = true;
+      updateFields.termsAndServicesAt = new Date();
+    }
+    if (privacyPolicy === true) {
+      updateFields.privacyPolicy = true;
+      updateFields.privacyPolicyAt = new Date();
+    }
+
     const tempUser = await TempUser.findOneAndUpdate(
       { identifier, role },
-      { identifier, role, tempstatus: "Pending" },
+      updateFields,
       { upsert: true, new: true }
     );
 
@@ -712,6 +748,10 @@ export const verifyOtp = async (req, res) => {
             role: record.role,
             mobileNumber: finalIdentifier,
             status: "Active",
+            termsAndServices: tempUser.termsAndServices || false,
+            privacyPolicy: tempUser.privacyPolicy || false,
+            termsAndServicesAt: tempUser.termsAndServicesAt || null,
+            privacyPolicyAt: tempUser.privacyPolicyAt || null,
           },
         ], { session });
         const user = userDoc[0];
@@ -1032,8 +1072,8 @@ export const completeProfile = async (req, res) => {
   let allowedFields = [];
   if (role === "Technician") {
     allowedFields = [
-      "firstName",
-      "lastName",
+      "fname",
+      "lname",
       "gender",
       "address",
       "city",
@@ -1052,11 +1092,11 @@ export const completeProfile = async (req, res) => {
       }
     });
     const userUpdateData = {};
-    if (req.body.firstName !== undefined || req.body.fname !== undefined) {
-      userUpdateData.fname = req.body.firstName ?? req.body.fname;
+    if (req.body.fname !== undefined) {
+      userUpdateData.fname = req.body.fname;
     }
-    if (req.body.lastName !== undefined || req.body.lname !== undefined) {
-      userUpdateData.lname = req.body.lastName ?? req.body.lname;
+    if (req.body.lname !== undefined) {
+      userUpdateData.lname = req.body.lname;
     }
     if (req.body.gender !== undefined) {
       userUpdateData.gender = req.body.gender;
@@ -1096,6 +1136,55 @@ export const completeProfile = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-password");
     return ok(res, 200, "Profile completed successfully", updated || {});
+  }
+};
+
+/**
+ * @desc    Accept Terms and Conditions for an authenticated user
+ * @route   POST /api/user/auth/accept-terms
+ * @access  Private (Authenticated)
+ */
+export const acceptTerms = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    if (!userId) {
+      return fail(res, 401, "Unauthorized", "UNAUTHORIZED");
+    }
+
+    const { termsAndServices, privacyPolicy } = req.body;
+
+    const updateData = {};
+    if (termsAndServices === true) {
+      updateData.termsAndServices = true;
+      updateData.termsAndServicesAt = new Date();
+    }
+    if (privacyPolicy === true) {
+      updateData.privacyPolicy = true;
+      updateData.privacyPolicyAt = new Date();
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return fail(res, 400, "Provide either termsAndServices: true or privacyPolicy: true", "VALIDATION_ERROR");
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return fail(res, 404, "User not found", "USER_NOT_FOUND");
+    }
+
+    return ok(res, 200, "Terms or Privacy Policy updated successfully", {
+      termsAndServices: user.termsAndServices,
+      privacyPolicy: user.privacyPolicy,
+      termsAndServicesAt: user.termsAndServicesAt,
+      privacyPolicyAt: user.privacyPolicyAt,
+    });
+  } catch (err) {
+    return fail(res, 500, err.message, "SERVER_ERROR");
   }
 };
 
@@ -1178,8 +1267,8 @@ export const updateMyProfile = async (req, res) => {
   }
   if (role === "Technician") {
     let allowedFields = [
-      "firstName",
-      "lastName",
+      "fname",
+      "lname",
       "gender",
       "address",
       "city",
