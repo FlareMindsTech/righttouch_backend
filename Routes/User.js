@@ -20,6 +20,8 @@ import {
   acceptTerms,
 } from "../Controllers/User.js";
 
+import { deleteMyAccount } from "../Controllers/accountController.js";
+
 // ...existing code...
 
 
@@ -113,6 +115,7 @@ const router = express.Router();
 router.post("/auth/login/request-otp", requestLoginOtp);
 router.post("/auth/login/verify-otp", verifyLoginOtp);
 router.post("/auth/accept-terms", Auth, acceptTerms);
+router.delete("/delete-my-account", Auth, deleteMyAccount);
 
 const getClientIp = (req) => {
   const xff = req.headers?.["x-forwarded-for"];
