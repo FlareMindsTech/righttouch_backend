@@ -338,17 +338,9 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     }
 
 
-    let technicianId = null;
-    let userId = req.user.userId;
+    const query = {};
 
-    if (userRole === "Technician") {
-      technicianId = req.user?.technicianProfileId;
-    }
-
-
-    // sk Add the requested status
-    // For Technician, we get profileId from token. For Owner, we might get all jobs or filter differently.
-
+    // For Technician, we get profileId from token. For Owner, we return all current jobs.
     if (userRole === "Technician") {
       // Technician: Only their own jobs
       const technicianProfileId = req.user?.technicianProfileId;
@@ -375,7 +367,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
     // If role is Owner: no additional filter, get all current jobs
 
     const jobs = await ServiceBooking.find({
-      technicianId: { $in: idList },
+      ...query,
       status: { $in: ["accepted", "on_the_way", "reached", "in_progress"] },
     })
       .populate({

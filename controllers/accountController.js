@@ -21,6 +21,9 @@ const fail = (res, status, message) =>
 const buildDeletedMobileNumber = (userId) =>
   `deleted_${userId}_${Date.now()}`;
 
+const buildDeletedEmail = (userId) =>
+  `deleted_${userId}_${Date.now()}@example.invalid`;
+
 export const deleteMyAccount = async (req, res) => {
   const userId = req.user?.userId;
   const tokenRole = req.user?.role;
@@ -54,6 +57,7 @@ export const deleteMyAccount = async (req, res) => {
       }
 
       const deletedMobileNumber = buildDeletedMobileNumber(userId);
+      const deletedEmail = buildDeletedEmail(userId);
       const baseUserUpdate = {
         password: null,
         status: "Deleted",
@@ -69,7 +73,7 @@ export const deleteMyAccount = async (req, res) => {
             $set: {
               ...baseUserUpdate,
               mobileNumber: deletedMobileNumber,
-              email: null,
+              email: deletedEmail,
               fname: null,
               lname: null,
               gender: null,
@@ -133,7 +137,7 @@ export const deleteMyAccount = async (req, res) => {
             $set: {
               ...baseUserUpdate,
               mobileNumber: deletedMobileNumber,
-              email: null,
+              email: deletedEmail,
             },
           },
           { session, runValidators: false }
@@ -148,7 +152,7 @@ export const deleteMyAccount = async (req, res) => {
           $set: {
             ...baseUserUpdate,
             mobileNumber: deletedMobileNumber,
-            email: null,
+            email: deletedEmail,
           },
         },
         { session, runValidators: false }

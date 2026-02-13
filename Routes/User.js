@@ -155,7 +155,7 @@ const otpLimiter = rateLimit({
 router.post("/signup", authLimiter, signupAndSendOtp);
 router.post("/resend-otp", otpLimiter, resendOtp);
 router.post("/verify-otp", authLimiter, verifyOtp);
-router.post("/set-password", authLimiter, setPassword);
+router.post("/set-password", authLimiter, Auth, setPassword);
 router.post("/login", authLimiter, login);
 
 /* ================= CUSTOMER SIGNUP (TERMS REQUIRED) ================= */
