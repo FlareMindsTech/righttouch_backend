@@ -515,6 +515,9 @@ export const checkout = async (req, res) => {
       });
     }
 
+    // Extract faultReasons if provided
+    const faultReasons = typeof req.body?.faultReasons === "string" ? req.body.faultReasons.trim() : null;
+
     // Address Snapshot for both Products and Services
     const addressSnapshot = resolvedLocation.addressSnapshot;
 
@@ -640,6 +643,7 @@ export const checkout = async (req, res) => {
         addressId: resolvedLocation.addressId || null,
         scheduledAt: finalScheduledAt,
         status: SERVICE_BOOKING_STATUS.REQUESTED,
+        faultProblem: faultProblem,
 
         // Swiggy-Style Fields
         locationType: resolvedLocation.locationType,
@@ -665,6 +669,7 @@ export const checkout = async (req, res) => {
         serviceName: service.serviceName,
         quantity: cartItem.quantity,
         baseAmount,
+        faultProblem: faultProblem,
         status: SERVICE_BOOKING_STATUS.REQUESTED,
       });
 

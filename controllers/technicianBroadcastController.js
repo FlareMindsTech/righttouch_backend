@@ -136,7 +136,7 @@ export const respondToJob = async (req, res) => {
       { _id: id, status: { $in: ["requested", "broadcasted"] }, technicianId: null },
       { technicianId: technicianProfileId, status: "accepted", assignedAt: new Date() },
       { new: true, session }
-    ).populate("customerId");
+    ).populate("customerId").select("+faultReasons");
 
     if (!booking) {
       await session.abortTransaction();

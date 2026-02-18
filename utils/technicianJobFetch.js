@@ -37,6 +37,7 @@ export const fetchTechnicianJobsInternal = async (technicianProfileId) => {
             { path: "customerId", select: "fname lname mobileNumber" },
             { path: "addressId", select: "name phone addressLine city state pincode latitude longitude" },
         ])
+        .select("+faultReasons")
         .sort({ createdAt: -1 });
 
     return bookings.map(booking => {
@@ -72,6 +73,7 @@ export const fetchTechnicianJobsInternal = async (technicianProfileId) => {
             distanceStr: distanceKm ? `${distanceKm} km` : "Unknown",
             earnings: b.technicianAmount || 0,
             basePrice: b.baseAmount || 0,
+            faultReasons: b.faultReasons || null,
             scheduledAt: b.scheduledAt,
             createdAt: b.createdAt,
             broadcastedAt: b.broadcastedAt,
