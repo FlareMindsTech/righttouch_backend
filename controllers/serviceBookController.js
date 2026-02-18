@@ -127,7 +127,7 @@ export const createBooking = async (req, res) => {
       scheduledAt,
       status: "requested",
       radius: radiusInput ?? 500,
-      faultProblem: typeof req.body?.faultProblem === "string" ? req.body.faultProblem.trim() : null,
+      faultReasons: typeof req.body?.faultReasons === "string" ? req.body.faultReasons.trim() : null,
     };
 
 
@@ -206,6 +206,7 @@ export const getBookings = async (req, res) => {
           select: "fname lname mobileNumber"
         }
       })
+      .select("+faultReasons")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -304,6 +305,7 @@ export const getTechnicianJobHistory = async (req, res) => {
     })
       .populate("customerId", "fname lname mobileNumber email")
       .populate("serviceId", "serviceName serviceType serviceCost")
+      .select("+faultReasons")
       .sort({ updatedAt: -1 });
 
     return res.status(200).json({
@@ -390,6 +392,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
         path: "serviceId",
         select: "serviceName serviceType",
       })
+      .select("+faultReasons")
       .sort({ createdAt: -1 });
 
     // Format response for better readability
@@ -468,6 +471,7 @@ export const getTechnicianCurrentJobs = async (req, res) => {
         service,
         address,
         baseAmount: jobObj.baseAmount,
+        faultReasons: jobObj.faultReasons || null,
         scheduledAt: jobObj.scheduledAt,
         createdAt: jobObj.createdAt,
         acceptedAt: jobObj.assignedAt,

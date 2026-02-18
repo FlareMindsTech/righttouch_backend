@@ -224,7 +224,7 @@ const serviceBookingSchema = new mongoose.Schema(
       },
     },
 
-    faultProblem: {
+    faultReasons: {
       type: String,
       trim: true,
       default: null,

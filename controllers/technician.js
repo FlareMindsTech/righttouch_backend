@@ -326,7 +326,7 @@ export const getAllTechnicians = async (req, res) => {
       .populate("skills.serviceId", "serviceName")
       .populate({
         path: "userId",
-        select: "fname lname gender mobileNumber email",
+        select: "fname lname gender mobileNumber email role status profileComplete termsAndServices privacyPolicy termsAndServicesAt privacyPolicyAt createdAt updatedAt lastLoginAt",
       })
       .select("-password");
 
@@ -361,7 +361,7 @@ export const getTechnicianById = async (req, res) => {
       .populate("skills.serviceId", "serviceName")
       .populate({
         path: "userId",
-        select: "fname lname gender mobileNumber email",
+        select: "fname lname gender mobileNumber email role status profileComplete termsAndServices privacyPolicy termsAndServicesAt privacyPolicyAt createdAt updatedAt lastLoginAt",
       })
       .select("-password");
 
@@ -404,7 +404,7 @@ export const getMyTechnician = async (req, res) => {
       .populate("skills.serviceId", "serviceName")
       .populate({
         path: "userId",
-        select: "fname lname gender mobileNumber email",
+        select: "fname lname gender mobileNumber email role status profileComplete termsAndServices privacyPolicy termsAndServicesAt privacyPolicyAt createdAt updatedAt lastLoginAt",
       })
       .select("-password");
 
