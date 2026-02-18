@@ -49,6 +49,8 @@ import {
   userReport,
   getAllReports,
   getReportById,
+  getMyReports,
+  resolveReport,
 } from "../Controllers/reportController.js";
 
 import {
@@ -233,7 +235,9 @@ router.delete("/deletecategory/:id", Auth, deleteCategory);
 /* ================= REPORT ================= */
 router.post("/report", Auth, userReport);
 router.get("/getAllReports", getAllReports);
+router.get("/get-my-reports", Auth, getMyReports);
 router.get("/getReportById/:id", Auth, getReportById);
+router.put("/report/resolve/:id", Auth, resolveReport);
 
 /* ================= SERVICE ================= */
 router.post("/service", Auth, createService);
