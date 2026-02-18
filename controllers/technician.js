@@ -404,7 +404,7 @@ export const getMyTechnician = async (req, res) => {
       .populate("skills.serviceId", "serviceName")
       .populate({
         path: "userId",
-        select: "-password",
+        select: "fname lname gender mobileNumber email",
       })
       .select("-password");
 
@@ -432,103 +432,125 @@ export const getMyTechnician = async (req, res) => {
 
 /* ================= UPDATE TECHNICIAN ================= */
 export const updateTechnician = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
-    const { skills, availability } = req.body;
+    const {
+      user: userData,
+      skills,
+      availability,
+      locality,
+      address,
+      city,
+      state,
+      pincode,
+      experienceYears,
+      specialization,
+      profileComplete
+    } = req.body;
+
     const technicianProfileId = req.user?.technicianProfileId;
+    const userId = req.user?.userId;
 
     if (!technicianProfileId || !isValidObjectId(technicianProfileId)) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-        result: {},
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized", result: {} });
     }
 
-    if (!validateSkills(skills)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid skills format",
-        result: {},
-      });
+    if (skills !== undefined && !validateSkills(skills)) {
+      return res.status(400).json({ success: false, message: "Invalid skills format", result: {} });
     }
 
-    const technician = await TechnicianProfile.findById(technicianProfileId);
+    let technician = await TechnicianProfile.findById(technicianProfileId);
     if (!technician) {
-      return res.status(404).json({
-        success: false,
-        message: "Technician not found",
-        result: {},
-      });
+      return res.status(404).json({ success: false, message: "Technician not found", result: {} });
     }
 
-    if (skills !== undefined) {
-      technician.skills = skills;
-    }
+    await session.withTransaction(async () => {
+      // 1. Update TechnicianProfile fields
+      if (locality !== undefined) technician.locality = locality;
+      if (address !== undefined) technician.address = address;
+      if (city !== undefined) technician.city = city;
+      if (state !== undefined) technician.state = state;
+      if (pincode !== undefined) technician.pincode = pincode;
+      if (experienceYears !== undefined) technician.experienceYears = experienceYears;
+      if (specialization !== undefined) technician.specialization = specialization;
+      if (skills !== undefined) technician.skills = skills;
 
-    if (availability?.isOnline !== undefined) {
-      // 🔒 Check if training is completed
-      if (!technician.trainingCompleted) {
-        return res.status(403).json({
-          success: false,
-          message: "Training must be completed before going online. Contact admin to complete your training.",
-          result: { trainingCompleted: false },
-        });
+      // 2. Handle Online Status & Verification Logic
+      if (availability?.isOnline !== undefined) {
+        if (availability.isOnline) {
+          if (!technician.trainingCompleted) {
+            throw new Error("Training must be completed before going online.");
+          }
+          if (technician.workStatus !== "approved") {
+            throw new Error(`Only approved technicians can go online. Current status: ${technician.workStatus}`);
+          }
+          const kyc = await mongoose.model("TechnicianKyc").findOne({ technicianId: technicianProfileId });
+          if (!kyc || kyc.verificationStatus !== "approved") {
+            throw new Error("Your KYC must be approved before going online.");
+          }
+        }
+        technician.availability.isOnline = Boolean(availability.isOnline);
       }
 
-      // Check if technician is approved before allowing online status
-      if (technician.workStatus !== "approved") {
-        return res.status(403).json({
-          success: false,
-          message: "Only approved technicians can go online. Current status: " + technician.workStatus,
-          result: { currentStatus: technician.workStatus },
-        });
+      // 3. Update User fields (Handle nested user object)
+      if (userData) {
+        const userUpdate = {};
+        let userUpdated = false;
+        if (userData.fname !== undefined) { userUpdate.fname = userData.fname; userUpdated = true; }
+        if (userData.lname !== undefined) { userUpdate.lname = userData.lname; userUpdated = true; }
+        if (userData.email !== undefined) { userUpdate.email = userData.email; userUpdated = true; }
+        if (userData.gender !== undefined) { userUpdate.gender = userData.gender; userUpdated = true; }
+
+        // phone number updates are ignored as per requirement
+
+        if (userUpdated) {
+          await mongoose.model("User").findByIdAndUpdate(userId, userUpdate, { session, runValidators: true });
+        }
       }
 
-      // Check if KYC is approved
-      const kyc = await mongoose.model('TechnicianKyc').findOne({ technicianId: technicianProfileId });
-      if (!kyc || kyc.verificationStatus !== "approved") {
-        return res.status(403).json({
-          success: false,
-          message: "Your KYC must be approved by owner before going online",
-          result: { kycStatus: kyc?.verificationStatus || "not_submitted" },
-        });
-      }
+      // 4. Calculate Profile Completion
+      const isComplete = Boolean(
+        technician.address &&
+        technician.city &&
+        technician.specialization &&
+        technician.locality &&
+        technician.skills?.length > 0
+      );
+      technician.profileComplete = profileComplete !== undefined ? profileComplete : isComplete;
 
-      const isGoingOnline = Boolean(availability.isOnline) && !technician.availability.isOnline;
-      technician.availability.isOnline = Boolean(availability.isOnline);
+      await technician.save({ session });
+    });
 
-      // 🔥 When technician goes online, broadcast existing unassigned jobs NEARBY
-      if (isGoingOnline && technician.skills.length > 0) {
-        // We defer the broadcast till after the save to ensure isOnline=true in DB
-        // or we pass req.io and let the utility handle it.
-        // The utility broadcastPendingJobsToTechnician checks tech.availability.isOnline
-        // so we must save first OR pass a flag.
-        // Actually, broadcastPendingJobsToTechnician re-fetches the tech, 
-        // so we SHOULD save first.
-      }
-    }
-
-    await technician.save();
-
-    // Trigger proactive matching if they just went online
+    // 5. Proactive Broadcast if technician went online
     if (availability?.isOnline === true) {
-      await broadcastPendingJobsToTechnician(technicianProfileId, req.io);
+      broadcastPendingJobsToTechnician(technicianProfileId, req.io).catch(err =>
+        console.error("Proactive broadcast error:", err)
+      );
     }
 
-    const result = technician.toObject();
-    delete result.password;
+    const updatedProfile = await TechnicianProfile.findById(technicianProfileId)
+      .populate({
+        path: "userId",
+        select: "fname lname gender mobileNumber email",
+      })
+      .populate("skills.serviceId", "serviceName")
+      .select("-password");
 
     return res.status(200).json({
       success: true,
-      message: "Technician updated successfully",
-      result,
+      message: "Technician profile updated successfully",
+      result: updatedProfile,
     });
+
   } catch (error) {
-    return res.status(500).json({
+    console.error("Update technician error:", error);
+    return res.status(400).json({
       success: false,
-      message: "Server error",
-      result: { error: error.message },
+      message: error.message,
+      result: { error: error.message }
     });
+  } finally {
+    session.endSession();
   }
 };
 
