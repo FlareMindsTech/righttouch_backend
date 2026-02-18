@@ -2,8 +2,22 @@
 export const getAllUsers = async (req, res) => {
   try {
     const { role } = req.params;
+    const { search } = req.query;
+
     if (!role) {
       return res.status(400).json({ success: false, message: "Role is required", result: {} });
+    }
+
+    // Build search filter (applied to User-level fields)
+    const searchMatch = {};
+    if (search && search.trim().length >= 2) {
+      const searchRegex = { $regex: search.trim(), $options: "i" };
+      searchMatch.$or = [
+        { mobileNumber: searchRegex },
+        { fname: searchRegex },
+        { lname: searchRegex },
+        { email: searchRegex },
+      ];
     }
 
     let users;
@@ -13,7 +27,7 @@ export const getAllUsers = async (req, res) => {
       // Enhanced Customer aggregation with booking stats and addresses
       users = await User.aggregate([
         {
-          $match: { role: "Customer" }
+          $match: { role: "Customer", ...searchMatch }
         },
         {
           $lookup: {
@@ -110,7 +124,7 @@ export const getAllUsers = async (req, res) => {
       // Enhanced Technician aggregation with full profile, KYC, and job stats
       users = await User.aggregate([
         {
-          $match: { role: "Technician" }
+          $match: { role: "Technician", ...searchMatch }
         },
         {
           $lookup: {
@@ -324,7 +338,7 @@ export const getAllUsers = async (req, res) => {
 
     } else {
       // For other roles (Owner, Admin), return basic info
-      users = await User.find({ role }).select("-password");
+      users = await User.find({ role, ...searchMatch }).select("-password");
     }
 
     return res.status(200).json({ success: true, message: "Users fetched", result: users });
@@ -349,8 +363,77 @@ export const getUserById = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message, result: {} });
   }
 };
+
+/* ================= DELETE USER BY ID (OWNER ONLY - SOFT DELETE) ================= */
+export const deleteUserById = async (req, res) => {
+  try {
+    // 🛡️ Owner-only access
+    if (req.user?.role !== "Owner") {
+      return res.status(403).json({ success: false, message: "Owner access only", result: {} });
+    }
+
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID", result: {} });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found", result: {} });
+    }
+
+    if (user.status === "Deleted") {
+      return res.status(400).json({ success: false, message: "User already deleted", result: {} });
+    }
+
+    // 🔒 Soft Delete: Anonymize PII + mark as Deleted
+    const timestamp = Date.now();
+    const anonymizedId = `deleted_${user._id}_${timestamp}`;
+
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      // 1. Anonymize User document
+      await User.findByIdAndUpdate(
+        id,
+        {
+          status: "Deleted",
+          mobileNumber: anonymizedId,
+          email: user.email ? `${anonymizedId}@example.invalid` : undefined,
+          password: null,
+          fname: null,
+          lname: null,
+          lastLoginAt: null,
+        },
+        { session }
+      );
+
+      // 2. If technician, also soft-delete their profile
+      if (user.role === "Technician") {
+        await TechnicianProfile.findOneAndUpdate(
+          { userId: id },
+          { workStatus: "deleted", "availability.isOnline": false },
+          { session }
+        );
+      }
+    });
+    session.endSession();
+
+    console.log(`🗑️ Admin soft-deleted user ${id} (role: ${user.role})`);
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+      result: { deletedUserId: id, role: user.role },
+    });
+  } catch (err) {
+    console.error("deleteUserById Error:", err);
+    return res.status(500).json({ success: false, message: "Server error", result: { error: err.message } });
+  }
+};
+
 // Owner and Technician login functions using passwords have been removed/replaced by OTP flows.
 // See the OTP-based wrappers further down in the file.
+
 
 // 🔍 DEBUG: Check if user exists by mobile number
 // 🔍 DEBUG: Check if user exists by identifier
@@ -511,15 +594,36 @@ export const signupAndSendOtp = async (req, res) => {
 
     // Prevent re-registering an existing mobile number (across any role)
     // Note: We still treat identifier as mobileNumber for database storage in User model
-    const mobileExists = await findAnyProfileByMobileNumber(identifier);
-    if (mobileExists) {
-      return fail(
-        res,
-        409,
-        "Mobile number already registered. Please login.",
-        "MOBILE_ALREADY_EXISTS",
-        { identifier }
-      );
+    const existingUser = await User.findOne({ mobileNumber: identifier }).select("_id status");
+
+    if (existingUser) {
+      // 🧟 SELF-HEALING: If user is "Deleted" but still holds the number, free it up!
+      if (existingUser.status === "Deleted") {
+        console.log(`♻️ Found zombie deleted user ${existingUser._id}. Anonymizing mobile to free up ${identifier}...`);
+        const timestamp = Date.now();
+        const anonymizedMobile = `deleted_${existingUser._id}_${timestamp}`;
+        const anonymizedEmail = `deleted_${existingUser._id}_${timestamp}@example.invalid`;
+
+        await User.updateOne(
+          { _id: existingUser._id },
+          {
+            $set: {
+              mobileNumber: anonymizedMobile,
+              email: anonymizedEmail
+            }
+          }
+        );
+        // Proceed with signup as if number was free
+      } else {
+        // Active user found
+        return fail(
+          res,
+          409,
+          "Mobile number already registered. Please login.",
+          "MOBILE_ALREADY_EXISTS",
+          { identifier }
+        );
+      }
     }
 
     // Step 1: Create / update temp user (FIRST)
@@ -1329,6 +1433,6 @@ export const updateMyProfile = async (req, res) => {
     return ok(res, 200, "Profile updated successfully", updated || {});
   }
 };
-  
+
 // getUserById and getAllUsers removed: use User or TechnicianProfile directly in routes/controllers as needed.
 // Trigger restart.
