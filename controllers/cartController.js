@@ -643,7 +643,7 @@ export const checkout = async (req, res) => {
         addressId: resolvedLocation.addressId || null,
         scheduledAt: finalScheduledAt,
         status: SERVICE_BOOKING_STATUS.REQUESTED,
-        faultProblem: faultProblem,
+        faultReasons: faultReasons,
 
         // Swiggy-Style Fields
         locationType: resolvedLocation.locationType,
@@ -669,7 +669,7 @@ export const checkout = async (req, res) => {
         serviceName: service.serviceName,
         quantity: cartItem.quantity,
         baseAmount,
-        faultProblem: faultProblem,
+        faultReasons: faultReasons,
         status: SERVICE_BOOKING_STATUS.REQUESTED,
       });
 
