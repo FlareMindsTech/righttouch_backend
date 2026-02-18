@@ -42,6 +42,7 @@ import {
   getRatingById,
   updateRating,
   deleteRating,
+  getMyRatings,
 } from "../Controllers/ratingController.js";
 
 import {
@@ -265,6 +266,7 @@ router.get("/getAllRatings", getAllRatings);
 router.get("/getRatingById/:id", getRatingById);
 router.put("/updateRating/:id", Auth, updateRating);
 router.delete("/deleteRating/:id", Auth, deleteRating);
+router.get("/get-my-ratings", Auth, getMyRatings);
 
 /* ================= PRODUCT ================= */
 router.post("/product", Auth, createProduct);
