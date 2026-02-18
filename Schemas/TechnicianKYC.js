@@ -17,17 +17,21 @@ const technicianKycSchema = new mongoose.Schema(
     aadhaarNumber: {
       type: String,
       trim: true,
+      sparse: true,
+      index: true,
       validate: [
         /^\d{12}$/,
         "Aadhaar must be exactly 12 digits",
       ],
     },
-    
+
 
     panNumber: {
       type: String,
       trim: true,
       uppercase: true,
+      sparse: true,
+      index: true,
       validate: [
         /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
         "Invalid PAN format",
@@ -38,12 +42,17 @@ const technicianKycSchema = new mongoose.Schema(
       type: String,
       trim: true,
       uppercase: true,
+      sparse: true,
+      index: true,
       validate: [
         {
           validator: function (v) {
-            return v && v.length >= 10;
+            if (!v) return true; // Optional as per current logic
+            // Indian DL regex: StateCode-RTO Year SerialNumber
+            // Supports: DL-1420110012345, DL14 20110012345, DL1420110012345
+            return /^([A-Z]{2}[- ]?[0-9]{2})[- ]?((19|20)[0-9]{2})[0-9]{7}$/.test(v);
           },
-          message: "Driving License must be at least 10 characters",
+          message: "Invalid Indian Driving License format",
         },
       ],
     },
