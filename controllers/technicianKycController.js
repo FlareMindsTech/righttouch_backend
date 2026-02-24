@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
-import TechnicianKyc from "../Schemas/TechnicianKYC.js";
+import TechnicianKyc, { decryptAccountNumber } from "../Schemas/TechnicianKYC.js";
 import TechnicianProfile from "../Schemas/TechnicianProfile.js";
 import { getTechnicianJobEligibility } from "../Utils/technicianEligibility.js";
 
@@ -361,9 +361,12 @@ export const getAllTechnicianKyc = async (req, res) => {
           }
           : null;
 
-        // Remove accountNumberHash from response
+        // Remove accountNumberHash and decrypt accountNumber from response
         if (k.bankDetails) {
           delete k.bankDetails.accountNumberHash;
+          if (k.bankDetails.accountNumber && k.bankDetails.accountNumber.includes(":")) {
+            k.bankDetails.accountNumber = decryptAccountNumber(k.bankDetails.accountNumber);
+          }
         }
 
         return {
@@ -444,9 +447,12 @@ export const getTechnicianKyc = async (req, res) => {
       })
       .lean();
 
-    // Remove accountNumberHash from response
+    // Remove accountNumberHash and decrypt accountNumber from response
     if (kycDoc.bankDetails) {
       delete kycDoc.bankDetails.accountNumberHash;
+      if (kycDoc.bankDetails.accountNumber && kycDoc.bankDetails.accountNumber.includes(":")) {
+        kycDoc.bankDetails.accountNumber = decryptAccountNumber(kycDoc.bankDetails.accountNumber);
+      }
     }
 
     const kyc = {
@@ -523,9 +529,12 @@ export const getMyTechnicianKyc = async (req, res) => {
       },
     };
 
-    // Remove accountNumberHash from response
+    // Remove accountNumberHash and decrypt accountNumber from response
     if (kycObj.bankDetails) {
       delete kycObj.bankDetails.accountNumberHash;
+      if (kycObj.bankDetails.accountNumber && kycObj.bankDetails.accountNumber.includes(":")) {
+        kycObj.bankDetails.accountNumber = decryptAccountNumber(kycObj.bankDetails.accountNumber);
+      }
     }
 
     return res.status(200).json({
@@ -842,9 +851,12 @@ export const getOrphanedKyc = async (req, res) => {
       const techIdStr = k.technicianId ? k.technicianId.toString() : null;
       return techIdStr && !existingTechIds.has(techIdStr);
     }).map((k) => {
-      // Remove accountNumberHash from response
+      // Remove accountNumberHash and decrypt accountNumber from response
       if (k.bankDetails) {
         delete k.bankDetails.accountNumberHash;
+        if (k.bankDetails.accountNumber && k.bankDetails.accountNumber.includes(":")) {
+          k.bankDetails.accountNumber = decryptAccountNumber(k.bankDetails.accountNumber);
+        }
       }
       return k;
     });
